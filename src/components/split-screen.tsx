@@ -1,10 +1,10 @@
 "use client";
 
-import { motion, useSpring, useTransform } from "framer-motion";
-import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import type { ScoreResult, Issue } from "@/types";
 import { CAMP_COLORS } from "@/lib/constants";
 import { CategorySummary } from "./category-summary";
+import { FluidBackground } from "./fluid-background";
 
 interface SplitScreenProps {
   score: ScoreResult;
@@ -12,86 +12,32 @@ interface SplitScreenProps {
 }
 
 export function SplitScreen({ score, issues }: SplitScreenProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const springPct = useSpring(50, { stiffness: 30, damping: 18 });
-  const blueWidth = useTransform(springPct, (v) => `${v}%`);
-  const redWidth = useTransform(springPct, (v) => `${100 - v}%`);
-  const dividerLeft = useTransform(springPct, (v) => `${v}%`);
-
-  useEffect(() => {
-    if (mounted) {
-      springPct.set(score.bluePct);
-    }
-  }, [mounted, score.bluePct, springPct]);
-
   const blueIssues = issues.filter((i) => i.camp === "blue");
   const redIssues = issues.filter((i) => i.camp === "red");
 
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#060608]">
-      {/* ── 배경 분위기 레이어 (비율만큼 영역 차지) ── */}
-      <div className="pointer-events-none absolute inset-0">
-        {/* 파랑 — 좌측 배경 */}
-        <motion.div
-          className="absolute left-0 top-0 h-full"
-          style={{ width: blueWidth }}
-        >
-          <div
-            className="absolute inset-0 blur-[80px]"
-            style={{
-              background: `radial-gradient(ellipse at 50% 50%, ${CAMP_COLORS.blue.primary}45, transparent 70%)`,
-            }}
-          />
-          <div
-            className="absolute inset-0 blur-[40px]"
-            style={{
-              background: `radial-gradient(ellipse at 60% 45%, ${CAMP_COLORS.blue.glow}30, transparent 55%)`,
-            }}
-          />
-        </motion.div>
+    <section className="relative min-h-[100dvh] w-full overflow-hidden">
+      {/* WebGL 유체 배경 */}
+      <FluidBackground score={score} />
 
-        {/* 빨강 — 우측 배경 */}
-        <motion.div
-          className="absolute right-0 top-0 h-full"
-          style={{ width: redWidth }}
-        >
-          <div
-            className="absolute inset-0 blur-[80px]"
-            style={{
-              background: `radial-gradient(ellipse at 50% 50%, ${CAMP_COLORS.red.primary}45, transparent 70%)`,
-            }}
-          />
-          <div
-            className="absolute inset-0 blur-[40px]"
-            style={{
-              background: `radial-gradient(ellipse at 40% 55%, ${CAMP_COLORS.red.glow}30, transparent 55%)`,
-            }}
-          />
-        </motion.div>
+      {/* 노이즈 오버레이 (한지 질감) */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1] opacity-[0.025]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "128px 128px",
+        }}
+      />
 
-        {/* 경계 — 은은한 수직 라인 */}
-        <motion.div
-          className="absolute top-0 h-full w-px"
-          style={{
-            left: dividerLeft,
-            background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.04) 30%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.04) 70%, transparent)",
-          }}
-        />
-      </div>
-
-      {/* ── 콘텐츠 ── */}
+      {/* 콘텐츠 */}
       <div className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-center px-4">
         {/* 부제 */}
         <motion.p
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.3 }}
-          className="mb-3 text-[10px] tracking-[0.35em] text-white/25 uppercase sm:text-xs"
+          className="mb-3 text-[10px] tracking-[0.35em] text-white/30 uppercase sm:text-xs"
         >
           색안경 벗고, 팩트로 보는 정치
         </motion.p>
@@ -101,7 +47,8 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mb-16 text-center text-5xl font-bold tracking-tight text-white/90 sm:text-6xl md:text-7xl"
+          className="mb-16 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
+          style={{ textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
         >
           민낯
         </motion.h1>
@@ -113,42 +60,48 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
           transition={{ duration: 1, delay: 0.8 }}
           className="mb-6 flex w-full max-w-3xl items-center justify-between"
         >
-          {/* 파랑 퍼센트 */}
+          {/* 파랑 */}
           <div className="flex flex-col items-start">
             <span
               className="text-6xl font-bold tabular-nums leading-none sm:text-7xl md:text-8xl"
-              style={{ color: `${CAMP_COLORS.blue.glow}90` }}
+              style={{
+                color: CAMP_COLORS.blue.glow,
+                textShadow: `0 0 60px ${CAMP_COLORS.blue.primary}80`,
+              }}
             >
               {score.bluePct}
-              <span className="text-2xl font-normal text-white/20 sm:text-3xl">%</span>
+              <span className="text-2xl font-normal text-white/25 sm:text-3xl">%</span>
             </span>
-            <span className="mt-2 text-xs tracking-wide text-white/25 sm:text-sm">
+            <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
               {CAMP_COLORS.blue.label}
             </span>
           </div>
 
-          {/* 중앙 구분 */}
+          {/* 중앙 */}
           <motion.div
             initial={{ scaleY: 0 }}
             animate={{ scaleY: 1 }}
             transition={{ duration: 0.6, delay: 1.2 }}
             className="flex flex-col items-center gap-2"
           >
-            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-            <span className="text-[10px] tracking-widest text-white/15 uppercase">vs</span>
-            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent" />
+            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
+            <span className="text-[10px] tracking-widest text-white/20 uppercase">vs</span>
+            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
           </motion.div>
 
-          {/* 빨강 퍼센트 */}
+          {/* 빨강 */}
           <div className="flex flex-col items-end">
             <span
               className="text-6xl font-bold tabular-nums leading-none sm:text-7xl md:text-8xl"
-              style={{ color: `${CAMP_COLORS.red.glow}90` }}
+              style={{
+                color: CAMP_COLORS.red.glow,
+                textShadow: `0 0 60px ${CAMP_COLORS.red.primary}80`,
+              }}
             >
               {score.redPct}
-              <span className="text-2xl font-normal text-white/20 sm:text-3xl">%</span>
+              <span className="text-2xl font-normal text-white/25 sm:text-3xl">%</span>
             </span>
-            <span className="mt-2 text-xs tracking-wide text-white/25 sm:text-sm">
+            <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
               {CAMP_COLORS.red.label}
             </span>
           </div>
