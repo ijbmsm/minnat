@@ -32,56 +32,56 @@ export function CategoryBarChart({ issues, view }: CategoryBarChartProps) {
     );
   }
 
-  const maxScore = Math.max(...categories.map((c) => Math.max(c.blueScore, c.redScore)), 1);
+  const maxScore = Math.max(...categories.flatMap((c) => [c.blueScore, c.redScore]), 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {categories.map((cat) => {
-        const blueWidth = Math.max(2, (cat.blueScore / maxScore) * 100);
-        const redWidth = Math.max(2, (cat.redScore / maxScore) * 100);
+        const bluePct = Math.max(3, (cat.blueScore / maxScore) * 100);
+        const redPct = Math.max(3, (cat.redScore / maxScore) * 100);
 
         return (
           <div key={cat.key}>
             {/* 라벨 */}
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-white/60">{cat.label}</span>
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-white/70">{cat.label}</span>
               <span className="text-xs text-white/25">
-                파랑 {cat.blueCount}건 vs 빨강 {cat.redCount}건
+                파랑 {cat.blueCount}건 · 빨강 {cat.redCount}건
               </span>
             </div>
 
-            {/* 좌우 바 */}
-            <div className="flex items-center gap-1">
-              {/* 파랑 (좌 → 우) */}
-              <div className="flex flex-1 justify-end">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs tabular-nums text-white/30">{cat.blueScore}</span>
+            {/* 파랑 바 */}
+            <div className="mb-1.5 flex items-center gap-3">
+              <span className="w-16 text-right text-xs tabular-nums" style={{ color: CAMP_COLORS.blue.glow }}>
+                {cat.blueScore}
+              </span>
+              <div className="flex-1">
+                <div className="h-7 overflow-hidden rounded-md bg-white/[0.03]">
                   <div
-                    className="h-6 rounded-l-md transition-all duration-700"
+                    className="h-full rounded-md transition-all duration-700"
                     style={{
-                      width: `${blueWidth}%`,
-                      minWidth: "4px",
-                      backgroundColor: `${CAMP_COLORS.blue.primary}80`,
+                      width: `${bluePct}%`,
+                      background: `linear-gradient(to right, ${CAMP_COLORS.blue.primary}90, ${CAMP_COLORS.blue.primary}50)`,
                     }}
                   />
                 </div>
               </div>
+            </div>
 
-              {/* 구분선 */}
-              <div className="h-6 w-px bg-white/10" />
-
-              {/* 빨강 (좌 → 우) */}
-              <div className="flex flex-1">
-                <div className="flex items-center gap-2">
+            {/* 빨강 바 */}
+            <div className="flex items-center gap-3">
+              <span className="w-16 text-right text-xs tabular-nums" style={{ color: CAMP_COLORS.red.glow }}>
+                {cat.redScore}
+              </span>
+              <div className="flex-1">
+                <div className="h-7 overflow-hidden rounded-md bg-white/[0.03]">
                   <div
-                    className="h-6 rounded-r-md transition-all duration-700"
+                    className="h-full rounded-md transition-all duration-700"
                     style={{
-                      width: `${redWidth}%`,
-                      minWidth: "4px",
-                      backgroundColor: `${CAMP_COLORS.red.primary}80`,
+                      width: `${redPct}%`,
+                      background: `linear-gradient(to right, ${CAMP_COLORS.red.primary}90, ${CAMP_COLORS.red.primary}50)`,
                     }}
                   />
-                  <span className="text-xs tabular-nums text-white/30">{cat.redScore}</span>
                 </div>
               </div>
             </div>
@@ -90,13 +90,13 @@ export function CategoryBarChart({ issues, view }: CategoryBarChartProps) {
       })}
 
       {/* 범례 */}
-      <div className="flex justify-center gap-6 pt-2 text-xs text-white/25">
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CAMP_COLORS.blue.primary }} />
+      <div className="flex justify-center gap-8 pt-2 text-xs text-white/30">
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded" style={{ backgroundColor: CAMP_COLORS.blue.primary }} />
           {CAMP_COLORS.blue.label}
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: CAMP_COLORS.red.primary }} />
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded" style={{ backgroundColor: CAMP_COLORS.red.primary }} />
           {CAMP_COLORS.red.label}
         </div>
       </div>
