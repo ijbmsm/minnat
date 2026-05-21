@@ -4,17 +4,22 @@ export type UserCamp = Camp | "none";
 
 // ── 이슈 카테고리 ──
 export type IssueCategory =
-  | "crime"        // 범죄/사법
-  | "corruption"   // 부정부패/비리
-  | "hypocrisy"    // 위선/이중잣대
-  | "slander"      // 막말/폭언
-  | "division"     // 논란/갈등 조장
-  | "policy_fail"  // 정책 실패
-  | "charity"      // 선행/봉사
-  | "policy_win"   // 정책 성공
-  | "promise_kept" // 공약 이행
-  | "promise_broke"// 공약 불이행
-  | "controversial"; // 논란 정책 (점수 미반영)
+  | "crime"            // 범죄/사법
+  | "corruption"       // 부정부패/비리
+  | "hypocrisy"        // 위선/이중잣대
+  | "slander"          // 막말/폭언
+  | "division"         // 논란/갈등 조장
+  | "policy_fail"      // 정책 실패
+  | "policy_win"       // 정책 성공 (레거시, 하위호환)
+  | "bill_proposed"    // 법안 발의
+  | "bill_committee"   // 위원회 통과
+  | "bill_plenary"     // 본회의 가결
+  | "bill_promulgated" // 법률 공포
+  | "bill_enforced"    // 법률 시행
+  | "promise_kept"     // 공약 이행
+  | "promise_broke"    // 공약 불이행
+  | "charity"          // 선행/봉사
+  | "controversial";   // 논란 정책 (점수 미반영)
 
 export type Severity = "mild" | "normal" | "severe" | "extreme";
 export type ImpactScope = "individual" | "regional" | "national" | "international";

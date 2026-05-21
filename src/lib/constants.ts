@@ -2,17 +2,26 @@ import type { CategoryConfig, IssueCategory, Severity, ImpactScope } from "@/typ
 
 // ── 카테고리 설정 ──
 export const CATEGORIES: CategoryConfig[] = [
-  { key: "crime",         label: "범죄/사법",     description: "기소, 유죄 판결, 구속, 수사 중",           baseWeight: 10, isPositive: false, isScored: true },
-  { key: "corruption",    label: "부정부패/비리",  description: "뇌물, 횡령, 배임, 이권 개입",             baseWeight: 9,  isPositive: false, isScored: true },
-  { key: "policy_fail",   label: "정책 실패",     description: "입법/행정 실패로 측정 가능한 국민 피해",    baseWeight: 8,  isPositive: false, isScored: true },
-  { key: "promise_broke", label: "공약 불이행",    description: "약속 파기, 공약 폐기",                    baseWeight: 7,  isPositive: false, isScored: true },
-  { key: "hypocrisy",     label: "위선/이중잣대",  description: "내로남불, 과거 발언 모순 (팩트체크 확인)",   baseWeight: 6,  isPositive: false, isScored: true },
-  { key: "division",      label: "논란/갈등 조장", description: "지역, 세대, 성별 갈등 발언 (발언 원문 기준)", baseWeight: 5,  isPositive: false, isScored: true },
-  { key: "slander",       label: "막말/폭언",     description: "비속어, 혐오 발언, 인신공격 (영상/기록)",   baseWeight: 4,  isPositive: false, isScored: true },
-  { key: "policy_win",    label: "정책 성공",     description: "입법/행정 성공으로 측정 가능한 국민 이익",   baseWeight: 7,  isPositive: true,  isScored: true },
-  { key: "promise_kept",  label: "공약 이행",     description: "공약 이행률 기반 (선관위 공약 대조)",       baseWeight: 6,  isPositive: true,  isScored: true },
-  { key: "charity",       label: "선행/봉사",     description: "기부, 봉사, 사비 출연 (금액/규모 확인)",   baseWeight: 5,  isPositive: true,  isScored: true },
-  { key: "controversial", label: "논란 정책",     description: "가치 판단이 갈리는 정책 (점수 미반영)",     baseWeight: 0,  isPositive: false, isScored: false },
+  // 감점
+  { key: "crime",           label: "범죄/사법",     description: "기소, 유죄 판결, 구속, 수사 중",                baseWeight: 10, isPositive: false, isScored: true },
+  { key: "corruption",      label: "부정부패/비리",  description: "뇌물, 횡령, 배임, 이권 개입",                  baseWeight: 9,  isPositive: false, isScored: true },
+  { key: "policy_fail",     label: "정책 실패",     description: "정책 시행 후 측정 가능한 국민 피해",             baseWeight: 8,  isPositive: false, isScored: true },
+  { key: "promise_broke",   label: "공약 불이행",    description: "공식 평가에서 불이행 판정",                     baseWeight: 7,  isPositive: false, isScored: true },
+  { key: "hypocrisy",       label: "위선/이중잣대",  description: "과거 발언과 현재 행동의 명백한 모순",             baseWeight: 6,  isPositive: false, isScored: true },
+  { key: "division",        label: "갈등 조장",     description: "지역/세대/성별 갈등 의도적 조장",                baseWeight: 5,  isPositive: false, isScored: true },
+  { key: "slander",         label: "막말/폭언",     description: "공식 석상 비속어, 혐오 발언, 인신공격",           baseWeight: 4,  isPositive: false, isScored: true },
+  // 가점 — 입법 5단계
+  { key: "bill_proposed",    label: "법안 발의",     description: "법안 발의/제안/제출",                          baseWeight: 1,  isPositive: true,  isScored: true },
+  { key: "bill_committee",   label: "위원회 통과",   description: "상임위/소위 가결",                             baseWeight: 3,  isPositive: true,  isScored: true },
+  { key: "bill_plenary",     label: "본회의 가결",   description: "국회 본회의 통과",                             baseWeight: 6,  isPositive: true,  isScored: true },
+  { key: "bill_promulgated", label: "법률 공포",     description: "관보 게재, 법률 공포",                         baseWeight: 8,  isPositive: true,  isScored: true },
+  { key: "bill_enforced",    label: "법률 시행",     description: "법률 시행/발효",                               baseWeight: 10, isPositive: true,  isScored: true },
+  // 가점 — 기타 (레거시 policy_win 호환)
+  { key: "policy_win",      label: "정책 성공",     description: "측정 가능한 국민 이익 (레거시)",                  baseWeight: 7,  isPositive: true,  isScored: true },
+  { key: "promise_kept",    label: "공약 이행",     description: "공식 평가에서 이행 판정",                        baseWeight: 6,  isPositive: true,  isScored: true },
+  { key: "charity",         label: "선행/봉사",     description: "기부, 봉사 (금액/규모 확인)",                    baseWeight: 5,  isPositive: true,  isScored: true },
+  // 미반영
+  { key: "controversial",   label: "논란 정책",     description: "가치 판단이 갈리는 정책 (점수 미반영)",            baseWeight: 0,  isPositive: false, isScored: false },
 ];
 
 export const CATEGORY_MAP = Object.fromEntries(
