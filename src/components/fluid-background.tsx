@@ -56,44 +56,6 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-[#0c0c10]">
-      <style>{`
-        @keyframes smoke-drift-1 {
-          0%   { transform: translate(0%, 0%) scale(1); }
-          33%  { transform: translate(4%, -5%) scale(1.08); }
-          66%  { transform: translate(-3%, 4%) scale(0.95); }
-          100% { transform: translate(0%, 0%) scale(1); }
-        }
-        @keyframes smoke-drift-2 {
-          0%   { transform: translate(0%, 0%) scale(1); }
-          33%  { transform: translate(-5%, 3%) scale(0.93); }
-          66%  { transform: translate(3%, -4%) scale(1.05); }
-          100% { transform: translate(0%, 0%) scale(1); }
-        }
-        @keyframes smoke-drift-3 {
-          0%   { transform: translate(0%, 0%) scale(1.03); }
-          50%  { transform: translate(6%, 3%) scale(0.94); }
-          100% { transform: translate(0%, 0%) scale(1.03); }
-        }
-        @keyframes smoke-drift-4 {
-          0%   { transform: translate(0%, 0%) scale(0.97); }
-          40%  { transform: translate(-3%, -5%) scale(1.06); }
-          70%  { transform: translate(4%, 2%) scale(0.98); }
-          100% { transform: translate(0%, 0%) scale(0.97); }
-        }
-        @keyframes smoke-drift-5 {
-          0%   { transform: translate(0%, 0%) scale(1); }
-          30%  { transform: translate(2%, 5%) scale(1.04); }
-          60%  { transform: translate(-4%, -2%) scale(0.96); }
-          100% { transform: translate(0%, 0%) scale(1); }
-        }
-        @keyframes edge-breathe {
-          0%   { transform: scaleX(1) scaleY(1); }
-          25%  { transform: scaleX(1.03) scaleY(0.98); }
-          50%  { transform: scaleX(0.97) scaleY(1.02); }
-          75%  { transform: scaleX(1.02) scaleY(0.97); }
-          100% { transform: scaleX(1) scaleY(1); }
-        }
-      `}</style>
 
       {/* 파랑 — 좌측에서 출발 */}
       <motion.div

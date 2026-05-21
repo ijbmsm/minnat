@@ -20,12 +20,12 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
   const redIssues = issues.filter((i) => i.camp === "red");
 
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden">
-      {/* 배경 — 처음엔 검정, 1초 후 먹 배경이 서서히 드러남 */}
+    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#0c0c10]">
+      {/* 배경 — 검정 베이스 위에 먹 배경이 서서히 드러남 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 3, delay: 0.5, ease: "easeOut" }}
+        transition={{ duration: 2, delay: 1, ease: "easeOut" }}
         className="absolute inset-0"
       >
         <FluidBackground score={score} />
