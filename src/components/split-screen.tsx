@@ -21,15 +21,8 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
 
   return (
     <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#0c0c10]">
-      {/* 배경 — 검정 베이스 위에 먹 배경이 서서히 드러남 */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 2, delay: 1, ease: "easeOut" }}
-        className="absolute inset-0"
-      >
-        <FluidBackground score={score} />
-      </motion.div>
+      {/* 배경 — FluidBackground가 자체적으로 2초 fade-in */}
+      <FluidBackground score={score} />
 
       {/* 콘텐츠 */}
       <div className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-center px-4">

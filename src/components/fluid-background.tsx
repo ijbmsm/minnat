@@ -18,7 +18,6 @@ interface SmokeLayer {
 }
 
 function generateLayers(count: number, seed: number): SmokeLayer[] {
-  // 시드 기반 의사 난수 (SSR/CSR 일치)
   let s = seed;
   function rand() {
     s = (s * 16807 + 0) % 2147483647;
@@ -37,27 +36,33 @@ function generateLayers(count: number, seed: number): SmokeLayer[] {
 }
 
 export function FluidBackground({ score }: FluidBackgroundProps) {
-  const [mounted, setMounted] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const springPct = useSpring(50, { stiffness: 20, damping: 15 });
+  const springPct = useSpring(score.bluePct, { stiffness: 20, damping: 15 });
   const blueWidth = useTransform(springPct, (v) => `${v + 8}%`);
   const redWidth = useTransform(springPct, (v) => `${100 - v + 8}%`);
 
   useEffect(() => {
-    if (mounted) springPct.set(score.bluePct);
-  }, [mounted, score.bluePct, springPct]);
+    // 1프레임 대기 후 표시 (hydration 깜빡임 방지)
+    const raf = requestAnimationFrame(() => {
+      setReady(true);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  useEffect(() => {
+    springPct.set(score.bluePct);
+  }, [score.bluePct, springPct]);
 
   const blueLayers = useMemo(() => generateLayers(8, 42), []);
   const redLayers = useMemo(() => generateLayers(8, 99), []);
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-[#0c0c10]">
-
-      {/* 파랑 — 좌측에서 출발 */}
+    <div
+      className="absolute inset-0 overflow-hidden bg-[#0c0c10] transition-opacity duration-[2000ms]"
+      style={{ opacity: ready ? 1 : 0 }}
+    >
+      {/* 파랑 — 좌측 */}
       <motion.div
         className="absolute left-0 top-0 h-full origin-left"
         style={{
@@ -65,7 +70,6 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
           animation: "edge-breathe 20s ease-in-out infinite",
         }}
       >
-        {/* 베이스 */}
         <div
           className="absolute inset-0"
           style={{
@@ -75,7 +79,6 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
             )`,
           }}
         />
-        {/* 연기 레이어들 — 무작위 위치, 각각 독립 움직임 */}
         {blueLayers.map((layer, i) => (
           <div
             key={i}
@@ -94,7 +97,7 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
         ))}
       </motion.div>
 
-      {/* 빨강 — 우측에서 출발 */}
+      {/* 빨강 — 우측 */}
       <motion.div
         className="absolute right-0 top-0 h-full origin-right"
         style={{
@@ -102,7 +105,6 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
           animation: "edge-breathe 24s ease-in-out infinite reverse",
         }}
       >
-        {/* 베이스 */}
         <div
           className="absolute inset-0"
           style={{
@@ -112,7 +114,6 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
             )`,
           }}
         />
-        {/* 연기 레이어들 — 무작위 위치, 각각 독립 움직임 */}
         {redLayers.map((layer, i) => (
           <div
             key={i}
@@ -131,10 +132,10 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
         ))}
       </motion.div>
 
-      {/* 검은색 오버레이 — 톤 다운 */}
+      {/* 톤 다운 */}
       <div className="pointer-events-none absolute inset-0 bg-black/30" />
 
-      {/* 노이즈 — 질감 */}
+      {/* 노이즈 */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.06]"
         style={{
