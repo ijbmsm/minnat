@@ -16,180 +16,142 @@
 - [x] 방법론 전체 공개 페이지 (/about)
 - [x] SEO (sitemap, robots, OG 이미지)
 - [x] 보안 헤더 (CSP, HSTS, X-Frame-Options)
-- [x] 크롤러 v1 (국회 API, 뉴스 RSS, 법원) + GitHub Actions cron
-- [x] 크롤러 v2 (검증 시스템: validator, dedup, cross_verify)
+- [x] 크롤러 v1~v3 (국회 API, 팩트체크, 뉴스 RSS, 네이버, 법원) + GitHub Actions cron
+- [x] 검증 시스템 (validator, dedup, cross_verify)
 - [x] Supabase 실제 데이터 연동 (mock 제거)
 - [x] Vercel 배포
 
 ---
 
-## Phase 1: 데이터 품질 (1~2주, Quick Wins)
+## Phase 1: 데이터 품질 — DONE
 
 ### Step 1. 정치인 DB 확장 — 21명 → 300명+ --- DONE
 
-- [x] 국회 OpenAPI `국회의원 현황` 엔드포인트로 22대 의원 300명 일괄 수집
-  - 출력: HG_NM(이름), POLY_NM(정당), ELECT_DIV_NM(지역구/비례)
-- [ ] 정부 주요 직책자 ~50명 추가 (대통령, 총리, 장관)
-- [ ] 크롤러에 정치인 동기화 스크립트 추가 (주 1회 cron)
-- [ ] politicians 테이블에 직책 가중치 컬럼 추가:
-  - 대통령: 1.2 / 총리·당대표·원내대표: 1.0 / 장관·의원: 0.8
+- [x] 국회 OpenAPI로 22대 의원 300명 일괄 수집 (sync_politicians.py)
+- [x] 정부 주요 직책자 추가 (대통령, 총리, 시장 등)
+- [x] 크롤러에 정치인 동기화 — 매 실행 시 자동
+- [ ] politicians 테이블에 직책 가중치 컬럼 추가 (Phase 4)
 
 ### Step 2. SNU 팩트체크 제거 + 팩트체크 소스 재구성 --- DONE
 
-- [x] SNU 팩트체크 크롤러 제거 (2024년 8월 무기한 중단 확인)
-- [x] Tier 2 소스 교체:
-  - JTBC 팩트체크 (유일한 IFCN 인증 매체)
-  - MBC 알고보니
-  - KBS 팩트체크K
-  - 연합뉴스 팩트체크
-  - SBS 사실은
-- [ ] 각 매체 크롤러 작성 (HTML 파싱)
+- [x] SNU 팩트체크 크롤러 제거 (2024년 8월 무기한 중단)
+- [x] Tier 2 소스 교체: JTBC, MBC 알고보니, KBS 팩트체크K, SBS 사실은, 연합뉴스
+- [x] 각 매체 크롤러 작성 (crawlers/factcheck.py — HTML 파싱)
 
 ### Step 3. policy_win 5단계 분해 --- DONE
 
-- [x] 기존 단일 policy_win 폐기, 5단계로 분리:
-  ```
-  bill_proposed      (발의/제안)         — 가중치 1
-  bill_committee     (위원회 통과)       — 가중치 3
-  bill_plenary       (본회의 가결)       — 가중치 6
-  bill_promulgated   (공포)             — 가중치 8
-  bill_enforced      (시행)             — 가중치 10
-  ```
-- [ ] 키워드 사전으로 결정론적 판정 (LLM 의존 제거):
-  ```python
-  STAGE_KEYWORDS = {
-      "bill_proposed": ["발의", "제안", "제출", "법안 마련"],
-      "bill_committee": ["상임위 통과", "위원회 의결", "소위 가결"],
-      "bill_plenary": ["본회의 가결", "본회의 통과", "표결로 통과"],
-      "bill_promulgated": ["공포", "관보 게재"],
-      "bill_enforced": ["시행", "발효", "효력 발생"],
-  }
-  ```
-- [ ] DB `issues.category` CHECK 제약조건 업데이트
-- [ ] 프론트엔드 카테고리 라벨 업데이트
+- [x] 5단계 분리: bill_proposed(1) → bill_committee(3) → bill_plenary(6) → bill_promulgated(8) → bill_enforced(10)
+- [x] 키워드 사전으로 결정론적 판정 (config.py: LEGISLATIVE_STAGE_KEYWORDS)
+- [x] DB CHECK 제약조건 SQL 준비 (migration-002-bill-stages.sql)
+- [x] 프론트엔드 카테고리 라벨 업데이트 (types/index.ts, constants.ts)
 
 ### Step 4. 뉴스 소스 확대 --- DONE
 
 - [x] 네이버 검색 API 연동 (crawlers/naver_news.py)
-  - Client ID/Secret 무료 발급, 일 25,000건
-  - 정치인 이름·키워드로 polling
-- [ ] akngs/knews-rss 오픈소스 활용 (커뮤니티 유지보수 RSS 목록)
-- [ ] 현재 SBS만 수집 → 최소 5개 매체 동시 수집
-- [ ] 수집 매체별 정치 성향 태깅:
-  ```
-  진보: 한겨레, 경향신문, 오마이뉴스
-  중도: KBS, MBC, SBS, 연합뉴스
-  보수: 조선일보, 중앙일보, 동아일보
-  ```
+- [x] 매체별 정치 성향 태깅 (진보/중도/보수)
+- [x] RSS + 네이버 병행 수집
 
 ### Step 5. AI 프롬프트 고도화 --- DONE
 
-- [x] 행위자/대상 규칙 명시 (A5 템플릿 적용):
-  - "X가 비판받았다" → 행위자는 X (X가 행위를 했음)
-  - "X를 비판한 Y" → 행위자는 Y
-- [ ] Chain-of-Verification 자기검증:
-  - "actor 진영을 반대로 바꾸면 같은 점수가 나오는가?"
-  - "아니오"면 confidence 0.6 이하로
-- [ ] evidence_sentence 필수 출력
-- [ ] 정치인 DB 300명+ 프롬프트 주입
+- [x] 행위자/대상 규칙 명시 (규칙 1~4)
+- [x] Chain-of-Verification 자기검증 (규칙 5)
+- [x] evidence_sentence 필수 출력
+- [x] 정치인 DB 300명+ 프롬프트 주입
 
 ### Step 6. 교차검증 고도화 --- DONE
 
-- [x] 통신사 원문 식별: "연합뉴스 제공" byline 감지 → 재인용은 1건 카운트
-- [x] 좌·우 매체 다양성: 좌+우 모두 보도 시만 verified (같은 성향만이면 unverified)
-- [ ] 보도 시점 차이: 1시간 이내 동일 = 재인용 가능성, 12시간+ = 독립 보도 (Phase 2)
+- [x] 통신사 원문 식별 (재인용 1건 카운트)
+- [x] 좌·우 매체 다양성 (같은 성향만이면 unverified)
+- [ ] 보도 시점 차이 (Phase 4)
 
 ### Step 7. 기존 데이터 정리
 
-- [ ] DB migration-001-validation.sql 실행 (Supabase SQL Editor에서)
-- [ ] DB migration-002-bill-stages.sql 실행 (Supabase SQL Editor에서)
+- [ ] DB migration-001-validation.sql 실행 (Supabase SQL Editor)
+- [ ] DB migration-002-bill-stages.sql 실행 (Supabase SQL Editor)
 - [ ] 기존 11건 → flagged 처리
 - [ ] 크롤러 v3로 재수집
 
 ---
 
-## Phase 2: 점수 체계 고도화 (1~3개월)
+## Phase 2: 점수 체계 고도화 — DONE
 
 ### Step 8. 시간 감쇠 뷰별 분리 --- DONE
 
-- [x] 4개 뷰 구현:
-  | 뷰 | 감쇠 함수 | 용도 |
-  |---|---|---|
-  | Hot (30일) | score / (T_hours + 2)^1.8 | 최신 이슈 |
-  | Recent (1년) | score × e^(-0.005t) | 반감기 140일 |
-  | Mid-term (5년) | score × max(0.3, e^(-0.002t)) | 30% floor |
-  | All-time | score × 1 (무감쇠) | 역사적 누적 |
-- [ ] 메인 페이지에 뷰 전환 탭
-- [ ] score_snapshots에 view_type 컬럼 추가
+- [x] 4개 뷰: Hot(30일) / Recent(1년) / Mid-term(5년) / All-time(무감쇠)
+- [x] 메인 페이지에 ViewTabs 컴포넌트
+- [x] 클라이언트 사이드 뷰 전환
 
-### Step 9. 점수 공식 전환 — 곱셈 → 가중 합 --- DONE
+### Step 9. 점수 공식 전환 --- DONE
 
-- [x] 현재: `카테고리 × 감쇠 × 심각도 × 영향범위` (한 차원 0이면 전체 0)
-- [ ] 변경: `0.4×norm(category) + 0.3×norm(severity) + 0.2×norm(scope) + 0.1×norm(time)`
-- [ ] 최종 0~100 시그모이드 squashing: `100 / (1 + exp(-k(x - x₀)))`
-- [ ] A/B 테스트로 기존 분포와 비교
+- [x] 곱셈식 → 가중 합: `0.4×카테고리 + 0.3×심각도 + 0.2×범위 + 0.1×시간`
+- [x] 시그모이드 squashing (0~100)
+- [ ] A/B 테스트로 기존 분포 비교 (Phase 4)
 
 ### Step 10. 진영 비교 공정성 — Dual Metric --- DONE
 
-- [x] 총합 점수 + 1인당 평균 점수 병기
-  - 민주당 175석 vs 국민의힘 108석 → 총합만 비교하면 다수당이 구조적 불리
-- [ ] 카테고리별 평균 점수 공시 (예: "막말 blue 평균 4.2 vs red 평균 4.5")
-- [ ] 군소정당 별도 섹션 (정의당, 진보당, 개혁신당 등)
+- [x] 총합 + 1인당 평균 + 이슈 건수 병기
+- [ ] 카테고리별 평균 점수 공시 (Phase 4)
+- [ ] 군소정당 별도 섹션 (Phase 4)
 
 ### Step 11. 편향 자동 감사 --- DONE
 
-- [x] 주간 cron (bias_audit.py) — 카테고리 × 진영 점수 분포:
-  ```sql
-  SELECT category, camp, AVG(weighted_score), COUNT(*), STDDEV(weighted_score)
-  FROM issues
-  WHERE created_at > NOW() - INTERVAL '30 days'
-  GROUP BY category, camp;
-  ```
-- [ ] Welch's t-test (p<0.05)로 진영별 평균 차이 자동 알람
-- [ ] 매체별 분류 분포 (분류기 편향 지표)
+- [x] bias_audit.py: Welch's t-test, 카테고리/매체/검증 분포
+- [ ] 주간 cron 워크플로우 추가 (Phase 4)
 
-### Step 12. 역사 데이터 수집 (1999~현재) --- PARTIAL
+### Step 12. 역사 데이터 수집 --- PARTIAL
 
-- [ ] SNU팩트체크 read-only DB (수동) 1회성 스크래핑 (2017~2024, ~5,000건)
-- [ ] 위키백과/나무위키 정치 사건 목록 연도별 크롤링
-- [ ] 네이버 뉴스 아카이브 과거 기사 검색
-- [ ] Claude API로 역사 이슈 분류/점수화
-- [ ] 기간별 뷰 (All-time)에서 활용
+- [x] seed_historical.py 스크립트 완료 (연도별/범위 수집)
+- [ ] 실제 실행: `python seed_historical.py --range 2020-2025` (수동)
+- [ ] SNU팩트체크 read-only DB 스크래핑 (수동)
 
 ---
 
-## Phase 3: 고도화 + 커뮤니티 (3~6개월)
+## Phase 3: 고도화 + 커뮤니티 — PARTIAL
 
 ### Step 13. 정치인 스코어카드 --- DONE
 
-- [x] 개인별 페이지 (/politicians/[id]): 의정 통계 + minnat 점수 + 카테고리 breakdown
-- [ ] 국회 OpenAPI 연동: 출석률, 발의, 가결률, 표결 참여
-- [ ] 직책별 영향범위 가중치 (대통령 1.2 ~ 후보 0.5)
-- [ ] 시계열 뷰: 30일/1년/5년/역대 4탭
+- [x] 정치인 목록 페이지 (/politicians)
+- [x] 개인별 스코어카드 (/politicians/[id]): 점수 요약 + 카테고리 breakdown + 관련 이슈
+- [ ] 국회 OpenAPI 의정 통계 연동 (Phase 4)
+- [ ] 시계열 뷰 (Phase 4)
 
-### Step 14. NER + LLM 파이프라인
+### Step 14. NER + LLM 파이프라인 → Phase 4
 
-- [ ] KPF-BERT-NER (HuggingFace, MIT 라이선스) 자체 호스팅
-- [ ] NER → Gazetteer 매칭 → LLM CoT 3중 파이프라인
-- [ ] 국회 의안정보 API 결정론적 매칭 (BILL_NO → PROC_RESULT_CD)
-  - policy_win 판정에서 LLM 의존도 0
+- [ ] KPF-BERT-NER 자체 호스팅
+- [ ] NER → Gazetteer → LLM CoT 3중 파이프라인
+- [ ] BILL_NO 결정론적 매칭
 
-### Step 15. 인증 + 게시판 --- PARTIAL (UI 골격 완료, Supabase Auth 연동 미완)
+### Step 15. 인증 + 게시판 --- PARTIAL
 
-- [ ] 카카오 소셜 로그인 (Supabase Auth 연동 — 카카오 앱 등록 필요) + Supabase Auth
-- [ ] 자유게시판 CRUD + 댓글 + 신고
-- [ ] 진영 표시 (홍/청/없음)
+- [x] 로그인 페이지 UI (/auth/login — 카카오 버튼)
+- [x] 회원가입 페이지 UI (/auth/signup — 진영 선택)
+- [x] 게시판 목록/작성 페이지 UI (/board, /board/write)
+- [ ] 카카오 OAuth + Supabase Auth 연동 (카카오 앱 등록 필요)
+- [ ] 게시판 CRUD + 댓글 + 신고 (Supabase 연동)
 
-### Step 16. 거버넌스
+### Step 16. 거버넌스 → Phase 4
 
-- [ ] 자문위 5인 (좌·중·우 학계 + 시민단체 + 운영자)
+- [ ] 자문위 5인 구성
 - [ ] "논란 정책" 판정 합의제
 - [ ] 분기별 점검 + 사유 공개
-- [ ] 방법론 변경 Git 기록 + 사유 공개
 
 ---
 
-## 소스 신뢰도 체계 (업데이트)
+## Phase 4: 장기 과제 (미구현)
+
+- [ ] KPF-BERT-NER 파이프라인 (Step 14)
+- [ ] 거버넌스 자문위 (Step 16)
+- [ ] 직책 가중치 컬럼
+- [ ] 보도 시점 차이 기반 재인용 감지
+- [ ] A/B 테스트 (점수 공식)
+- [ ] 카테고리별/군소정당 평균 점수 공시
+- [ ] 편향 감사 주간 cron 워크플로우
+- [ ] 국회 OpenAPI 의정 통계 연동
+- [ ] 정치인 시계열 뷰
+
+---
+
+## 소스 신뢰도 체계
 
 | Tier | 소스 | 점수 반영 |
 |------|------|-----------|
@@ -212,7 +174,7 @@
 | CDN/보안 | Cloudflare (무료) |
 | 크롤링 | Python + GitHub Actions |
 | AI 분석 | Claude Haiku (+ 중기: GPT-4o-mini ensemble) |
-| 뉴스 수집 | 네이버 검색 API + knews-rss + 직접 크롤링 |
+| 뉴스 수집 | 네이버 검색 API + RSS + 직접 크롤링 |
 | NER (장기) | KPF-BERT-NER (HuggingFace) |
 
 ---
