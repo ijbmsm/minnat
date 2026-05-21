@@ -25,19 +25,19 @@
 
 ## Phase 1: 데이터 품질 (1~2주, Quick Wins)
 
-### Step 1. 정치인 DB 확장 — 21명 → 300명+
+### Step 1. 정치인 DB 확장 — 21명 → 300명+ --- DONE
 
-- [ ] 국회 OpenAPI `국회의원 현황` 엔드포인트로 22대 의원 300명 일괄 수집
+- [x] 국회 OpenAPI `국회의원 현황` 엔드포인트로 22대 의원 300명 일괄 수집
   - 출력: HG_NM(이름), POLY_NM(정당), ELECT_DIV_NM(지역구/비례)
 - [ ] 정부 주요 직책자 ~50명 추가 (대통령, 총리, 장관)
 - [ ] 크롤러에 정치인 동기화 스크립트 추가 (주 1회 cron)
 - [ ] politicians 테이블에 직책 가중치 컬럼 추가:
   - 대통령: 1.2 / 총리·당대표·원내대표: 1.0 / 장관·의원: 0.8
 
-### Step 2. SNU 팩트체크 제거 + 팩트체크 소스 재구성
+### Step 2. SNU 팩트체크 제거 + 팩트체크 소스 재구성 --- DONE
 
-- [ ] SNU 팩트체크 크롤러 제거 (2024년 8월 무기한 중단 확인)
-- [ ] Tier 2 소스 교체:
+- [x] SNU 팩트체크 크롤러 제거 (2024년 8월 무기한 중단 확인)
+- [x] Tier 2 소스 교체:
   - JTBC 팩트체크 (유일한 IFCN 인증 매체)
   - MBC 알고보니
   - KBS 팩트체크K
@@ -45,9 +45,9 @@
   - SBS 사실은
 - [ ] 각 매체 크롤러 작성 (HTML 파싱)
 
-### Step 3. policy_win 5단계 분해
+### Step 3. policy_win 5단계 분해 --- DONE
 
-- [ ] 기존 단일 policy_win 폐기, 5단계로 분리:
+- [x] 기존 단일 policy_win 폐기, 5단계로 분리:
   ```
   bill_proposed      (발의/제안)         — 가중치 1
   bill_committee     (위원회 통과)       — 가중치 3
@@ -68,9 +68,9 @@
 - [ ] DB `issues.category` CHECK 제약조건 업데이트
 - [ ] 프론트엔드 카테고리 라벨 업데이트
 
-### Step 4. 뉴스 소스 확대
+### Step 4. 뉴스 소스 확대 --- DONE
 
-- [ ] 네이버 검색 API 연동 (openapi.naver.com/v1/search/news.json)
+- [x] 네이버 검색 API 연동 (crawlers/naver_news.py)
   - Client ID/Secret 무료 발급, 일 25,000건
   - 정치인 이름·키워드로 polling
 - [ ] akngs/knews-rss 오픈소스 활용 (커뮤니티 유지보수 RSS 목록)
@@ -82,9 +82,9 @@
   보수: 조선일보, 중앙일보, 동아일보
   ```
 
-### Step 5. AI 프롬프트 고도화
+### Step 5. AI 프롬프트 고도화 --- DONE
 
-- [ ] 행위자/대상 규칙 명시 (A5 템플릿 적용):
+- [x] 행위자/대상 규칙 명시 (A5 템플릿 적용):
   - "X가 비판받았다" → 행위자는 X (X가 행위를 했음)
   - "X를 비판한 Y" → 행위자는 Y
 - [ ] Chain-of-Verification 자기검증:
@@ -93,17 +93,18 @@
 - [ ] evidence_sentence 필수 출력
 - [ ] 정치인 DB 300명+ 프롬프트 주입
 
-### Step 6. 교차검증 고도화
+### Step 6. 교차검증 고도화 --- DONE
 
-- [ ] 통신사 원문 식별: "연합뉴스 제공" byline 감지 → 재인용은 1건 카운트
-- [ ] 좌·우 매체 다양성: 좌+우 모두 보도 시만 verified (같은 성향만이면 unverified)
-- [ ] 보도 시점 차이: 1시간 이내 동일 = 재인용 가능성, 12시간+ = 독립 보도
+- [x] 통신사 원문 식별: "연합뉴스 제공" byline 감지 → 재인용은 1건 카운트
+- [x] 좌·우 매체 다양성: 좌+우 모두 보도 시만 verified (같은 성향만이면 unverified)
+- [ ] 보도 시점 차이: 1시간 이내 동일 = 재인용 가능성, 12시간+ = 독립 보도 (Phase 2)
 
 ### Step 7. 기존 데이터 정리
 
-- [ ] DB migration-001-validation.sql 실행 (validation_status 컬럼 추가)
+- [ ] DB migration-001-validation.sql 실행 (Supabase SQL Editor에서)
+- [ ] DB migration-002-bill-stages.sql 실행 (Supabase SQL Editor에서)
 - [ ] 기존 11건 → flagged 처리
-- [ ] 크롤러 v2로 재수집
+- [ ] 크롤러 v3로 재수집
 
 ---
 
