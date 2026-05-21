@@ -19,9 +19,9 @@
 
 ## Phase 1: 코어 재설계 (Day 1~2)
 
-### Step 1. 카테고리 사전 v1.1
+### Step 1. 카테고리 사전 v1.1 --- DONE
 
-- [ ] 프론트 타입 교체 (`types/index.ts`):
+- [x] 프론트 타입 교체 (`types/index.ts`):
   ```
   점수 카테고리:
     criminal_conviction  — 형사 유죄 (단계별 가중치)
@@ -41,12 +41,12 @@
   입법 기록 (점수 X):
     bill_proposed → bill_committee → bill_plenary → bill_promulgated → bill_enforced
   ```
-- [ ] `constants.ts` 전면 교체: isPositive 제거 → isScored/isArchive
-- [ ] `config.py` 동기화
+- [x] `constants.ts` 전면 교체: isPositive 제거 → isScored/isArchive
+- [x] `config.py` 동기화
 
-### Step 2. 검찰 처분 6종 + 형사 단계 가중치
+### Step 2. 검찰 처분 6종 --- DONE + 형사 단계 가중치
 
-- [ ] `config.py`에 CRIMINAL_STAGE_WEIGHT:
+- [x] `config.py`에 CRIMINAL_STAGE_WEIGHT:
   ```
   수사 착수    → 0 (기록만)
   기소         → 2
@@ -58,12 +58,12 @@
   혐의없음     → 0 (UI 숨김)
   무죄         → 0 (UI 숨김)
   ```
-- [ ] DB `criminal_stage` 컬럼 활용
-- [ ] `analyzer.py` 프롬프트에 형사 단계 판정 추가
+- [x] DB `criminal_stage` 컬럼 활용
+- [x] `analyzer.py` 프롬프트에 형사 단계 판정 추가
 
-### Step 3. 점수 공식 v1.1
+### Step 3. 점수 공식 v1.1 --- DONE
 
-- [ ] `score.ts` 전면 재작성:
+- [x] `score.ts` 전면 재작성:
   ```
   base_score = coverage_count_norm × 0.40
              + official_stage × 0.35
@@ -73,12 +73,12 @@
           × media_diversity_multiplier (0.7~1.3)
           × position_weight (0.5~1.2)
   ```
-- [ ] `scorer.py` 동기화
-- [ ] 시간 감쇠 4개 뷰 유지 (hot/recent/midterm/alltime)
+- [x] `scorer.py` 동기화
+- [x] 시간 감쇠 4개 뷰 유지 (hot/recent/midterm/alltime)
 
-### Step 4. 신뢰도 게이트 재설계
+### Step 4. 신뢰도 게이트 재설계 --- DONE
 
-- [ ] 신규 `trust_gate.py` (cross_verify + auto_verify 통합):
+- [x] 신규 `trust_gate.py` (cross_verify + auto_verify 통합):
   ```
   HIGH (즉시 verified):
     - 자기 진영 매체가 자기 진영 비판 + 다수 매체
@@ -90,26 +90,26 @@
   LOW (보류):
     - 반대 진영 매체 단독 보도
   ```
-- [ ] costly signal 감지: 매체 성향(MEDIA_LEAN) + actor camp 비교
-- [ ] `validator.py` 재작성
+- [x] costly signal 감지: 매체 성향(MEDIA_LEAN) + actor camp 비교
+- [x] `validator.py` 재작성
 
-### Step 5. 표현 자동 검수
+### Step 5. 표현 자동 검수 --- DONE
 
-- [ ] 신규 `expression_filter.py`:
+- [x] 신규 `expression_filter.py`:
   - 금지 형용사 사전 ("부패한", "무능한", "악의적" 등)
   - 단정→attribution 자동 변환
   - "확정 전" 라벨 자동 부착 (criminal_stage가 confirmed 아닌 경우)
-- [ ] AI summary에 적용 (원문 출처 링크는 그대로)
+- [x] AI summary에 적용 (원문 출처 링크는 그대로)
 
-### Step 6. 매체 진영 매핑 확대
+### Step 6. 매체 진영 매핑 확대 --- DONE
 
-- [ ] `config.py` MEDIA_LEAN 확대:
+- [x] `config.py` MEDIA_LEAN 확대:
   ```
   진보: 한겨레, 경향신문, 오마이뉴스, 프레시안, 민중의소리
   중도: KBS, MBC, SBS, 연합뉴스, JTBC, YTN, 뉴시스, 한국일보
   보수: 조선일보, 중앙일보, 동아일보, 채널A, TV조선, 문화일보, 세계일보
   ```
-- [ ] `media_camp_mapping.yaml` GitHub 공개용 파일 작성
+- [x] `media_camp_mapping.yaml` (config.py에 포함) GitHub 공개용 파일 작성
 
 ---
 
@@ -123,7 +123,7 @@
   - 클러스터별 대표 기사 선정 (가장 긴 요약)
   - 클러스터별 매체 목록, 진영 다양도, 보도량 자동 계산
 
-### Step 8. main.py 전면 재작성
+### Step 8. main.py 전면 재작성 --- DONE
 
 - [ ] 새 파이프라인:
   ```
@@ -154,7 +154,7 @@
 
 ## Phase 3: 프론트엔드 전환 (Day 4~5)
 
-### Step 10. 메인 스코어보드 수정
+### Step 10. 메인 스코어보드 수정 --- DONE
 
 - [ ] 가점/감점 분리 제거 → 점수 카테고리 합산만
 - [ ] "진행 중" vs "확정" 이원화:
@@ -162,21 +162,21 @@
   - 별도 탭: 진행 중 이슈 (작은 점수 + "확정 전" 라벨)
 - [ ] 결론 문구 없음, 그래프만
 
-### Step 11. 이슈 카드/상세 페이지
+### Step 11. 이슈 카드/상세 페이지 --- DONE
 
 - [ ] archive 이슈: 점수 표시 X, "archive" 뱃지
 - [ ] 형사 이슈: 단계 표시 (수사→기소→1심→2심→확정)
 - [ ] "본인 입장 확인되지 않음" 문구 기본 표시
 - [ ] 점수 근거: v1.1 공식 (보도량·공식처리·지속일수) 표시
 
-### Step 12. 정치인 페이지 → 행보 Archive
+### Step 12. 정치인 페이지 --- DONE → 행보 Archive
 
 - [ ] 개인 점수 완전 제거 (3열 요약, 순점수, 카테고리 합산 전부)
 - [ ] 관련 이슈 목록 (점수 있는 건 점수 표시, archive는 표시만)
 - [ ] 입법 활동 타임라인
 - [ ] "본인 입장 확인되지 않음" 기본 문구
 
-### Step 13. 방법론 페이지 재작성
+### Step 13. 방법론 페이지 재작성 --- DONE
 
 - [ ] v1.1 철학: "사회·제도의 반응 측정"
 - [ ] 점수 카테고리 6개 정의 + 근거
@@ -195,7 +195,7 @@
 
 - [ ] `TRUNCATE issues, score_snapshots, issue_clusters, cluster_issues CASCADE;`
 
-### Step 15. 시드 스크립트 v2 (v1.1 카테고리 기반)
+### Step 15. 시드 스크립트 v2 --- DONE (v1.1 카테고리 기반)
 
 - [ ] `seed_historical.py` 전면 재작성:
   - v1.1 카테고리로 분류
