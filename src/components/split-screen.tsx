@@ -17,51 +17,49 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
 
   return (
     <section className="relative min-h-[100dvh] w-full overflow-hidden">
-      {/* WebGL 유체 배경 */}
-      <FluidBackground score={score} />
-
-      {/* 노이즈 오버레이 (한지 질감) */}
-      <div
-        className="pointer-events-none absolute inset-0 z-[1] opacity-[0.025]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "128px 128px",
-        }}
-      />
+      {/* 배경 — 처음엔 검정, 1초 후 먹 배경이 서서히 드러남 */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 3, delay: 0.5, ease: "easeOut" }}
+        className="absolute inset-0"
+      >
+        <FluidBackground score={score} />
+      </motion.div>
 
       {/* 콘텐츠 */}
       <div className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-center px-4">
-        {/* 부제 */}
+
+        {/* 부제 — 배경이 깔린 후 등장 */}
         <motion.p
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3 }}
-          className="mb-3 text-[10px] tracking-[0.35em] text-white/30 uppercase sm:text-xs"
+          initial={{ opacity: 0, letterSpacing: "0.5em" }}
+          animate={{ opacity: 1, letterSpacing: "0.35em" }}
+          transition={{ duration: 1.5, delay: 2 }}
+          className="mb-3 text-[10px] text-white/30 uppercase sm:text-xs"
         >
           색안경 벗고, 팩트로 보는 정치
         </motion.p>
 
-        {/* 타이틀 */}
+        {/* 타이틀 — 크게 등장 후 줄어듦 */}
         <motion.h1
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.5 }}
-          className="mb-16 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
+          initial={{ opacity: 0, scale: 1.3, filter: "blur(12px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          transition={{ duration: 1.2, delay: 2.5, ease: "easeOut" }}
+          className="mb-20 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
           style={{ textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
         >
           민낯
         </motion.h1>
 
-        {/* 퍼센티지 — 좌우로 크게 */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="mb-6 flex w-full max-w-3xl items-center justify-between"
-        >
-          {/* 파랑 */}
-          <div className="flex flex-col items-start">
+        {/* 퍼센티지 — 양쪽에서 슬라이드 인 */}
+        <div className="mb-6 flex w-full max-w-3xl items-center justify-between">
+          {/* 파랑 — 좌측에서 등장 */}
+          <motion.div
+            initial={{ opacity: 0, x: -60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, delay: 3.2, ease: "easeOut" }}
+            className="flex flex-col items-start"
+          >
             <span
               className="text-6xl font-bold tabular-nums leading-none sm:text-7xl md:text-8xl"
               style={{
@@ -75,22 +73,34 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
             <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
               {CAMP_COLORS.blue.label}
             </span>
-          </div>
+          </motion.div>
 
-          {/* 중앙 */}
+          {/* 중앙 구분선 — 위아래에서 자라남 */}
           <motion.div
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ duration: 0.6, delay: 1.2 }}
+            initial={{ opacity: 0, scaleY: 0 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            transition={{ duration: 0.8, delay: 3.8 }}
             className="flex flex-col items-center gap-2"
           >
             <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
-            <span className="text-[10px] tracking-widest text-white/20 uppercase">vs</span>
+            <motion.span
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 4.2 }}
+              className="text-[10px] tracking-widest text-white/20 uppercase"
+            >
+              vs
+            </motion.span>
             <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
           </motion.div>
 
-          {/* 빨강 */}
-          <div className="flex flex-col items-end">
+          {/* 빨강 — 우측에서 등장 */}
+          <motion.div
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 1, delay: 3.2, ease: "easeOut" }}
+            className="flex flex-col items-end"
+          >
             <span
               className="text-6xl font-bold tabular-nums leading-none sm:text-7xl md:text-8xl"
               style={{
@@ -104,24 +114,24 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
             <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
               {CAMP_COLORS.red.label}
             </span>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         {/* 설명 */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.4 }}
+          transition={{ duration: 1, delay: 4.5 }}
           className="mb-16 text-center text-xs text-white/20"
         >
           비율이 높을수록 해당 진영의 부정적 이슈가 많습니다
         </motion.p>
 
-        {/* 카테고리 요약 */}
+        {/* 카테고리 요약 — 아래에서 올라옴 */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 1.6 }}
+          transition={{ duration: 1, delay: 5 }}
           className="grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2"
         >
           <CategorySummary camp="blue" issues={blueIssues} />
@@ -132,7 +142,7 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 2.2 }}
+          transition={{ delay: 5.8 }}
           className="mt-20 flex flex-col items-center gap-2"
         >
           <span className="text-[10px] tracking-widest text-white/15 uppercase">

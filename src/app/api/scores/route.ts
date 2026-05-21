@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { MOCK_ISSUES } from "@/lib/mock-data";
+import { getIssues } from "@/lib/data";
 import { calculateScores, getCategoryBreakdown } from "@/lib/score";
 
 export async function GET() {
-  const score = calculateScores(MOCK_ISSUES);
-  const blueBreakdown = getCategoryBreakdown(MOCK_ISSUES, "blue");
-  const redBreakdown = getCategoryBreakdown(MOCK_ISSUES, "red");
+  const issues = await getIssues();
+  const score = calculateScores(issues);
+  const blueBreakdown = getCategoryBreakdown(issues, "blue");
+  const redBreakdown = getCategoryBreakdown(issues, "red");
 
   return NextResponse.json({
     ...score,

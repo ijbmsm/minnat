@@ -2,11 +2,13 @@
 
 import { Nav } from "./nav";
 import { IssueCard } from "./issue-card";
-import { MOCK_ISSUES } from "@/lib/mock-data";
+import type { Issue } from "@/types";
 
-export function PoliciesPage() {
-  const controversial = MOCK_ISSUES.filter((i) => i.category === "controversial");
+interface PoliciesPageProps {
+  issues: Issue[];
+}
 
+export function PoliciesPage({ issues }: PoliciesPageProps) {
   return (
     <>
       <Nav />
@@ -25,13 +27,13 @@ export function PoliciesPage() {
           </p>
         </div>
 
-        {controversial.length === 0 ? (
+        {issues.length === 0 ? (
           <div className="rounded-xl border border-white/5 py-16 text-center text-white/30">
             현재 논란 정책 이슈가 없습니다.
           </div>
         ) : (
           <div className="space-y-4">
-            {controversial.map((issue, i) => (
+            {issues.map((issue, i) => (
               <IssueCard key={issue.id} issue={issue} index={i} />
             ))}
           </div>

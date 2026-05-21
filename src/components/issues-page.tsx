@@ -4,17 +4,21 @@ import { useState } from "react";
 import { Nav } from "./nav";
 import { IssueCard } from "./issue-card";
 import { IssueFilter, type FilterState } from "./issue-filter";
-import { MOCK_ISSUES } from "@/lib/mock-data";
 import { calculateIssueScore } from "@/lib/score";
+import type { Issue } from "@/types";
 
-export function IssuesPage() {
+interface IssuesPageProps {
+  initialIssues: Issue[];
+}
+
+export function IssuesPage({ initialIssues }: IssuesPageProps) {
   const [filters, setFilters] = useState<FilterState>({
     camp: "all",
     category: "all",
     sort: "latest",
   });
 
-  const filtered = MOCK_ISSUES
+  const filtered = initialIssues
     .filter((issue) => {
       if (filters.camp !== "all" && issue.camp !== filters.camp) return false;
       if (filters.category !== "all" && issue.category !== filters.category) return false;

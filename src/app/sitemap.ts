@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
-import { MOCK_ISSUES } from "@/lib/mock-data";
+import { getIssues } from "@/lib/data";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://minnat.kr";
+  const issues = await getIssues();
 
-  const issueUrls = MOCK_ISSUES.map((issue) => ({
+  const issueUrls = issues.map((issue) => ({
     url: `${baseUrl}/issues/${issue.id}`,
     lastModified: new Date(issue.created_at),
     changeFrequency: "weekly" as const,

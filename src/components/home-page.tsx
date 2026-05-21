@@ -3,15 +3,17 @@
 import { SplitScreen } from "./split-screen";
 import { IssueCard } from "./issue-card";
 import { Nav } from "./nav";
-import { MOCK_ISSUES } from "@/lib/mock-data";
-import { calculateScores } from "@/lib/score";
+import type { Issue, ScoreResult } from "@/types";
 
-export function HomePage() {
-  const scoredIssues = MOCK_ISSUES.filter((i) => i.category !== "controversial");
-  const controversialIssues = MOCK_ISSUES.filter((i) => i.category === "controversial");
-  const score = calculateScores(MOCK_ISSUES);
+interface HomePageProps {
+  score: ScoreResult;
+  issues: Issue[];
+}
 
-  // 최신순 정렬
+export function HomePage({ score, issues }: HomePageProps) {
+  const scoredIssues = issues.filter((i) => i.category !== "controversial");
+  const controversialIssues = issues.filter((i) => i.category === "controversial");
+
   const sortedIssues = [...scoredIssues].sort(
     (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
   );
@@ -20,20 +22,23 @@ export function HomePage() {
     <>
       <Nav />
       <main>
-        {/* 풀스크린 스플릿 히어로 */}
-        <SplitScreen score={score} issues={MOCK_ISSUES} />
+        <SplitScreen score={score} issues={issues} />
 
-        {/* 최근 이슈 섹션 */}
         <section className="mx-auto max-w-4xl px-4 py-20">
           <h2 className="mb-8 text-2xl font-bold text-white/90">최근 이슈</h2>
-          <div className="space-y-4">
-            {sortedIssues.map((issue, i) => (
-              <IssueCard key={issue.id} issue={issue} index={i} />
-            ))}
-          </div>
+          {sortedIssues.length === 0 ? (
+            <div className="rounded-xl border border-white/5 py-16 text-center text-white/30">
+              수집된 이슈가 없습니다.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {sortedIssues.map((issue, i) => (
+                <IssueCard key={issue.id} issue={issue} index={i} />
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* 논란 정책 섹션 */}
         {controversialIssues.length > 0 && (
           <section className="mx-auto max-w-4xl px-4 pb-20">
             <div className="mb-8 flex items-center gap-3">
@@ -50,7 +55,6 @@ export function HomePage() {
           </section>
         )}
 
-        {/* 푸터 */}
         <footer className="border-t border-white/5 py-12 text-center text-xs text-white/25">
           <p>민낯 — 색안경 벗고, 팩트로 보는 정치</p>
           <p className="mt-1">모든 점수의 근거는 투명하게 공개됩니다.</p>
