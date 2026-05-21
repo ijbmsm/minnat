@@ -38,7 +38,7 @@ function generateLayers(count: number, seed: number): SmokeLayer[] {
 export function FluidBackground({ score }: FluidBackgroundProps) {
   const [ready, setReady] = useState(false);
 
-  const springPct = useSpring(score.bluePct, { stiffness: 20, damping: 15 });
+  const springPct = useSpring(score.bluePct, { stiffness: 8, damping: 20 });
   const blueWidth = useTransform(springPct, (v) => `${v + 8}%`);
   const redWidth = useTransform(springPct, (v) => `${100 - v + 8}%`);
 
