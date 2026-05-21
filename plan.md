@@ -1,199 +1,218 @@
-# 민낯 (minnat) — 구현 계획서
+# 민낯 (minnat) — 구현 계획서 v2
 
 > "색안경 벗고, 팩트로 보는 정치"
 > 도메인: minnat.kr
-> 참고: /Users/sungmin/research.md
+> 리서치: /Users/sungmin/minnat/docs/research.md
 
 ---
 
-## Phase 1: MVP (스코어보드 + 이슈 뷰어)
+## 완료된 작업
 
-### Step 1. 프로젝트 셋업 --- DONE
+- [x] Next.js 15 + Tailwind v4 + Framer Motion + Supabase 프로젝트 셋업
+- [x] DB 스키마 생성 + RLS + 시드 데이터 (parties, politicians)
+- [x] 메인 페이지 — 풀스크린 스플릿 + 먹물 배경 + 등장 애니메이션
+- [x] 이슈 목록/상세 페이지 (필터, 정렬, 점수 근거 투명 공개)
+- [x] 논란 정책 탭 (점수 미반영 별도 표시)
+- [x] 방법론 전체 공개 페이지 (/about)
+- [x] SEO (sitemap, robots, OG 이미지)
+- [x] 보안 헤더 (CSP, HSTS, X-Frame-Options)
+- [x] 크롤러 v1 (국회 API, 뉴스 RSS, 법원) + GitHub Actions cron
+- [x] 크롤러 v2 (검증 시스템: validator, dedup, cross_verify)
+- [x] Supabase 실제 데이터 연동 (mock 제거)
+- [x] Vercel 배포
 
-- [x] Next.js 15 (App Router) 프로젝트 생성
-- [x] TypeScript + Tailwind CSS v4 + Framer Motion 설치
-- [x] Supabase 클라이언트 설정 + 환경변수 (.env.local)
-- [ ] Vercel 프로젝트 연결 + 자동 배포 설정 (수동 — 사용자 계정 필요)
-- [ ] Cloudflare DNS 프록시 설정 (수동 — 도메인 구매 후)
-- [x] 프로젝트 구조 생성:
+---
+
+## Phase 1: 데이터 품질 (1~2주, Quick Wins)
+
+### Step 1. 정치인 DB 확장 — 21명 → 300명+
+
+- [ ] 국회 OpenAPI `국회의원 현황` 엔드포인트로 22대 의원 300명 일괄 수집
+  - 출력: HG_NM(이름), POLY_NM(정당), ELECT_DIV_NM(지역구/비례)
+- [ ] 정부 주요 직책자 ~50명 추가 (대통령, 총리, 장관)
+- [ ] 크롤러에 정치인 동기화 스크립트 추가 (주 1회 cron)
+- [ ] politicians 테이블에 직책 가중치 컬럼 추가:
+  - 대통령: 1.2 / 총리·당대표·원내대표: 1.0 / 장관·의원: 0.8
+
+### Step 2. SNU 팩트체크 제거 + 팩트체크 소스 재구성
+
+- [ ] SNU 팩트체크 크롤러 제거 (2024년 8월 무기한 중단 확인)
+- [ ] Tier 2 소스 교체:
+  - JTBC 팩트체크 (유일한 IFCN 인증 매체)
+  - MBC 알고보니
+  - KBS 팩트체크K
+  - 연합뉴스 팩트체크
+  - SBS 사실은
+- [ ] 각 매체 크롤러 작성 (HTML 파싱)
+
+### Step 3. policy_win 5단계 분해
+
+- [ ] 기존 단일 policy_win 폐기, 5단계로 분리:
   ```
-  app/
-  ├── page.tsx              # 메인 — 풀스크린 스플릿
-  ├── layout.tsx            # dark-luxe 테마 레이아웃
-  ├── issues/
-  │   ├── page.tsx          # 이슈 목록
-  │   └── [id]/page.tsx     # 이슈 상세
-  ├── policies/
-  │   └── page.tsx          # 논란 정책 탭
-  ├── about/page.tsx        # 방법론 공개
-  └── api/
-      ├── scores/route.ts   # 점수 조회
-      └── issues/route.ts   # 이슈 조회
+  bill_proposed      (발의/제안)         — 가중치 1
+  bill_committee     (위원회 통과)       — 가중치 3
+  bill_plenary       (본회의 가결)       — 가중치 6
+  bill_promulgated   (공포)             — 가중치 8
+  bill_enforced      (시행)             — 가중치 10
+  ```
+- [ ] 키워드 사전으로 결정론적 판정 (LLM 의존 제거):
+  ```python
+  STAGE_KEYWORDS = {
+      "bill_proposed": ["발의", "제안", "제출", "법안 마련"],
+      "bill_committee": ["상임위 통과", "위원회 의결", "소위 가결"],
+      "bill_plenary": ["본회의 가결", "본회의 통과", "표결로 통과"],
+      "bill_promulgated": ["공포", "관보 게재"],
+      "bill_enforced": ["시행", "발효", "효력 발생"],
+  }
+  ```
+- [ ] DB `issues.category` CHECK 제약조건 업데이트
+- [ ] 프론트엔드 카테고리 라벨 업데이트
+
+### Step 4. 뉴스 소스 확대
+
+- [ ] 네이버 검색 API 연동 (openapi.naver.com/v1/search/news.json)
+  - Client ID/Secret 무료 발급, 일 25,000건
+  - 정치인 이름·키워드로 polling
+- [ ] akngs/knews-rss 오픈소스 활용 (커뮤니티 유지보수 RSS 목록)
+- [ ] 현재 SBS만 수집 → 최소 5개 매체 동시 수집
+- [ ] 수집 매체별 정치 성향 태깅:
+  ```
+  진보: 한겨레, 경향신문, 오마이뉴스
+  중도: KBS, MBC, SBS, 연합뉴스
+  보수: 조선일보, 중앙일보, 동아일보
   ```
 
-### Step 2. DB 스키마 + Supabase 설정 --- PARTIAL (스키마 SQL 준비, Supabase 프로젝트 생성은 수동)
+### Step 5. AI 프롬프트 고도화
 
-- [ ] 테이블 생성 (Supabase 대시보드에서 실행):
-  - `parties` — 정당/진영
-  - `politicians` — 정치인
-  - `issues` — 이슈 (핵심 테이블)
-  - `score_snapshots` — 일별 점수 캐싱
-- [ ] RLS (Row Level Security) 정책 설정
-- [ ] 시드 데이터 입력:
-  - 정당 2개 (더불어민주당, 국민의힘)
-  - 주요 정치인 20~30명
+- [ ] 행위자/대상 규칙 명시 (A5 템플릿 적용):
+  - "X가 비판받았다" → 행위자는 X (X가 행위를 했음)
+  - "X를 비판한 Y" → 행위자는 Y
+- [ ] Chain-of-Verification 자기검증:
+  - "actor 진영을 반대로 바꾸면 같은 점수가 나오는가?"
+  - "아니오"면 confidence 0.6 이하로
+- [ ] evidence_sentence 필수 출력
+- [ ] 정치인 DB 300명+ 프롬프트 주입
 
-### Step 3. 메인 페이지 — 풀스크린 스플릿 UI --- DONE
+### Step 6. 교차검증 고도화
 
-- [x] taste-skill pack dark-luxe 스타일 참고
-- [x] dark-luxe 스타일 기반 레이아웃 구현 (다크 배경, 네온 글로우)
-- [x] 풀스크린 스플릿 컴포넌트 (split-screen.tsx):
-  - 화면 전체를 파랑/빨강이 비율대로 분할
-  - 경계선이 실시간 비율에 따라 이동 (Framer Motion spring)
-  - 경계선 위에 퍼센티지 숫자 표시
-  - 각 영역에 파랑/빨강 글로우 효과
-- [x] 카테고리별 요약 카드 (category-summary.tsx)
-- [x] 스크롤 다운 시 최근 이슈 타임라인 (reveal 애니메이션)
-- [x] 반응형
+- [ ] 통신사 원문 식별: "연합뉴스 제공" byline 감지 → 재인용은 1건 카운트
+- [ ] 좌·우 매체 다양성: 좌+우 모두 보도 시만 verified (같은 성향만이면 unverified)
+- [ ] 보도 시점 차이: 1시간 이내 동일 = 재인용 가능성, 12시간+ = 독립 보도
 
-### Step 4. 이슈 목록/상세 페이지 --- DONE
+### Step 7. 기존 데이터 정리
 
-- [x] 이슈 목록 페이지 (issues-page.tsx):
-  - 필터: 카테고리 / 진영 (issue-filter.tsx)
-  - 정렬: 최신순 / 점수순
-  - 각 이슈에 진영 색상 표시 + 점수 + 출처 (issue-card.tsx)
-- [x] 이슈 상세 페이지 (issue-detail-page.tsx):
-  - 제목, 요약, 카테고리, 심각도, 영향 범위
-  - 점수 산출 근거 (공식 적용 결과 투명 공개)
-  - AI 분석 근거 (왜 이 카테고리, 왜 이 심각도)
-  - 출처 원문 링크 (필수)
-
-### Step 5. 논란 정책 탭 --- DONE
-
-- [x] `/policies` 페이지 (policies-page.tsx):
-  - 점수 미반영 이슈 별도 표시
-  - 안내 배너 (왜 점수 미반영인지 설명)
-- [x] 메인 페이지에서 스크롤 하단에 논란 정책 섹션 배치
-- [ ] 여론 온도계 (Phase 2에서 로그인 후 구현)
-
-### Step 6. 데이터 수집 파이프라인
-
-- [ ] Python 크롤러 작성 (별도 repo: `minnat-crawler`):
-  - 국회 의안정보시스템 API 연동
-  - SNU 팩트체크센터 크롤링
-  - 주요 뉴스 RSS/API 크롤링 (연합뉴스, KBS, MBC, SBS)
-  - 법원 판결문 RSS
-- [ ] 전처리 파이프라인:
-  - 중복 제거 (제목 유사도 > 0.85)
-  - 정치인/정당 엔티티 추출
-- [ ] Claude Haiku API 연동:
-  - 카테고리 자동 분류
-  - 심각도 판정
-  - confidence score 산출 (< 0.7이면 관리자 검증 큐)
-- [x] 점수 산출 엔진 (src/lib/score.ts):
-  - 소스 임계값 검증 (Tier1-2 즉시, Tier3 교차검증, Tier4 미반영)
-  - `점수 = 기본가중치 × 시간감쇠 × 심각도 × 영향범위`
-  - 일별 score_snapshots 생성
-- [ ] GitHub Actions cron 설정:
-  - 국회 API: 매일 03:00
-  - 팩트체크: 매일 09:00, 21:00
-  - 뉴스: 6시간마다
-  - 법원 판결: 매주 월요일
-- [ ] 관리자 검증 큐:
-  - AI 확신도 낮은 이슈 리스트
-  - 승인/반려/수정 인터페이스 (간단한 admin 페이지)
-
-### Step 7. 시드 데이터 수집
-
-- [ ] 최근 6개월 주요 이슈 100건 수동 + 자동 수집
-- [ ] 각 이슈 점수 산출 + 검증
-- [ ] score_snapshots 생성 → 메인 페이지에 실제 데이터 반영
-
-### Step 8. SEO + OG 이미지 + About --- DONE
-
-- [x] @vercel/og로 동적 OG 이미지 생성 (api/og/route.tsx)
-- [ ] JSON-LD 구조화 데이터 (실 데이터 연동 후)
-- [x] sitemap.xml + robots.txt
-- [x] `/about` 페이지:
-  - 프로젝트 취지 (자정작용, 팩트 기반)
-  - 점수 산출 방법론 전체 공개
-  - 카테고리 정의 + 가중치 표
-  - 소스 신뢰도 체계 설명
-  - 핵심 원칙
-
-### Step 9. 보안 설정 --- PARTIAL
-
-- [ ] Cloudflare 설정 (수동 — 도메인 구매 후):
-  - DNS Proxy 활성화
-  - Bot Fight Mode ON
-  - Under Attack Mode 준비
-- [x] Next.js 보안 헤더 (next.config.ts):
-  - CSP (Content Security Policy)
-  - HSTS
-  - X-Frame-Options: DENY
-  - Permissions-Policy
-- [x] API Rate Limiting 패키지 설치 (@upstash/ratelimit)
-- [x] Supabase RLS 정책 (supabase/schema.sql)
-- [x] 입력 검증: Zod 설치 완료
-
-### Step 10. MVP 론칭
-
-- [ ] 전체 테스트 (UI, 점수 정확성, 보안, 모바일)
-- [ ] Vercel Production 배포
-- [ ] Cloudflare 최종 확인
-- [ ] 론칭
+- [ ] DB migration-001-validation.sql 실행 (validation_status 컬럼 추가)
+- [ ] 기존 11건 → flagged 처리
+- [ ] 크롤러 v2로 재수집
 
 ---
 
-## Phase 2: 커뮤니티 (MVP 이후)
+## Phase 2: 점수 체계 고도화 (1~3개월)
 
-### Step 11. 인증 + 게시판
+### Step 8. 시간 감쇠 뷰별 분리
 
-- [ ] 카카오 소셜 로그인 + Supabase Auth 연동
-- [ ] 유저 테이블 (닉네임, 진영 선택: 홍/청/없음)
-- [ ] 자유게시판 CRUD
-- [ ] 댓글 + 대댓글
-- [ ] 신고 시스템 (5건 이상 자동 블라인드)
-- [ ] 금칙어 필터
-- [ ] 게시글/댓글 Rate Limiting
+- [ ] 4개 뷰 구현:
+  | 뷰 | 감쇠 함수 | 용도 |
+  |---|---|---|
+  | Hot (30일) | score / (T_hours + 2)^1.8 | 최신 이슈 |
+  | Recent (1년) | score × e^(-0.005t) | 반감기 140일 |
+  | Mid-term (5년) | score × max(0.3, e^(-0.002t)) | 30% floor |
+  | All-time | score × 1 (무감쇠) | 역사적 누적 |
+- [ ] 메인 페이지에 뷰 전환 탭
+- [ ] score_snapshots에 view_type 컬럼 추가
 
-### Step 12. 이의 제기 시스템
+### Step 9. 점수 공식 전환 — 곱셈 → 가중 합
 
-- [ ] 이슈별 "이의 제기" 버튼
-- [ ] 출처 반박 + 근거 제출 폼
-- [ ] 관리자 48시간 내 검토 큐
-- [ ] 정정 시 변경 이력 표시
+- [ ] 현재: `카테고리 × 감쇠 × 심각도 × 영향범위` (한 차원 0이면 전체 0)
+- [ ] 변경: `0.4×norm(category) + 0.3×norm(severity) + 0.2×norm(scope) + 0.1×norm(time)`
+- [ ] 최종 0~100 시그모이드 squashing: `100 / (1 + exp(-k(x - x₀)))`
+- [ ] A/B 테스트로 기존 분포와 비교
 
-### Step 13. 추가 기능
+### Step 10. 진영 비교 공정성 — Dual Metric
 
-- [ ] 정치인 개인 스코어카드 페이지
-- [ ] 카카오톡 공유 최적화
-- [ ] 구글/네이버 소셜 로그인 추가
-- [ ] Twilio SMS OTP (필요시)
+- [ ] 총합 점수 + 1인당 평균 점수 병기
+  - 민주당 175석 vs 국민의힘 108석 → 총합만 비교하면 다수당이 구조적 불리
+- [ ] 카테고리별 평균 점수 공시 (예: "막말 blue 평균 4.2 vs red 평균 4.5")
+- [ ] 군소정당 별도 섹션 (정의당, 진보당, 개혁신당 등)
+
+### Step 11. 편향 자동 감사
+
+- [ ] 주간 cron — 카테고리 × 진영 점수 분포:
+  ```sql
+  SELECT category, camp, AVG(weighted_score), COUNT(*), STDDEV(weighted_score)
+  FROM issues
+  WHERE created_at > NOW() - INTERVAL '30 days'
+  GROUP BY category, camp;
+  ```
+- [ ] Welch's t-test (p<0.05)로 진영별 평균 차이 자동 알람
+- [ ] 매체별 분류 분포 (분류기 편향 지표)
+
+### Step 12. 역사 데이터 수집 (1999~현재)
+
+- [ ] SNU팩트체크 read-only DB 1회성 스크래핑 (2017~2024, ~5,000건)
+- [ ] 위키백과/나무위키 정치 사건 목록 연도별 크롤링
+- [ ] 네이버 뉴스 아카이브 과거 기사 검색
+- [ ] Claude API로 역사 이슈 분류/점수화
+- [ ] 기간별 뷰 (All-time)에서 활용
 
 ---
 
-## 기술 스택 요약
+## Phase 3: 고도화 + 커뮤니티 (3~6개월)
+
+### Step 13. 정치인 스코어카드
+
+- [ ] 개인별 페이지: 의정 통계 + minnat 점수 + 카테고리 breakdown
+- [ ] 국회 OpenAPI 연동: 출석률, 발의, 가결률, 표결 참여
+- [ ] 직책별 영향범위 가중치 (대통령 1.2 ~ 후보 0.5)
+- [ ] 시계열 뷰: 30일/1년/5년/역대 4탭
+
+### Step 14. NER + LLM 파이프라인
+
+- [ ] KPF-BERT-NER (HuggingFace, MIT 라이선스) 자체 호스팅
+- [ ] NER → Gazetteer 매칭 → LLM CoT 3중 파이프라인
+- [ ] 국회 의안정보 API 결정론적 매칭 (BILL_NO → PROC_RESULT_CD)
+  - policy_win 판정에서 LLM 의존도 0
+
+### Step 15. 인증 + 게시판
+
+- [ ] 카카오 소셜 로그인 + Supabase Auth
+- [ ] 자유게시판 CRUD + 댓글 + 신고
+- [ ] 진영 표시 (홍/청/없음)
+
+### Step 16. 거버넌스
+
+- [ ] 자문위 5인 (좌·중·우 학계 + 시민단체 + 운영자)
+- [ ] "논란 정책" 판정 합의제
+- [ ] 분기별 점검 + 사유 공개
+- [ ] 방법론 변경 Git 기록 + 사유 공개
+
+---
+
+## 소스 신뢰도 체계 (업데이트)
+
+| Tier | 소스 | 점수 반영 |
+|------|------|-----------|
+| 1 | 국회 의안정보시스템, 대한민국 법원, 중앙선관위, 법제처, 감사원 | 즉시 |
+| 2 | JTBC 팩트체크(IFCN 인증), MBC 알고보니, KBS 팩트체크K, 연합뉴스 팩트체크, SBS 사실은 | 즉시 |
+| 3 | 연합뉴스, KBS, MBC, SBS, 조선/중앙/동아, 한겨레/경향 | 좌+우 매체 다양성 확인 후 |
+| 4 | 보조 참고 | 절대 미반영 |
+
+※ ~~SNU 팩트체크~~: 2024년 8월 무기한 중단. read-only DB 역사 데이터 활용만.
+
+---
+
+## 기술 스택
 
 | 레이어 | 기술 |
 |--------|------|
 | 프론트엔드 | Next.js 15, TypeScript, Tailwind v4, Framer Motion |
-| 디자인 | taste-skill dark-luxe |
 | DB + Auth | Supabase (PostgreSQL + Auth) |
 | 배포 | Vercel |
 | CDN/보안 | Cloudflare (무료) |
-| 크롤링 | Python (Scrapy), GitHub Actions |
-| AI 분석 | Claude Haiku API |
-| 캐싱 | Vercel KV or Upstash |
-| OG 이미지 | @vercel/og |
-
-## 예상 비용
-
-| 항목 | 비용 |
-|------|------|
-| MVP 운영 | 월 ~$3 (Haiku API) |
-| 도메인 (minnat.kr) | ~2만원/년 |
-| 성장기 | 월 ~$48 (Vercel Pro + Supabase Pro) |
+| 크롤링 | Python + GitHub Actions |
+| AI 분석 | Claude Haiku (+ 중기: GPT-4o-mini ensemble) |
+| 뉴스 수집 | 네이버 검색 API + knews-rss + 직접 크롤링 |
+| NER (장기) | KPF-BERT-NER (HuggingFace) |
 
 ---
 
@@ -201,6 +220,8 @@
 
 1. **팩트만** — 의견/추측/루머 수집 금지
 2. **출처 투명** — 모든 점수에 원문 링크
-3. **방법론 공개** — 가중치, 공식 전체 공개
-4. **양쪽 동일 기준** — 동일 행위 동일 점수
+3. **방법론 공개** — 가중치, 공식, 룰 전체 Git 기록
+4. **양쪽 동일 기준** — 동일 행위 동일 점수 (Mirror Test)
 5. **자정작용** — 상대편 까기 전에 니네 진영부터 봐
+6. **의석수 보정** — 총합 + 1인당 평균 병기
+7. **편향 감사** — 주간 자동 + 분기 자문위 점검
