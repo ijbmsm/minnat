@@ -18,8 +18,5 @@ export async function GET(request: NextRequest) {
     issues.sort((a, b) => calculateIssueScore(b) - calculateIssueScore(a));
   }
 
-  return NextResponse.json({
-    issues,
-    total: issues.length,
-  });
+  return NextResponse.json({ issues, total: issues.length });
 }

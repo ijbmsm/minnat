@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import type { Issue } from "@/types";
-import { CATEGORY_MAP, CAMP_COLORS, SEVERITY_LABEL, SOURCE_TIER_LABEL } from "@/lib/constants";
+import { CATEGORY_MAP, CAMP_COLORS, SOURCE_TIER_LABEL, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import { calculateIssueScore } from "@/lib/score";
 
 interface IssueCardProps {
@@ -29,9 +29,8 @@ export function IssueCard({ issue, index }: IssueCardProps) {
   const config = CATEGORY_MAP[issue.category];
   const colors = CAMP_COLORS[issue.camp];
   const score = calculateIssueScore(issue);
-  const isPositive = config?.isPositive ?? false;
-  const isControversial = issue.category === "controversial";
-  const verified = issue.verified;
+  const isArchive = config?.isArchive ?? false;
+  const isScored = config?.isScored ?? false;
 
   return (
     <motion.div
@@ -53,20 +52,38 @@ export function IssueCard({ issue, index }: IssueCardProps) {
           <span className="text-xs font-medium text-white/50">
             {config?.label ?? issue.category}
           </span>
-          {!isControversial && (
-            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/30">
-              {SEVERITY_LABEL[issue.severity]}
+
+          {/* 형사 단계 */}
+          {issue.criminal_stage && (
+            <span className="rounded-md bg-red-500/10 px-1.5 py-0.5 text-[10px] text-red-400/60">
+              {CRIMINAL_STAGE_LABEL[issue.criminal_stage]}
             </span>
           )}
-          {verified ? (
-            <span className="rounded-md bg-green-500/10 px-1.5 py-0.5 text-[10px] text-green-400/50">
-              검증됨
-            </span>
-          ) : (
-            <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400/50">
-              미검증
+
+          {/* archive/scored 뱃지 */}
+          {isArchive && (
+            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/25">
+              기록
             </span>
           )}
+
+          {/* 신뢰도 */}
+          {isScored && (
+            issue.trust_level === "high" ? (
+              <span className="rounded-md bg-green-500/10 px-1.5 py-0.5 text-[10px] text-green-400/50">
+                검증됨
+              </span>
+            ) : issue.verified ? (
+              <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400/50">
+                교차검증
+              </span>
+            ) : (
+              <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400/50">
+                확정 전
+              </span>
+            )
+          )}
+
           <span className="ml-auto text-[11px] text-white/20">
             {relativeTime(issue.published_at)}
           </span>
@@ -87,25 +104,28 @@ export function IssueCard({ issue, index }: IssueCardProps) {
           <div className="flex items-center gap-2">
             <span className="text-xs text-white/25">{issue.source_name}</span>
             <span className="text-[10px] text-white/15">
-              Tier {issue.source_tier}
+              {SOURCE_TIER_LABEL[issue.source_tier]}
             </span>
+            {issue.coverage_count > 1 && (
+              <span className="text-[10px] text-white/15">
+                {issue.coverage_count}개 매체
+              </span>
+            )}
           </div>
 
-          {isControversial ? (
-            <span className="rounded-full border border-white/10 px-2.5 py-0.5 text-[10px] text-white/30">
-              점수 미반영
-            </span>
-          ) : (
+          {isScored && score > 0 ? (
             <div className="flex items-center gap-1.5">
               <span
                 className="font-mono text-sm font-semibold tabular-nums"
-                style={{ color: isPositive ? "#22c55e" : colors.glow }}
+                style={{ color: colors.glow }}
               >
-                {isPositive ? "+" : ""}{score.toFixed(1)}
+                {score.toFixed(1)}
               </span>
               <span className="text-[10px] text-white/15">/100</span>
             </div>
-          )}
+          ) : isArchive ? (
+            <span className="text-[10px] text-white/20">점수 없음</span>
+          ) : null}
         </div>
       </Link>
     </motion.div>

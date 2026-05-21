@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { href: "/", label: "스코어보드" },
   { href: "/issues", label: "이슈" },
   { href: "/politicians", label: "정치인" },
-  { href: "/policies", label: "논란 정책" },
   { href: "/board", label: "게시판" },
   { href: "/about", label: "방법론" },
 ] as const;
