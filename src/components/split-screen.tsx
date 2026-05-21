@@ -152,8 +152,8 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
           transition={{ duration: 1, delay: 5 }}
           className="grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2"
         >
-          <CategorySummary camp="blue" issues={blueIssues} />
-          <CategorySummary camp="red" issues={redIssues} />
+          <CategorySummary camp="blue" issues={blueIssues} view={view} />
+          <CategorySummary camp="red" issues={redIssues} view={view} />
         </motion.div>
 
         {/* 스크롤 힌트 */}

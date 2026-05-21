@@ -113,8 +113,11 @@ export default function AboutPage() {
         <section className="mb-12">
           <h2 className="mb-4 text-xl font-bold text-white/90">점수 산출 공식</h2>
           <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
-            <p className="mb-4 font-mono text-sm text-white/70">
-              이슈 점수 = 기본가중치 &times; 시간감쇠 &times; 심각도 &times; 영향범위
+            <p className="mb-2 font-mono text-sm text-white/70">
+              점수 = 0.4 &times; 카테고리 + 0.3 &times; 심각도 + 0.2 &times; 범위 + 0.1 &times; 시간
+            </p>
+            <p className="mb-4 text-xs text-white/30">
+              가중 합산 후 시그모이드 함수로 0~100 범위로 변환합니다.
             </p>
 
             <div className="space-y-4 text-sm">
@@ -123,7 +126,7 @@ export default function AboutPage() {
                 <div className="flex flex-wrap gap-2">
                   {(Object.entries(SEVERITY_MULTIPLIER) as [string, number][]).map(([key, val]) => (
                     <span key={key} className="rounded-md bg-white/5 px-2.5 py-1 text-xs text-white/50">
-                      {key}: &times;{val}
+                      {key}: {val}
                     </span>
                   ))}
                 </div>
@@ -133,16 +136,19 @@ export default function AboutPage() {
                 <div className="flex flex-wrap gap-2">
                   {(Object.entries(IMPACT_MULTIPLIER) as [string, number][]).map(([key, val]) => (
                     <span key={key} className="rounded-md bg-white/5 px-2.5 py-1 text-xs text-white/50">
-                      {key}: &times;{val}
+                      {key}: {val}
                     </span>
                   ))}
                 </div>
               </div>
               <div>
-                <p className="mb-2 text-white/40">시간 감쇠</p>
-                <p className="text-xs text-white/30">
-                  e^(-0.01 &times; 경과일수) — 1일 전: 0.99, 30일: 0.74, 90일: 0.41, 365일: 0.026
-                </p>
+                <p className="mb-2 text-white/40">시간 감쇠 (뷰별 분리)</p>
+                <div className="space-y-1.5 text-xs text-white/30">
+                  <p>최근 30일 (Hot): score / (경과시간+2)^1.8</p>
+                  <p>1년 (Recent): score &times; e^(-0.005t) — 반감기 140일</p>
+                  <p>5년 (Mid-term): score &times; max(0.3, e^(-0.002t)) — 30% floor</p>
+                  <p>역대 (All-time): 무감쇠</p>
+                </div>
               </div>
             </div>
           </div>
