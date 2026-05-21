@@ -44,12 +44,6 @@ export const IMPACT_MULTIPLIER: Record<ImpactScope, number> = {
   international: 1.2,
 };
 
-// ── 시간 감쇠 ──
-const DECAY_LAMBDA = 0.01;
-export function timeDecay(daysSincePublished: number): number {
-  return Math.exp(-DECAY_LAMBDA * daysSincePublished);
-}
-
 // ── 심각도 한글 ──
 export const SEVERITY_LABEL: Record<Severity, string> = {
   mild: "경미",

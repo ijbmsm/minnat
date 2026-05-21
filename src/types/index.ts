@@ -115,4 +115,8 @@ export interface ScoreResult {
   bluePositive: number;
   redNegative: number;
   redPositive: number;
+  bluePerCapita: number;
+  redPerCapita: number;
+  blueCount: number;
+  redCount: number;
 }

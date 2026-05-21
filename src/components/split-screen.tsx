@@ -5,13 +5,17 @@ import type { ScoreResult, Issue } from "@/types";
 import { CAMP_COLORS } from "@/lib/constants";
 import { CategorySummary } from "./category-summary";
 import { FluidBackground } from "./fluid-background";
+import { ViewTabs } from "./view-tabs";
+import type { ScoreView } from "@/lib/score";
 
 interface SplitScreenProps {
   score: ScoreResult;
   issues: Issue[];
+  view: ScoreView;
+  onViewChange: (view: ScoreView) => void;
 }
 
-export function SplitScreen({ score, issues }: SplitScreenProps) {
+export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenProps) {
   const blueIssues = issues.filter((i) => i.camp === "blue");
   const redIssues = issues.filter((i) => i.camp === "red");
 
@@ -117,15 +121,29 @@ export function SplitScreen({ score, issues }: SplitScreenProps) {
           </motion.div>
         </div>
 
-        {/* 설명 */}
-        <motion.p
+        {/* Dual Metric — 1인당 평균 */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1, delay: 4.2 }}
+          className="mb-4 flex w-full max-w-3xl justify-between text-[10px] tabular-nums text-white/20"
+        >
+          <span>이슈 {score.blueCount}건 | 1인당 {score.bluePerCapita.toFixed(1)}</span>
+          <span>{score.redPerCapita.toFixed(1)} 1인당 | {score.redCount}건 이슈</span>
+        </motion.div>
+
+        {/* 뷰 탭 + 설명 */}
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 4.5 }}
-          className="mb-16 text-center text-xs text-white/20"
+          className="mb-16 flex flex-col items-center gap-3"
         >
-          비율이 높을수록 해당 진영의 부정적 이슈가 많습니다
-        </motion.p>
+          <ViewTabs current={view} onChange={onViewChange} />
+          <p className="text-center text-xs text-white/20">
+            비율이 높을수록 해당 진영의 부정적 이슈가 많습니다
+          </p>
+        </motion.div>
 
         {/* 카테고리 요약 — 아래에서 올라옴 */}
         <motion.div

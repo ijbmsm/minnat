@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Issue, ScoreSnapshot } from "@/types";
+import type { Issue, Politician, ScoreSnapshot } from "@/types";
 
 export async function getIssues(options?: {
   camp?: string;
@@ -43,6 +43,51 @@ export async function getIssueById(id: string): Promise<Issue | null> {
     return null;
   }
   return data as Issue;
+}
+
+export async function getPoliticians(): Promise<Politician[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("politicians")
+    .select("*, party:parties(*)")
+    .eq("active", true)
+    .order("name");
+
+  if (error) {
+    console.error("[data] getPoliticians error:", error.message);
+    return [];
+  }
+  return data as Politician[];
+}
+
+export async function getPoliticianById(id: string): Promise<Politician | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("politicians")
+    .select("*, party:parties(*)")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("[data] getPoliticianById error:", error.message);
+    return null;
+  }
+  return data as Politician;
+}
+
+export async function getIssuesByPolitician(name: string): Promise<Issue[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("issues")
+    .select("*")
+    .eq("actor_name", name)
+    .order("published_at", { ascending: false });
+
+  if (error) {
+    console.error("[data] getIssuesByPolitician error:", error.message);
+    return [];
+  }
+  return data as Issue[];
 }
 
 export async function getLatestSnapshot(): Promise<ScoreSnapshot | null> {

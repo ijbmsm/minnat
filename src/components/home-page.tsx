@@ -1,16 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { SplitScreen } from "./split-screen";
 import { IssueCard } from "./issue-card";
 import { Nav } from "./nav";
-import type { Issue, ScoreResult } from "@/types";
+import { ViewTabs } from "./view-tabs";
+import { calculateScores, type ScoreView } from "@/lib/score";
+import type { Issue } from "@/types";
 
 interface HomePageProps {
-  score: ScoreResult;
   issues: Issue[];
 }
 
-export function HomePage({ score, issues }: HomePageProps) {
+export function HomePage({ issues }: HomePageProps) {
+  const [view, setView] = useState<ScoreView>("recent");
+  const score = calculateScores(issues, view);
+
   const scoredIssues = issues.filter((i) => i.category !== "controversial");
   const controversialIssues = issues.filter((i) => i.category === "controversial");
 
@@ -22,17 +27,20 @@ export function HomePage({ score, issues }: HomePageProps) {
     <>
       <Nav />
       <main>
-        <SplitScreen score={score} issues={issues} />
+        <SplitScreen score={score} issues={issues} view={view} onViewChange={setView} />
 
         <section className="mx-auto max-w-4xl px-4 py-20">
-          <h2 className="mb-8 text-2xl font-bold text-white/90">최근 이슈</h2>
+          <div className="mb-8 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white/90">최근 이슈</h2>
+            <ViewTabs current={view} onChange={setView} />
+          </div>
           {sortedIssues.length === 0 ? (
             <div className="rounded-xl border border-white/5 py-16 text-center text-white/30">
               수집된 이슈가 없습니다.
             </div>
           ) : (
             <div className="space-y-4">
-              {sortedIssues.map((issue, i) => (
+              {sortedIssues.slice(0, 20).map((issue, i) => (
                 <IssueCard key={issue.id} issue={issue} index={i} />
               ))}
             </div>

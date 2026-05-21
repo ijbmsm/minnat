@@ -11,7 +11,6 @@ import {
   SOURCE_TIER_LABEL,
   SEVERITY_MULTIPLIER,
   IMPACT_MULTIPLIER,
-  timeDecay,
 } from "@/lib/constants";
 import { calculateIssueScore } from "@/lib/score";
 
@@ -33,9 +32,8 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
 
   const daysSince = Math.max(
     0,
-    (Date.now() - new Date(issue.published_at).getTime()) / (1000 * 60 * 60 * 24)
+    (Date.now() - new Date(issue.published_at).getTime()) / 86400000
   );
-  const decay = timeDecay(daysSince);
 
   return (
     <>
@@ -111,28 +109,29 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
             </div>
 
             <div className="space-y-2 text-sm">
+              <p className="mb-3 text-xs text-white/25">
+                가중 합 방식: 0.4×카테고리 + 0.3×심각도 + 0.2×범위 + 0.1×시간 → 시그모이드(0~100)
+              </p>
               <div className="flex justify-between">
-                <span className="text-white/40">기본 가중치 ({config?.label})</span>
-                <span className="tabular-nums text-white/60">{config?.baseWeight}</span>
+                <span className="text-white/40">카테고리 ({config?.label})</span>
+                <span className="tabular-nums text-white/60">가중치 {config?.baseWeight}/10 (×0.4)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/40">심각도 ({SEVERITY_LABEL[issue.severity]})</span>
-                <span className="tabular-nums text-white/60">&times; {SEVERITY_MULTIPLIER[issue.severity]}</span>
+                <span className="tabular-nums text-white/60">×{SEVERITY_MULTIPLIER[issue.severity]} (×0.3)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/40">영향 범위 ({IMPACT_LABEL[issue.impact_scope]})</span>
-                <span className="tabular-nums text-white/60">&times; {IMPACT_MULTIPLIER[issue.impact_scope]}</span>
+                <span className="tabular-nums text-white/60">×{IMPACT_MULTIPLIER[issue.impact_scope]} (×0.2)</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/40">시간 감쇠 ({Math.round(daysSince)}일 전)</span>
-                <span className="tabular-nums text-white/60">&times; {decay.toFixed(3)}</span>
+                <span className="text-white/40">경과 시간</span>
+                <span className="tabular-nums text-white/60">{Math.round(daysSince)}일 전 (×0.1)</span>
               </div>
               <div className="mt-3 border-t border-white/5 pt-3">
                 <div className="flex justify-between font-medium">
-                  <span className="text-white/60">산출 결과</span>
-                  <span className="tabular-nums text-white/80">
-                    {config?.baseWeight} &times; {SEVERITY_MULTIPLIER[issue.severity]} &times; {IMPACT_MULTIPLIER[issue.impact_scope]} &times; {decay.toFixed(3)} = {score}
-                  </span>
+                  <span className="text-white/60">최종 점수</span>
+                  <span className="tabular-nums text-white/80">{score} / 100</span>
                 </div>
               </div>
             </div>
