@@ -5,6 +5,9 @@ import { SplitScreen } from "./split-screen";
 import { IssueCard } from "./issue-card";
 import { Nav } from "./nav";
 import { ViewTabs } from "./view-tabs";
+import { CategoryBarChart } from "./category-bar-chart";
+import { IssueBubble } from "./issue-bubble";
+import { TimelineView } from "./timeline-view";
 import { calculateScores, type ScoreView } from "@/lib/score";
 import { CATEGORY_MAP } from "@/lib/constants";
 import type { Issue } from "@/types";
@@ -31,10 +34,43 @@ export function HomePage({ issues }: HomePageProps) {
     <>
       <Nav />
       <main>
+        {/* 메인 스코어보드 */}
         <SplitScreen score={score} issues={issues} view={view} onViewChange={setView} />
 
-        {/* 점수 이슈 (공식 처분) */}
-        <section className="mx-auto max-w-4xl px-4 py-20">
+        {/* B. 카테고리 바 차트 — 한눈에 비교 */}
+        <section className="mx-auto max-w-4xl px-4 py-16">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white/90">카테고리별 비교</h2>
+              <p className="mt-1 text-xs text-white/30">공식 처분 유형별 진영 비교</p>
+            </div>
+            <ViewTabs current={view} onChange={setView} />
+          </div>
+          <CategoryBarChart issues={issues} view={view} />
+        </section>
+
+        {/* C. 이슈 버블 — 점수 크기대로 */}
+        <section className="mx-auto max-w-4xl px-4 pb-16">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white/90">이슈 맵</h2>
+            <p className="mt-1 text-xs text-white/30">원이 클수록 점수가 높은 이슈. 호버하면 상세 표시.</p>
+          </div>
+          <IssueBubble issues={issues} view={view} />
+        </section>
+
+        {/* A. 타임라인 — 연도별 좌우 대결 */}
+        <section className="mx-auto max-w-4xl px-4 pb-16">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white/90">타임라인</h2>
+              <p className="mt-1 text-xs text-white/30">연도별 공식 처분 이력 — 좌측 파랑, 우측 빨강</p>
+            </div>
+          </div>
+          <TimelineView issues={issues} view={view} />
+        </section>
+
+        {/* 공식 처분 이슈 목록 */}
+        <section className="mx-auto max-w-4xl px-4 py-16">
           <div className="mb-8 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white/90">공식 처분 이슈</h2>
             <ViewTabs current={view} onChange={setView} />
@@ -52,7 +88,7 @@ export function HomePage({ issues }: HomePageProps) {
           )}
         </section>
 
-        {/* Archive (기록) */}
+        {/* Archive */}
         {sortedArchive.length > 0 && (
           <section className="mx-auto max-w-4xl px-4 pb-20">
             <div className="mb-8 flex items-center gap-3">
