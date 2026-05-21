@@ -48,7 +48,7 @@ export function calculateIssueScore(issue: Issue, view: ScoreView = "recent"): n
   if (!config || !config.isScored) return 0;
 
   if (issue.source_tier === 4) return 0;
-  // Tier 3: 미검증이어도 점수 반영 (UI에서 미검증 라벨 표시)
+  if (issue.source_tier === 3 && !issue.verified) return 0;
 
   const daysSince = Math.max(0, (Date.now() - new Date(issue.published_at).getTime()) / 86400000);
 
