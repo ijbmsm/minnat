@@ -1,5 +1,5 @@
 import { IssueDetailPage } from "@/components/issue-detail-page";
-import { getIssueById } from "@/lib/data";
+import { getIssueById, getEventByIssueId } from "@/lib/data";
 import { notFound } from "next/navigation";
 
 interface Props {
@@ -22,5 +22,6 @@ export default async function Page({ params }: Props) {
   const { id } = await params;
   const issue = await getIssueById(id);
   if (!issue) notFound();
-  return <IssueDetailPage issue={issue} />;
+  const event = await getEventByIssueId(id);
+  return <IssueDetailPage issue={issue} event={event} />;
 }

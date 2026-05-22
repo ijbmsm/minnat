@@ -105,6 +105,7 @@ export interface Issue {
   actor_name: string | null;
   actor_party: string | null;
   cross_verified_sources: CrossSource[];
+  event_id: string | null;
   politician?: Politician;
 }
 
@@ -131,6 +132,33 @@ export interface ScoreSnapshot {
   red_pct: number;
   blue_count: number;
   red_count: number;
+  created_at: string;
+}
+
+// ── 사건 (Event = issue_clusters) ──
+export interface IssueEvent {
+  id: string;
+  representative_issue_id: string;
+  representative_issue?: Issue;
+  actor_name: string | null;
+  category: IssueCategory;
+  camp: Camp;
+  issue_count: number;
+  coverage_count: number;
+  headline_days: number;
+  media_diversity_score: number;
+  trust_level: TrustLevel;
+  verified: boolean;
+  weighted_score: number;
+  cross_verified_sources: CrossSource[];
+  first_reported_at: string;
+  last_reported_at: string;
+  criminal_stage: CriminalStage | null;
+  position_weight: number;
+  source_tier: SourceTier;
+  summary: string | null;
+  is_active: boolean;
+  member_issues?: Issue[];
   created_at: string;
 }
 

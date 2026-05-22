@@ -2,20 +2,28 @@
 
 import Link from "next/link";
 import { Nav } from "./nav";
-import type { Issue } from "@/types";
+import type { Issue, IssueEvent } from "@/types";
 import { CATEGORY_MAP, CAMP_COLORS, SOURCE_TIER_LABEL, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
-import { calculateIssueScore } from "@/lib/score";
+import { calculateIssueScore, calculateEventScore } from "@/lib/score";
 
 interface IssueDetailPageProps {
   issue: Issue;
+  event?: IssueEvent | null;
 }
 
-export function IssueDetailPage({ issue }: IssueDetailPageProps) {
+export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
   const config = CATEGORY_MAP[issue.category];
   const colors = CAMP_COLORS[issue.camp];
-  const score = calculateIssueScore(issue);
   const isArchive = config?.isArchive ?? false;
   const isScored = config?.isScored ?? false;
+
+  // event가 있으면 event 레벨 점수, 없으면 issue 레벨
+  const score = event ? calculateEventScore(event) : calculateIssueScore(issue);
+  const coverageCount = event?.coverage_count ?? issue.coverage_count;
+  const headlineDays = event?.headline_days ?? issue.headline_days;
+  const posWeight = event?.position_weight ?? issue.position_weight;
+  const criminalStage = event?.criminal_stage ?? issue.criminal_stage;
+  const crossSources = event?.cross_verified_sources ?? issue.cross_verified_sources;
 
   const publishedDate = new Date(issue.published_at).toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -39,13 +47,18 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
           <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colors.primary }} />
           <span className="text-sm font-medium" style={{ color: colors.glow }}>{colors.label}</span>
           <span className="text-sm text-white/50">{config?.label}</span>
-          {issue.criminal_stage && (
+          {criminalStage && (
             <span className="rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-400/60">
-              {CRIMINAL_STAGE_LABEL[issue.criminal_stage]}
+              {CRIMINAL_STAGE_LABEL[criminalStage]}
             </span>
           )}
           {isArchive && (
             <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-white/25">기록</span>
+          )}
+          {event && event.issue_count > 1 && (
+            <span className="rounded-md bg-blue-500/10 px-2 py-0.5 text-xs text-blue-400/50">
+              {event.issue_count}개 보도
+            </span>
           )}
           <span className="text-sm text-white/25">{publishedDate}</span>
         </div>
@@ -66,7 +79,7 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
               <p className="text-sm text-white/70">{issue.source_name}</p>
               <p className="text-xs text-white/30">
                 {SOURCE_TIER_LABEL[issue.source_tier]} (Tier {issue.source_tier})
-                {issue.coverage_count > 1 && ` · ${issue.coverage_count}개 매체 보도`}
+                {coverageCount > 1 && ` · ${coverageCount}개 매체 보도`}
               </p>
             </div>
             <a
@@ -79,11 +92,11 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
             </a>
           </div>
           {/* 교차검증 소스 */}
-          {issue.cross_verified_sources.length > 0 && (
+          {crossSources.length > 0 && (
             <div className="mt-3 border-t border-white/5 pt-3">
               <p className="mb-2 text-xs text-white/30">교차검증 매체</p>
               <div className="flex flex-wrap gap-2">
-                {issue.cross_verified_sources.map((s, i) => (
+                {crossSources.map((s, i) => (
                   <span key={i} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-white/40">
                     {s.name} ({s.lean})
                   </span>
@@ -92,6 +105,69 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
             </div>
           )}
         </div>
+
+        {/* 사건 맥락 (Event Context) */}
+        {event && event.member_issues && event.member_issues.length > 1 && (
+          <div className="mb-8 rounded-xl border border-white/5 bg-white/[0.02] p-5">
+            <h2 className="mb-4 text-sm font-semibold text-white/50">
+              사건 맥락 — {event.issue_count}개 보도 종합
+            </h2>
+
+            {/* 타임라인 */}
+            <div className="mb-4 flex items-center gap-3 text-xs text-white/30">
+              <span>
+                최초 보도: {new Date(event.first_reported_at).toLocaleDateString("ko-KR")}
+              </span>
+              <span className="text-white/10">→</span>
+              <span>
+                최신 보도: {new Date(event.last_reported_at).toLocaleDateString("ko-KR")}
+              </span>
+              <span className="text-white/10">|</span>
+              <span>{event.headline_days}일간 지속</span>
+            </div>
+
+            {/* 관련 보도 목록 */}
+            <div className="space-y-2">
+              {event.member_issues.map((mi) => (
+                <div
+                  key={mi.id}
+                  className={`flex items-start justify-between gap-3 rounded-lg px-3 py-2 text-sm ${
+                    mi.id === issue.id ? "bg-white/[0.04] border border-white/10" : "bg-white/[0.01]"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    {mi.id === issue.id ? (
+                      <p className="truncate text-white/70">
+                        {mi.title}
+                        <span className="ml-2 text-[10px] text-white/30">현재 보기</span>
+                      </p>
+                    ) : (
+                      <Link
+                        href={`/issues/${mi.id}`}
+                        className="block truncate text-white/50 transition-colors hover:text-white/70"
+                      >
+                        {mi.title}
+                      </Link>
+                    )}
+                    <p className="mt-0.5 text-xs text-white/25">
+                      {mi.source_name} · {SOURCE_TIER_LABEL[mi.source_tier]} · {new Date(mi.published_at).toLocaleDateString("ko-KR")}
+                    </p>
+                  </div>
+                  {mi.source_url && mi.id !== issue.id && (
+                    <a
+                      href={mi.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-[10px] text-white/20 hover:text-white/40"
+                    >
+                      원문
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 점수 근거 (scored 카테고리만) */}
         {isScored && (
@@ -105,6 +181,12 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
               <span className="text-sm text-white/30">/100</span>
             </div>
 
+            {event && event.issue_count > 1 && (
+              <p className="mb-3 text-xs text-blue-400/40">
+                이 점수는 {event.issue_count}개 보도를 종합한 사건 단위로 산출됩니다.
+              </p>
+            )}
+
             <p className="mb-3 text-xs text-white/25">
               base = 보도량(×0.40) + 공식처리(×0.35) + 지속일수(×0.25) → ×다양도 ×직책 ×시간감쇠
             </p>
@@ -112,21 +194,21 @@ export function IssueDetailPage({ issue }: IssueDetailPageProps) {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-white/40">보도 매체 수</span>
-                <span className="tabular-nums text-white/60">{issue.coverage_count}개 (×0.40)</span>
+                <span className="tabular-nums text-white/60">{coverageCount}개 (×0.40)</span>
               </div>
-              {issue.criminal_stage && (
+              {criminalStage && (
                 <div className="flex justify-between">
-                  <span className="text-white/40">형사 단계 ({CRIMINAL_STAGE_LABEL[issue.criminal_stage]})</span>
-                  <span className="tabular-nums text-white/60">{CRIMINAL_STAGE_WEIGHT[issue.criminal_stage]}/10 (×0.35)</span>
+                  <span className="text-white/40">형사 단계 ({CRIMINAL_STAGE_LABEL[criminalStage]})</span>
+                  <span className="tabular-nums text-white/60">{CRIMINAL_STAGE_WEIGHT[criminalStage]}/10 (×0.35)</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-white/40">헤드라인 지속</span>
-                <span className="tabular-nums text-white/60">{issue.headline_days}일 (×0.25)</span>
+                <span className="tabular-nums text-white/60">{headlineDays}일 (×0.25)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-white/40">직책 가중치</span>
-                <span className="tabular-nums text-white/60">×{issue.position_weight}</span>
+                <span className="tabular-nums text-white/60">×{posWeight}</span>
               </div>
             </div>
           </div>
