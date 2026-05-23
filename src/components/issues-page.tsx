@@ -10,64 +10,100 @@ import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants
 import type { IssueEvent } from "@/types";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
+const FOUR_HOURS = 4 * 60 * 60 * 1000;
 
 interface IssuesPageProps {
   events: IssueEvent[];
 }
 
-// ── 날짜 그루핑 ──
+// ── 타임라인 Row: 같은 시간대(4h)의 blue/red를 하나의 row로 ──
 
-interface DateGroup {
-  label: string;
-  blue: IssueEvent[];
-  red: IssueEvent[];
-  total: number;
+interface TimelineRow {
+  blue: IssueEvent | null;
+  red: IssueEvent | null;
+  time: number; // 대표 timestamp
 }
 
-function groupByDate(events: IssueEvent[]): DateGroup[] {
+interface DateSection {
+  label: string;
+  rows: TimelineRow[];
+}
+
+function getEventTime(e: IssueEvent): number {
+  return new Date(e.last_reported_at || e.created_at).getTime();
+}
+
+function buildTimelineRows(events: IssueEvent[]): TimelineRow[] {
+  // 전체 events를 시간순 정렬 (최신 먼저)
+  const sorted = [...events].sort((a, b) => getEventTime(b) - getEventTime(a));
+  const rows: TimelineRow[] = [];
+  const used = new Set<string>();
+
+  for (const event of sorted) {
+    if (used.has(event.id)) continue;
+    used.add(event.id);
+
+    const time = getEventTime(event);
+    const side = event.camp;
+
+    // 반대편 진영에서 4시간 이내 이벤트 찾기
+    const otherCamp = side === "blue" ? "red" : "blue";
+    let partner: IssueEvent | null = null;
+
+    for (const candidate of sorted) {
+      if (used.has(candidate.id)) continue;
+      if (candidate.camp !== otherCamp) continue;
+      if (Math.abs(getEventTime(candidate) - time) <= FOUR_HOURS) {
+        partner = candidate;
+        used.add(candidate.id);
+        break;
+      }
+    }
+
+    rows.push({
+      blue: side === "blue" ? event : partner,
+      red: side === "red" ? event : partner,
+      time,
+    });
+  }
+
+  return rows;
+}
+
+function groupRowsByDate(rows: TimelineRow[]): DateSection[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
   const weekAgo = new Date(today.getTime() - 7 * 86400000);
   const monthAgo = new Date(today.getTime() - 30 * 86400000);
 
-  const groups: Record<string, { blue: IssueEvent[]; red: IssueEvent[] }> = {};
+  const sections: Record<string, TimelineRow[]> = {};
   const order: string[] = [];
 
-  function addToGroup(label: string, event: IssueEvent) {
-    if (!groups[label]) {
-      groups[label] = { blue: [], red: [] };
+  function addRow(label: string, row: TimelineRow) {
+    if (!sections[label]) {
+      sections[label] = [];
       order.push(label);
     }
-    groups[label][event.camp].push(event);
+    sections[label].push(row);
   }
 
-  for (const event of events) {
-    const date = new Date(event.last_reported_at || event.created_at);
-    if (date >= today) addToGroup("오늘", event);
-    else if (date >= yesterday) addToGroup("어제", event);
-    else if (date >= weekAgo) addToGroup("이번 주", event);
-    else if (date >= monthAgo) addToGroup("이번 달", event);
+  for (const row of rows) {
+    const date = new Date(row.time);
+    if (date >= today) addRow("오늘", row);
+    else if (date >= yesterday) addRow("어제", row);
+    else if (date >= weekAgo) addRow("이번 주", row);
+    else if (date >= monthAgo) addRow("이번 달", row);
     else {
       const monthLabel = date.toLocaleDateString("ko-KR", { year: "numeric", month: "long" });
-      addToGroup(monthLabel, event);
+      addRow(monthLabel, row);
     }
   }
 
-  // 각 그룹 내에서 시간순 정렬 (최신 위)
-  const byTime = (a: IssueEvent, b: IssueEvent) =>
-    new Date(b.last_reported_at || b.created_at).getTime() -
-    new Date(a.last_reported_at || a.created_at).getTime();
-
-  return order.map((label) => ({
-    label,
-    blue: groups[label].blue.sort(byTime),
-    red: groups[label].red.sort(byTime),
-    total: groups[label].blue.length + groups[label].red.length,
-  }));
+  return order.map((label) => ({ label, rows: sections[label] }));
 }
 
-// ── 진영별 카드 (home-page.tsx의 CampEventCard와 동일 스타일) ──
+// ── 진영별 카드 ──
 
 function CampCard({ event }: { event: IssueEvent }) {
   const colors = CAMP_COLORS[event.camp];
@@ -81,7 +117,6 @@ function CampCard({ event }: { event: IssueEvent }) {
         style={{ background: `linear-gradient(135deg, ${colors.primary}15, transparent 60%)` }}
       >
         <div className="rounded-[calc(1.25rem-1px)] bg-white/[0.03] p-4 md:p-5">
-          {/* 상단 */}
           <div className="mb-2.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
@@ -103,12 +138,10 @@ function CampCard({ event }: { event: IssueEvent }) {
             )}
           </div>
 
-          {/* 제목 */}
           <p className="mb-2 line-clamp-2 text-[14px] font-medium leading-snug text-white/80 transition-colors duration-300 group-hover:text-white">
             {event.summary || "사건 요약 없음"}
           </p>
 
-          {/* 하단 */}
           <div className="flex items-center gap-2.5 text-[11px] text-white/25">
             {event.actor_name && <span className="text-white/35">{event.actor_name}</span>}
             {event.coverage_count > 1 && <span>{event.coverage_count}개 매체</span>}
@@ -120,29 +153,7 @@ function CampCard({ event }: { event: IssueEvent }) {
   );
 }
 
-// ── 컬럼 헤더 ──
-
-function ColumnHeader({ camp }: { camp: "blue" | "red" }) {
-  const colors = CAMP_COLORS[camp];
-  const gradientDir = camp === "blue" ? "to-r" : "to-r";
-  const fromColor = camp === "blue" ? "from-blue-500/15" : "from-red-500/15";
-
-  return (
-    <div className="mb-4 flex items-center gap-2.5">
-      <div
-        className="h-2.5 w-2.5 rounded-full"
-        style={{
-          backgroundColor: colors.primary,
-          boxShadow: `0 0 10px ${colors.primary}50`,
-        }}
-      />
-      <span className="text-xs font-medium text-white/40">{colors.label}</span>
-      <div className={`h-px flex-1 bg-gradient-${gradientDir} ${fromColor} to-transparent`} />
-    </div>
-  );
-}
-
-// ── 메인 컴포넌트 ──
+// ── 메인 ──
 
 export function IssuesPage({ events }: IssuesPageProps) {
   const [filters, setFilters] = useState<FilterState>({
@@ -152,7 +163,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
   });
   const [showArchive, setShowArchive] = useState(false);
 
-  const { scored, archive, dateGroups } = useMemo(() => {
+  const { scored, archive, dateSections } = useMemo(() => {
     const filtered = events.filter((event) => {
       if (filters.camp !== "all" && event.camp !== filters.camp) return false;
       if (filters.category !== "all" && event.category !== filters.category) return false;
@@ -162,22 +173,17 @@ export function IssuesPage({ events }: IssuesPageProps) {
     const scored = filtered.filter((e) => CATEGORY_MAP[e.category]?.isScored);
     const archive = filtered.filter((e) => !CATEGORY_MAP[e.category]?.isScored);
 
-    const sortFn = filters.sort === "score"
-      ? (a: IssueEvent, b: IssueEvent) => calculateEventScore(b) - calculateEventScore(a)
-      : (a: IssueEvent, b: IssueEvent) =>
-          new Date(b.last_reported_at || b.created_at).getTime() -
-          new Date(a.last_reported_at || a.created_at).getTime();
+    // 타임라인 rows 생성
+    const rows = buildTimelineRows(scored);
+    const dateSections = filters.sort === "latest" ? groupRowsByDate(rows) : [];
 
-    scored.sort(sortFn);
-    archive.sort(sortFn);
+    // 점수순
+    if (filters.sort === "score") {
+      scored.sort((a, b) => calculateEventScore(b) - calculateEventScore(a));
+    }
 
-    const dateGroups = filters.sort === "latest" ? groupByDate(scored) : [];
-    return { scored, archive, dateGroups };
+    return { scored, archive, dateSections };
   }, [events, filters]);
-
-  // 점수순일 때 좌우 분리
-  const blueScored = scored.filter((e) => e.camp === "blue");
-  const redScored = scored.filter((e) => e.camp === "red");
 
   return (
     <>
@@ -190,7 +196,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
           </span>
           <h1 className="text-3xl font-bold tracking-tight">이슈 타임라인</h1>
           <p className="mt-2 text-sm text-white/35">
-            공식 처분 기반 정치 사건을 진영별로 비교합니다
+            공식 처분 기반 정치 사건을 시간순으로 비교합니다
           </p>
         </div>
 
@@ -204,124 +210,108 @@ export function IssuesPage({ events }: IssuesPageProps) {
           </div>
         ) : (
           <>
-            {/* ── 날짜 그루핑 + 좌우 분할 (최신순) ── */}
-            {filters.sort === "latest" && dateGroups.length > 0 ? (
-              <div className="space-y-12">
-                {dateGroups.map((group, gi) => (
+            {/* 컬럼 헤더 — 최상단 1번만 */}
+            <div className="mb-8 hidden grid-cols-2 gap-6 md:grid">
+              {(["blue", "red"] as const).map((camp) => {
+                const colors = CAMP_COLORS[camp];
+                const fromColor = camp === "blue" ? "from-blue-500/15" : "from-red-500/15";
+                return (
+                  <div key={camp} className="flex items-center gap-2.5">
+                    <div
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor: colors.primary,
+                        boxShadow: `0 0 10px ${colors.primary}50`,
+                      }}
+                    />
+                    <span className="text-xs font-medium text-white/40">{colors.label}</span>
+                    <div className={`h-px flex-1 bg-gradient-to-r ${fromColor} to-transparent`} />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── 최신순: 통합 타임라인 ── */}
+            {filters.sort === "latest" && dateSections.length > 0 ? (
+              <div className="space-y-10">
+                {dateSections.map((section, si) => (
                   <motion.section
-                    key={group.label}
-                    initial={{ opacity: 0, y: 20 }}
+                    key={section.label}
+                    initial={{ opacity: 0, y: 16 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-60px" }}
-                    transition={{ duration: 0.7, delay: gi * 0.05, ease: EASE }}
+                    transition={{ duration: 0.6, delay: si * 0.04, ease: EASE }}
                   >
                     {/* 날짜 헤더 */}
-                    <div className="mb-6 flex items-center gap-4">
-                      <h2 className="text-sm font-semibold text-white/50">{group.label}</h2>
+                    <div className="mb-5 flex items-center gap-4">
+                      <h2 className="text-sm font-semibold text-white/50">{section.label}</h2>
                       <div className="h-px flex-1 bg-white/5" />
                       <span className="text-[11px] tabular-nums text-white/20">
-                        {group.total}건
+                        {section.rows.length}건
                       </span>
                     </div>
 
-                    {/* 좌우 2열 */}
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
-                      {/* 파랑 (좌) */}
-                      <div>
-                        {gi === 0 && <ColumnHeader camp="blue" />}
-                        {group.blue.length > 0 ? (
-                          <div className="space-y-3">
-                            {group.blue.map((event, i) => (
-                              <motion.div
-                                key={event.id}
-                                initial={{ opacity: 0, y: 12 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: i * 0.06, ease: EASE }}
-                              >
-                                <CampCard event={event} />
-                              </motion.div>
-                            ))}
+                    {/* 타임라인 rows */}
+                    <div className="space-y-3">
+                      {section.rows.map((row, ri) => (
+                        <motion.div
+                          key={`${row.time}-${ri}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                          transition={{ duration: 0.5, delay: ri * 0.04, ease: EASE }}
+                          className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-6"
+                        >
+                          {/* 파랑 (좌) */}
+                          <div>
+                            {row.blue ? (
+                              <CampCard event={row.blue} />
+                            ) : (
+                              <div className="hidden md:block" />
+                            )}
                           </div>
-                        ) : (
-                          <div className="rounded-xl border border-white/[0.03] py-8 text-center text-[11px] text-white/15">
-                            이 기간 해당 없음
+                          {/* 빨강 (우) */}
+                          <div>
+                            {row.red ? (
+                              <CampCard event={row.red} />
+                            ) : (
+                              <div className="hidden md:block" />
+                            )}
                           </div>
-                        )}
-                      </div>
-
-                      {/* 빨강 (우) */}
-                      <div>
-                        {gi === 0 && <ColumnHeader camp="red" />}
-                        {group.red.length > 0 ? (
-                          <div className="space-y-3">
-                            {group.red.map((event, i) => (
-                              <motion.div
-                                key={event.id}
-                                initial={{ opacity: 0, y: 12 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true }}
-                                transition={{ duration: 0.5, delay: i * 0.06, ease: EASE }}
-                              >
-                                <CampCard event={event} />
-                              </motion.div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-white/[0.03] py-8 text-center text-[11px] text-white/15">
-                            이 기간 해당 없음
-                          </div>
-                        )}
-                      </div>
+                        </motion.div>
+                      ))}
                     </div>
                   </motion.section>
                 ))}
               </div>
             ) : scored.length > 0 ? (
-              /* ── 점수순 — 좌우 분할 (날짜 그루핑 없이) ── */
+              /* ── 점수순 ── */
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-                <div>
-                  <ColumnHeader camp="blue" />
-                  <div className="space-y-3">
-                    {blueScored.map((event, i) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: i * 0.04, ease: EASE }}
-                      >
-                        <CampCard event={event} />
-                      </motion.div>
-                    ))}
-                    {blueScored.length === 0 && (
-                      <div className="rounded-xl border border-white/[0.03] py-12 text-center text-xs text-white/15">
-                        해당 없음
+                {(["blue", "red"] as const).map((camp) => {
+                  const campEvents = scored.filter((e) => e.camp === camp);
+                  return (
+                    <div key={camp}>
+                      <div className="space-y-3">
+                        {campEvents.map((event, i) => (
+                          <motion.div
+                            key={event.id}
+                            initial={{ opacity: 0, y: 12 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 0.5, delay: i * 0.04, ease: EASE }}
+                          >
+                            <CampCard event={event} />
+                          </motion.div>
+                        ))}
+                        {campEvents.length === 0 && (
+                          <div className="rounded-xl border border-white/[0.03] py-12 text-center text-xs text-white/15">
+                            해당 없음
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <ColumnHeader camp="red" />
-                  <div className="space-y-3">
-                    {redScored.map((event, i) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ opacity: 0, y: 12 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.5, delay: i * 0.04, ease: EASE }}
-                      >
-                        <CampCard event={event} />
-                      </motion.div>
-                    ))}
-                    {redScored.length === 0 && (
-                      <div className="rounded-xl border border-white/[0.03] py-12 text-center text-xs text-white/15">
-                        해당 없음
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 
@@ -357,39 +347,24 @@ export function IssuesPage({ events }: IssuesPageProps) {
                     transition={{ duration: 0.4, ease: EASE }}
                     className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6"
                   >
-                    {/* Archive도 좌우 분리 */}
-                    <div className="space-y-1 rounded-[1.25rem] bg-white/[0.01] p-3 ring-1 ring-white/5">
-                      <p className="mb-2 px-2 text-[10px] text-white/20">{CAMP_COLORS.blue.label}</p>
-                      {archive.filter((e) => e.camp === "blue").map((event) => (
-                        <Link
-                          key={event.id}
-                          href={`/issues/${event.representative_issue_id}`}
-                          className="group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.03]"
-                        >
-                          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `${CAMP_COLORS.blue.primary}40` }} />
-                          <span className="flex-1 truncate text-[13px] text-white/35 transition-colors group-hover:text-white/55">
-                            {event.actor_name && <span className="text-white/20">{event.actor_name} — </span>}
-                            {event.summary || event.category}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="space-y-1 rounded-[1.25rem] bg-white/[0.01] p-3 ring-1 ring-white/5">
-                      <p className="mb-2 px-2 text-[10px] text-white/20">{CAMP_COLORS.red.label}</p>
-                      {archive.filter((e) => e.camp === "red").map((event) => (
-                        <Link
-                          key={event.id}
-                          href={`/issues/${event.representative_issue_id}`}
-                          className="group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.03]"
-                        >
-                          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `${CAMP_COLORS.red.primary}40` }} />
-                          <span className="flex-1 truncate text-[13px] text-white/35 transition-colors group-hover:text-white/55">
-                            {event.actor_name && <span className="text-white/20">{event.actor_name} — </span>}
-                            {event.summary || event.category}
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
+                    {(["blue", "red"] as const).map((camp) => (
+                      <div key={camp} className="space-y-1 rounded-[1.25rem] bg-white/[0.01] p-3 ring-1 ring-white/5">
+                        <p className="mb-2 px-2 text-[10px] text-white/20">{CAMP_COLORS[camp].label}</p>
+                        {archive.filter((e) => e.camp === camp).map((event) => (
+                          <Link
+                            key={event.id}
+                            href={`/issues/${event.representative_issue_id}`}
+                            className="group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.03]"
+                          >
+                            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `${CAMP_COLORS[camp].primary}40` }} />
+                            <span className="flex-1 truncate text-[13px] text-white/35 transition-colors group-hover:text-white/55">
+                              {event.actor_name && <span className="text-white/20">{event.actor_name} — </span>}
+                              {event.summary || event.category}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
                   </motion.div>
                 )}
               </div>
