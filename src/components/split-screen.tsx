@@ -42,7 +42,7 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
           animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 1.2, delay: 2.5, ease: "easeOut" }}
           className="mb-12 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
-          style={{ textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
+          style={{ fontFamily: "'Shilla Culture', serif", textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
         >
           민낯
         </motion.h1>

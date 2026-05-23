@@ -20,7 +20,8 @@ export function Nav() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link
           href="/"
-          className="text-lg font-bold tracking-tight text-white/90 transition-colors hover:text-white"
+          className="text-xl font-bold tracking-tight text-white/90 transition-colors hover:text-white"
+          style={{ fontFamily: "'Shilla Culture', serif" }}
         >
           민낯
         </Link>
