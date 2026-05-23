@@ -14,7 +14,7 @@ export const SCORE_VIEW_LABELS: Record<ScoreView, string> = {
 function viewDecay(daysSince: number, view: ScoreView): number {
   switch (view) {
     case "hot":
-      return 1 / Math.pow(daysSince * 24 + 2, 1.8);
+      return Math.exp(-0.05 * daysSince);
     case "recent":
       return Math.exp(-0.005 * daysSince);
     case "midterm":
