@@ -92,13 +92,44 @@ export async function getIssuesByPolitician(name: string): Promise<Issue[]> {
 
 // ── Event 조회 ──
 
+const EVENT_SELECT_COLUMNS = "id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at";
+
+export async function getEvents(options?: {
+  camp?: string;
+  category?: string;
+  limit?: number;
+}): Promise<IssueEvent[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("issue_clusters")
+    .select(EVENT_SELECT_COLUMNS)
+    .order("last_reported_at", { ascending: false });
+
+  if (options?.camp) {
+    query = query.eq("camp", options.camp);
+  }
+  if (options?.category) {
+    query = query.eq("category", options.category);
+  }
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[data] getEvents error:", error.message);
+    return [];
+  }
+  return (data ?? []) as IssueEvent[];
+}
+
 export async function getEventById(id: string): Promise<IssueEvent | null> {
   const supabase = await createClient();
 
   // event 조회 (embedding 제외 — 1536차원 벡터는 프론트에서 불필요)
   const { data: event, error } = await supabase
     .from("issue_clusters")
-    .select("id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at")
+    .select(EVENT_SELECT_COLUMNS)
     .eq("id", id)
     .single();
 
@@ -149,7 +180,7 @@ export async function getEventsByPolitician(name: string): Promise<IssueEvent[]>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("issue_clusters")
-    .select("id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at")
+    .select(EVENT_SELECT_COLUMNS)
     .eq("actor_name", name)
     .order("last_reported_at", { ascending: false });
 

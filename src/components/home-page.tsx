@@ -3,26 +3,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { SplitScreen } from "./split-screen";
-import { IssueCard } from "./issue-card";
+import { EventCard, getEventCardSize } from "./event-card";
 import { Nav } from "./nav";
 import { ViewTabs } from "./view-tabs";
 import { CategoryBarChart } from "./category-bar-chart";
-import { calculateScores, type ScoreView } from "@/lib/score";
+import { calculateScores, calculateEventScore, type ScoreView } from "@/lib/score";
 import { CATEGORY_MAP } from "@/lib/constants";
-import type { Issue } from "@/types";
+import type { Issue, IssueEvent } from "@/types";
 
 interface HomePageProps {
   issues: Issue[];
+  events: IssueEvent[];
 }
 
-export function HomePage({ issues }: HomePageProps) {
+export function HomePage({ issues, events }: HomePageProps) {
   const [view, setView] = useState<ScoreView>("recent");
   const score = calculateScores(issues, view);
 
-  const scoredIssues = issues.filter((i) => CATEGORY_MAP[i.category]?.isScored);
-  const sortedScored = [...scoredIssues].sort(
-    (a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
-  );
+  // 점수 높은 Event 상위 6개
+  const topEvents = [...events]
+    .filter((e) => CATEGORY_MAP[e.category]?.isScored)
+    .sort((a, b) => calculateEventScore(b, view) - calculateEventScore(a, view))
+    .slice(0, 6);
 
   return (
     <>
@@ -43,25 +45,32 @@ export function HomePage({ issues }: HomePageProps) {
           <CategoryBarChart issues={issues} view={view} />
         </section>
 
-        {/* 최근 공식 처분 */}
+        {/* 주요 사건 (Event 기반) */}
         <section className="mx-auto max-w-4xl px-4 pb-16">
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white/90">최근 공식 처분</h2>
+            <div>
+              <h2 className="text-2xl font-bold text-white/90">주요 사건</h2>
+              <p className="mt-1 text-xs text-white/30">점수가 높은 공식 처분 사건</p>
+            </div>
             <Link
-              href="/explore"
+              href="/issues"
               className="text-sm text-white/30 transition-colors hover:text-white/50"
             >
-              전체 탐색 &rarr;
+              전체 타임라인 &rarr;
             </Link>
           </div>
-          {sortedScored.length === 0 ? (
+          {topEvents.length === 0 ? (
             <div className="rounded-xl border border-white/5 py-16 text-center text-white/30">
-              수집된 공식 처분 이슈가 없습니다.
+              수집된 공식 처분 사건이 없습니다.
             </div>
           ) : (
-            <div className="space-y-4">
-              {sortedScored.slice(0, 8).map((issue, i) => (
-                <IssueCard key={issue.id} issue={issue} index={i} />
+            <div className="space-y-3">
+              {topEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  size={getEventCardSize(event)}
+                />
               ))}
             </div>
           )}
