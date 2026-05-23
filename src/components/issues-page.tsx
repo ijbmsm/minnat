@@ -54,10 +54,15 @@ function groupByDate(events: IssueEvent[]): DateGroup[] {
     }
   }
 
+  // 각 그룹 내에서 시간순 정렬 (최신 위)
+  const byTime = (a: IssueEvent, b: IssueEvent) =>
+    new Date(b.last_reported_at || b.created_at).getTime() -
+    new Date(a.last_reported_at || a.created_at).getTime();
+
   return order.map((label) => ({
     label,
-    blue: groups[label].blue,
-    red: groups[label].red,
+    blue: groups[label].blue.sort(byTime),
+    red: groups[label].red.sort(byTime),
     total: groups[label].blue.length + groups[label].red.length,
   }));
 }
