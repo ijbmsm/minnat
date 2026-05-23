@@ -3,7 +3,6 @@
 import { motion } from "framer-motion";
 import type { ScoreResult, Issue } from "@/types";
 import { CAMP_COLORS } from "@/lib/constants";
-import { CategorySummary } from "./category-summary";
 import { FluidBackground } from "./fluid-background";
 import { ViewTabs } from "./view-tabs";
 import type { ScoreView } from "@/lib/score";
@@ -16,41 +15,38 @@ interface SplitScreenProps {
 }
 
 export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenProps) {
-  const blueIssues = issues.filter((i) => i.camp === "blue");
-  const redIssues = issues.filter((i) => i.camp === "red");
-
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-[#0c0c10]">
-      {/* 배경 — FluidBackground가 자체적으로 2초 fade-in */}
+    <section className="relative h-[100dvh] w-full overflow-hidden bg-[#0c0c10]">
+      {/* 배경 */}
       <FluidBackground score={score} />
 
-      {/* 콘텐츠 */}
-      <div className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-center px-4">
+      {/* 콘텐츠 — Nav(h-14=56px) 아래부터 시작, 하단 여백 확보 */}
+      <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 pt-14">
 
-        {/* 부제 — 배경이 깔린 후 등장 */}
+        {/* 부제 */}
         <motion.p
           initial={{ opacity: 0, letterSpacing: "0.5em" }}
           animate={{ opacity: 1, letterSpacing: "0.35em" }}
           transition={{ duration: 1.5, delay: 2 }}
-          className="mb-3 text-[10px] text-white/30 uppercase sm:text-xs"
+          className="mb-2 text-[10px] text-white/30 uppercase sm:text-xs"
         >
           색안경 벗고, 팩트로 보는 정치
         </motion.p>
 
-        {/* 타이틀 — 크게 등장 후 줄어듦 */}
+        {/* 타이틀 */}
         <motion.h1
           initial={{ opacity: 0, scale: 1.3, filter: "blur(12px)" }}
           animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
           transition={{ duration: 1.2, delay: 2.5, ease: "easeOut" }}
-          className="mb-20 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
+          className="mb-12 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
           style={{ textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
         >
           민낯
         </motion.h1>
 
-        {/* 퍼센티지 — 양쪽에서 슬라이드 인 */}
-        <div className="mb-6 flex w-full max-w-3xl items-center justify-between">
-          {/* 파랑 — 좌측에서 등장 */}
+        {/* 퍼센티지 */}
+        <div className="mb-4 flex w-full max-w-3xl items-center justify-between">
+          {/* 파랑 */}
           <motion.div
             initial={{ opacity: 0, x: -60 }}
             animate={{ opacity: 1, x: 0 }}
@@ -72,14 +68,14 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
             </span>
           </motion.div>
 
-          {/* 중앙 구분선 — 위아래에서 자라남 */}
+          {/* 중앙 구분선 */}
           <motion.div
             initial={{ opacity: 0, scaleY: 0 }}
             animate={{ opacity: 1, scaleY: 1 }}
             transition={{ duration: 0.8, delay: 3.8 }}
-            className="flex flex-col items-center gap-2"
+            className="flex flex-col items-center gap-1.5"
           >
-            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
+            <div className="h-8 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
             <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -88,10 +84,10 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
             >
               vs
             </motion.span>
-            <div className="h-12 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
+            <div className="h-8 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent" />
           </motion.div>
 
-          {/* 빨강 — 우측에서 등장 */}
+          {/* 빨강 */}
           <motion.div
             initial={{ opacity: 0, x: 60 }}
             animate={{ opacity: 1, x: 0 }}
@@ -114,7 +110,7 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
           </motion.div>
         </div>
 
-        {/* Dual Metric — 1인당 평균 */}
+        {/* 이슈 건수 */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -125,40 +121,26 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
           <span>{score.redPerCapita.toFixed(1)} 1인당 | {score.redCount}건 이슈</span>
         </motion.div>
 
-        {/* 뷰 탭 + 설명 */}
+        {/* 뷰 탭 */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 4.5 }}
-          className="mb-16 flex flex-col items-center gap-3"
+          className="flex flex-col items-center gap-2"
         >
           <ViewTabs current={view} onChange={onViewChange} />
-          <p className="text-center text-xs text-white/20">
+          <p className="text-center text-[10px] text-white/15">
             비율이 높을수록 해당 진영의 부정적 이슈가 많습니다
           </p>
         </motion.div>
 
-        {/* 카테고리 요약 — 아래에서 올라옴 */}
-        <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 5 }}
-          className="grid w-full max-w-4xl grid-cols-1 gap-6 sm:grid-cols-2"
-        >
-          <CategorySummary camp="blue" issues={blueIssues} view={view} />
-          <CategorySummary camp="red" issues={redIssues} view={view} />
-        </motion.div>
-
-        {/* 스크롤 힌트 */}
+        {/* 스크롤 힌트 — 하단 고정 */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 5.8 }}
-          className="mt-20 flex flex-col items-center gap-2"
+          transition={{ delay: 5.5 }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2"
         >
-          <span className="text-[10px] tracking-widest text-white/15 uppercase">
-            최근 이슈
-          </span>
           <motion.div
             animate={{ y: [0, 5, 0] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
