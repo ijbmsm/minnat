@@ -106,19 +106,16 @@ function groupRowsByDate(rows: TimelineRow[]): DateSection[] {
 // ── 진영별 카드 ──
 
 function buildHeadline(event: IssueEvent): string {
+  // summary 첫 문장을 헤드라인으로 사용
+  const summary = event.summary || "";
+  const firstSentence = summary.split(/[.。!]\s*/)[0];
+  if (firstSentence && firstSentence.length > 5) {
+    return firstSentence.length > 60 ? firstSentence.slice(0, 60) + "…" : firstSentence;
+  }
+  // fallback: actor + category
   const config = CATEGORY_MAP[event.category];
   const actor = event.actor_name || "";
-  const stage = event.criminal_stage ? CRIMINAL_STAGE_LABEL[event.criminal_stage] : "";
-
-  // 형사 처분: "이재명, 1심 유죄"
-  if (event.category === "criminal_conviction" && stage) {
-    return actor ? `${actor}, ${stage}` : stage;
-  }
-  // 카테고리 라벨 기반: "정청래, 윤리위·선관위 처분"
-  if (actor && config) {
-    return `${actor}, ${config.description}`;
-  }
-  return actor || config?.label || "";
+  return actor ? `${actor}, ${config?.description || config?.label || ""}` : config?.label || "";
 }
 
 function CampCard({ event }: { event: IssueEvent }) {

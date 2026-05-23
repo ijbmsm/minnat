@@ -19,17 +19,14 @@ interface HomePageProps {
 // ── 진영별 Event 카드 ──
 
 function buildHeadline(event: IssueEvent): string {
+  const summary = event.summary || "";
+  const firstSentence = summary.split(/[.。!]\s*/)[0];
+  if (firstSentence && firstSentence.length > 5) {
+    return firstSentence.length > 60 ? firstSentence.slice(0, 60) + "…" : firstSentence;
+  }
   const config = CATEGORY_MAP[event.category];
   const actor = event.actor_name || "";
-  const stage = event.criminal_stage ? CRIMINAL_STAGE_LABEL[event.criminal_stage] : "";
-
-  if (event.category === "criminal_conviction" && stage) {
-    return actor ? `${actor}, ${stage}` : stage;
-  }
-  if (actor && config) {
-    return `${actor}, ${config.description}`;
-  }
-  return actor || config?.label || "";
+  return actor ? `${actor}, ${config?.description || config?.label || ""}` : config?.label || "";
 }
 
 function CampEventCard({ event, view }: { event: IssueEvent; view: ScoreView }) {
