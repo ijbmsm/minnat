@@ -95,10 +95,10 @@ export async function getIssuesByPolitician(name: string): Promise<Issue[]> {
 export async function getEventById(id: string): Promise<IssueEvent | null> {
   const supabase = await createClient();
 
-  // event 조회
+  // event 조회 (embedding 제외 — 1536차원 벡터는 프론트에서 불필요)
   const { data: event, error } = await supabase
     .from("issue_clusters")
-    .select("*")
+    .select("id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at")
     .eq("id", id)
     .single();
 
@@ -149,7 +149,7 @@ export async function getEventsByPolitician(name: string): Promise<IssueEvent[]>
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("issue_clusters")
-    .select("*")
+    .select("id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at")
     .eq("actor_name", name)
     .order("last_reported_at", { ascending: false });
 
