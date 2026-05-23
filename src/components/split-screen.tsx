@@ -16,12 +16,12 @@ interface SplitScreenProps {
 
 export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenProps) {
   return (
-    <section className="relative h-[100dvh] w-full overflow-hidden bg-[#0c0c10]">
+    <section className="relative h-[100dvh] w-full overflow-clip bg-[#0c0c10]">
       {/* 배경 */}
       <FluidBackground score={score} />
 
       {/* 콘텐츠 — Nav(h-14=56px) 아래부터 시작, 하단 여백 확보 */}
-      <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 pt-14">
+      <div className="relative z-10 flex h-full flex-col items-center justify-center gap-0 px-4 pt-14 pb-0">
 
         {/* 부제 */}
         <motion.p
@@ -134,12 +134,12 @@ export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenPr
           </p>
         </motion.div>
 
-        {/* 스크롤 힌트 — 하단 고정 */}
+        {/* 스크롤 힌트 — 하단 밀착 */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 5.5 }}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2"
+          className="mt-auto pb-6"
         >
           <motion.div
             animate={{ y: [0, 5, 0] }}
