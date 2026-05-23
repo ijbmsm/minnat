@@ -37,9 +37,9 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
     <>
       <Nav />
 
-      {/* ── Hero: 풀스크린 사건 개요 ── */}
+      {/* ── 상단 사건 개요 ── */}
       <section
-        className="relative flex min-h-[100dvh] flex-col justify-end overflow-hidden"
+        className="relative overflow-hidden border-b border-white/5"
         style={{
           background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${colors.primary}08, transparent 70%), #0a0a0c`,
         }}
@@ -52,7 +52,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
           }}
         />
 
-        <div className="mx-auto w-full max-w-5xl px-6 pb-20 pt-32 md:px-8">
+        <div className="mx-auto w-full max-w-5xl px-6 pt-24 pb-16 md:px-8">
           {/* 뒤로가기 */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -61,7 +61,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
           >
             <Link
               href="/issues"
-              className="mb-12 inline-flex items-center gap-2 text-sm text-white/30 transition-colors duration-300 hover:text-white/50"
+              className="mb-8 inline-flex items-center gap-2 text-sm text-white/30 transition-colors duration-300 hover:text-white/50"
             >
               <span>&larr;</span>
               <span>타임라인</span>
@@ -150,25 +150,6 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
             </motion.div>
           )}
 
-          {/* 스크롤 힌트 */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
-            className="absolute bottom-8 left-1/2 -translate-x-1/2"
-          >
-            <motion.div
-              animate={{ y: [0, 6, 0] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              className="h-7 w-4 rounded-full border border-white/10"
-            >
-              <motion.div
-                animate={{ y: [2, 12, 2] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                className="mx-auto mt-1 h-1.5 w-0.5 rounded-full bg-white/20"
-              />
-            </motion.div>
-          </motion.div>
         </div>
       </section>
 
