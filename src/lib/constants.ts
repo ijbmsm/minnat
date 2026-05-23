@@ -86,14 +86,14 @@ export const CAMP_COLORS = {
     glow: "#3b82f6",
     bg: "rgba(37, 99, 235, 0.08)",
     border: "rgba(37, 99, 235, 0.2)",
-    label: "더불어민주당 계열",
+    label: "더불어민주당",
   },
   red: {
     primary: "#dc2626",
     glow: "#ef4444",
     bg: "rgba(220, 38, 38, 0.08)",
     border: "rgba(220, 38, 38, 0.2)",
-    label: "국민의힘 계열",
+    label: "국민의힘",
   },
 } as const;
 
