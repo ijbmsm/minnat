@@ -18,27 +18,40 @@ interface HomePageProps {
 
 // ── 진영별 Event 카드 ──
 
+function buildHeadline(event: IssueEvent): string {
+  const config = CATEGORY_MAP[event.category];
+  const actor = event.actor_name || "";
+  const stage = event.criminal_stage ? CRIMINAL_STAGE_LABEL[event.criminal_stage] : "";
+
+  if (event.category === "criminal_conviction" && stage) {
+    return actor ? `${actor}, ${stage}` : stage;
+  }
+  if (actor && config) {
+    return `${actor}, ${config.description}`;
+  }
+  return actor || config?.label || "";
+}
+
 function CampEventCard({ event, view }: { event: IssueEvent; view: ScoreView }) {
   const colors = CAMP_COLORS[event.camp];
   const config = CATEGORY_MAP[event.category];
   const score = calculateEventScore(event, view);
+  const headline = buildHeadline(event);
 
   return (
     <Link
       href={`/issues/${event.representative_issue_id}`}
       className="group block"
     >
-      {/* Doppelrand outer shell */}
       <div
         className="rounded-[1.25rem] p-[1px] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.01]"
         style={{
           background: `linear-gradient(135deg, ${colors.primary}15, transparent 60%)`,
         }}
       >
-        {/* Inner core */}
         <div className="rounded-[calc(1.25rem-1px)] bg-white/[0.03] p-5 backdrop-blur-sm">
           {/* 상단: 카테고리 + 점수 */}
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
                 className="rounded-full px-2.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
@@ -65,10 +78,17 @@ function CampEventCard({ event, view }: { event: IssueEvent; view: ScoreView }) 
             )}
           </div>
 
-          {/* 제목 */}
-          <p className="mb-2 line-clamp-2 text-[15px] font-medium leading-snug text-white/80 transition-colors duration-300 group-hover:text-white">
-            {event.summary || "사건 요약 없음"}
-          </p>
+          {/* 핵심 헤드라인 — 1줄 */}
+          <h3 className="mb-1 truncate text-[15px] font-semibold text-white/90 transition-colors duration-300 group-hover:text-white">
+            {headline}
+          </h3>
+
+          {/* 보조 요약 — 1줄 */}
+          {event.summary && (
+            <p className="mb-2 line-clamp-1 text-[13px] leading-snug text-white/40">
+              {event.summary}
+            </p>
+          )}
 
           {/* 하단 메트릭 */}
           <div className="flex items-center gap-3 text-[11px] text-white/25">

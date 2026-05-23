@@ -105,10 +105,27 @@ function groupRowsByDate(rows: TimelineRow[]): DateSection[] {
 
 // ── 진영별 카드 ──
 
+function buildHeadline(event: IssueEvent): string {
+  const config = CATEGORY_MAP[event.category];
+  const actor = event.actor_name || "";
+  const stage = event.criminal_stage ? CRIMINAL_STAGE_LABEL[event.criminal_stage] : "";
+
+  // 형사 처분: "이재명, 1심 유죄"
+  if (event.category === "criminal_conviction" && stage) {
+    return actor ? `${actor}, ${stage}` : stage;
+  }
+  // 카테고리 라벨 기반: "정청래, 윤리위·선관위 처분"
+  if (actor && config) {
+    return `${actor}, ${config.description}`;
+  }
+  return actor || config?.label || "";
+}
+
 function CampCard({ event }: { event: IssueEvent }) {
   const colors = CAMP_COLORS[event.camp];
   const config = CATEGORY_MAP[event.category];
   const score = calculateEventScore(event);
+  const headline = buildHeadline(event);
 
   return (
     <Link href={`/issues/${event.representative_issue_id}`} className="group block">
@@ -117,7 +134,8 @@ function CampCard({ event }: { event: IssueEvent }) {
         style={{ background: `linear-gradient(135deg, ${colors.primary}15, transparent 60%)` }}
       >
         <div className="rounded-[calc(1.25rem-1px)] bg-white/[0.03] p-4 md:p-5">
-          <div className="mb-2.5 flex items-center justify-between">
+          {/* 상단: 카테고리 뱃지 + 점수 */}
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
                 className="rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
@@ -138,14 +156,23 @@ function CampCard({ event }: { event: IssueEvent }) {
             )}
           </div>
 
-          <p className="mb-2 line-clamp-2 text-[14px] font-medium leading-snug text-white/80 transition-colors duration-300 group-hover:text-white">
-            {event.summary || "사건 요약 없음"}
-          </p>
+          {/* 핵심 헤드라인 — 1줄 */}
+          <h3 className="mb-1 truncate text-[15px] font-semibold text-white/90 transition-colors duration-300 group-hover:text-white">
+            {headline}
+          </h3>
 
+          {/* 보조 요약 — 1줄 */}
+          {event.summary && (
+            <p className="mb-2 line-clamp-1 text-[13px] leading-snug text-white/40">
+              {event.summary}
+            </p>
+          )}
+
+          {/* 하단 메트릭 */}
           <div className="flex items-center gap-2.5 text-[11px] text-white/25">
-            {event.actor_name && <span className="text-white/35">{event.actor_name}</span>}
             {event.coverage_count > 1 && <span>{event.coverage_count}개 매체</span>}
             {event.issue_count > 1 && <span>{event.issue_count}개 보도</span>}
+            {event.headline_days > 1 && <span>{event.headline_days}일</span>}
           </div>
         </div>
       </div>
