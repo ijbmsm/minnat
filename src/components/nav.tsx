@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { href: "/explore", label: "탐색" },
   { href: "/politicians", label: "정치인" },
   { href: "/board", label: "게시판" },
-  { href: "/about", label: "방법론" },
+  // { href: "/about", label: "방법론" },
 ] as const;
 
 export function Nav() {
