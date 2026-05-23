@@ -21,7 +21,7 @@ export function Nav() {
         <Link
           href="/"
           className="text-xl font-bold tracking-tight text-white/90 transition-colors hover:text-white"
-          style={{ fontFamily: "'Shilla Culture', serif" }}
+          style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}
         >
           민낯
         </Link>
