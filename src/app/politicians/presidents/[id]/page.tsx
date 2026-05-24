@@ -168,32 +168,47 @@ export default async function PresidentDetailPage({ params }: Props) {
           )}
         </SectionShell>
 
-        {/* ── [3] 가족·측근 비리 ── */}
-        <SectionShell title="가족·측근 비리">
-          {pres.associates.length === 0 ? (
-            <p className="text-sm text-white/25">관련 기록 없음</p>
-          ) : (
-            <div className="space-y-3">
-              {pres.associates.map((a) => (
-                <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="text-sm font-medium text-white/70">{a.name}</span>
-                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">{a.relation}</span>
-                    {a.criminal_stage && (
-                      <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400/50">
-                        {CRIMINAL_STAGE_LABEL[a.criminal_stage as keyof typeof CRIMINAL_STAGE_LABEL] ?? a.criminal_stage}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[13px] leading-relaxed text-white/45">{a.description}</p>
-                  {a.sentence && (
-                    <p className="mt-1 text-xs text-white/25">형량: {a.sentence}</p>
-                  )}
+        {/* ── [3] 가족·측근·논란 (category별 분리) ── */}
+        {(() => {
+          const criminal = pres.associates.filter((a) => a.category === "criminal_conviction");
+          const investigation = pres.associates.filter((a) => a.category === "investigation" || a.category === "ethics_violation");
+          const controversy = pres.associates.filter((a) => a.category === "controversy" || a.category === "policy_failure" || a.category === "media_coverage");
+          const sections = [
+            { title: "가족·측근 형사 처분", items: criminal, color: "bg-red-500/10 text-red-400/50" },
+            { title: "수사·감사 결과", items: investigation, color: "bg-amber-500/10 text-amber-400/50" },
+            { title: "주요 논란", items: controversy, color: "bg-white/5 text-white/30" },
+          ];
+          return sections.map(({ title, items, color }) => (
+            <SectionShell key={title} title={title}>
+              {items.length === 0 ? (
+                <p className="text-sm text-white/25">관련 기록 없음</p>
+              ) : (
+                <div className="space-y-3">
+                  {items.map((a) => (
+                    <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-white/70">{a.name}</span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">{a.relation}</span>
+                        {a.criminal_stage && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] ${color}`}>
+                            {CRIMINAL_STAGE_LABEL[a.criminal_stage as keyof typeof CRIMINAL_STAGE_LABEL] ?? a.criminal_stage}
+                          </span>
+                        )}
+                        {a.date && (
+                          <span className="text-[10px] text-white/15">{a.date}</span>
+                        )}
+                      </div>
+                      <p className="text-[13px] leading-relaxed text-white/45">{a.description}</p>
+                      {a.sentence && (
+                        <p className="mt-1 text-xs text-white/25">결과: {a.sentence}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </SectionShell>
+              )}
+            </SectionShell>
+          ));
+        })()}
 
         {/* ── [4] 사면 기록 ── */}
         <SectionShell title="사면 기록">
