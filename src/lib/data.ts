@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Issue, IssueEvent, Politician, ScoreSnapshot } from "@/types";
+import type { Issue, IssueEvent, Politician, ScoreSnapshot, PresidentProfile, PresidentFull } from "@/types";
 
 export async function getIssues(options?: {
   camp?: string;
@@ -205,4 +205,66 @@ export async function getLatestSnapshot(): Promise<ScoreSnapshot | null> {
     return null;
   }
   return data as ScoreSnapshot;
+}
+
+// ── 전 대통령 ──
+
+export async function getPresidents(): Promise<PresidentProfile[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("president_profiles")
+    .select("*, politician:politicians(*, party:parties(*))")
+    .order("term_number", { ascending: true });
+
+  if (error) {
+    console.error("[data] getPresidents error:", error.message);
+    return [];
+  }
+  return (data ?? []) as PresidentProfile[];
+}
+
+export async function getPresidentById(id: string): Promise<PresidentFull | null> {
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("president_profiles")
+    .select("*, politician:politicians(*, party:parties(*))")
+    .eq("id", id)
+    .single();
+
+  if (error || !profile) {
+    console.error("[data] getPresidentById error:", error?.message);
+    return null;
+  }
+
+  // 관련 데이터 병렬 조회
+  const [associates, pardons, economy, promises, appointments] = await Promise.all([
+    supabase.from("president_associates").select("*").eq("president_id", id).order("date", { ascending: true }).then(r => r.data ?? []),
+    supabase.from("president_pardons").select("*").eq("president_id", id).order("pardon_date", { ascending: true }).then(r => r.data ?? []),
+    supabase.from("president_economy").select("*").eq("president_id", id).order("year", { ascending: true }).then(r => r.data ?? []),
+    supabase.from("president_promises").select("*").eq("president_id", id).then(r => r.data ?? []),
+    supabase.from("president_appointments").select("*").eq("president_id", id).order("date", { ascending: true }).then(r => r.data ?? []),
+  ]);
+
+  // 형사 처분 이벤트
+  const politicianName = (profile as any).politician?.name;
+  let events: IssueEvent[] = [];
+  if (politicianName) {
+    const { data: evts } = await supabase
+      .from("issue_clusters")
+      .select(EVENT_SELECT_COLUMNS)
+      .eq("actor_name", politicianName)
+      .order("last_reported_at", { ascending: false });
+    events = (evts ?? []) as IssueEvent[];
+  }
+
+  return {
+    ...profile,
+    associates,
+    pardons,
+    economy,
+    promises,
+    appointments,
+    events,
+  } as PresidentFull;
 }

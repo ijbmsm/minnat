@@ -162,6 +162,85 @@ export interface IssueEvent {
   created_at: string;
 }
 
+// ── 전 대통령 ──
+export interface PresidentProfile {
+  id: string;
+  politician_id: string;
+  term_start: string;
+  term_end: string | null;
+  term_number: number;
+  term_ended_by: "normal" | "impeachment" | "resignation" | "assassination" | "coup" | "ongoing";
+  party_at_time: string;
+  created_at: string;
+  politician?: Politician;
+}
+
+export interface PresidentAssociate {
+  id: string;
+  president_id: string;
+  name: string;
+  relation: string;
+  category: string;
+  criminal_stage: string | null;
+  description: string;
+  sentence: string | null;
+  date: string | null;
+  source_url: string | null;
+}
+
+export interface PresidentPardon {
+  id: string;
+  president_id: string;
+  direction: "granted" | "received";
+  target_name: string;
+  target_role: string | null;
+  original_charge: string | null;
+  original_sentence: string | null;
+  pardon_date: string;
+  pardoned_by: string | null;
+}
+
+export interface PresidentEconomy {
+  id: string;
+  president_id: string;
+  year: number;
+  gdp_growth: number | null;
+  unemployment: number | null;
+  inflation: number | null;
+  household_debt_gdp: number | null;
+  gini_coefficient: number | null;
+}
+
+export type PromiseStatus = "fulfilled" | "partial" | "broken" | "ongoing" | "not_started" | "impossible";
+
+export interface PresidentPromise {
+  id: string;
+  president_id: string;
+  promise: string;
+  category: string | null;
+  status: PromiseStatus;
+  detail: string | null;
+}
+
+export interface PresidentAppointment {
+  id: string;
+  president_id: string;
+  appointee_name: string;
+  position_appointed: string;
+  issue: string;
+  result: string | null;
+  date: string | null;
+}
+
+export interface PresidentFull extends PresidentProfile {
+  associates: PresidentAssociate[];
+  pardons: PresidentPardon[];
+  economy: PresidentEconomy[];
+  promises: PresidentPromise[];
+  appointments: PresidentAppointment[];
+  events: IssueEvent[];
+}
+
 // ── 점수 계산 ──
 export interface ScoreResult {
   bluePct: number;
