@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, useSpring, useTransform } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import type { ScoreResult } from "@/types";
 
@@ -23,7 +22,6 @@ function generateLayers(count: number, seed: number): SmokeLayer[] {
     s = (s * 16807 + 0) % 2147483647;
     return (s - 1) / 2147483646;
   }
-
   const anims = ["smoke-drift-1", "smoke-drift-2", "smoke-drift-3", "smoke-drift-4", "smoke-drift-5"];
   return Array.from({ length: count }, () => ({
     x: Math.round(rand() * 100),
@@ -38,35 +36,29 @@ function generateLayers(count: number, seed: number): SmokeLayer[] {
 export function FluidBackground({ score }: FluidBackgroundProps) {
   const [ready, setReady] = useState(false);
 
-  const springPct = useSpring(score.bluePct, { stiffness: 8, damping: 20 });
-  const blueWidth = useTransform(springPct, (v) => `${v + 8}%`);
-  const redWidth = useTransform(springPct, (v) => `${100 - v + 8}%`);
-
   useEffect(() => {
-    // 1프레임 대기 후 표시 (hydration 깜빡임 방지)
-    const raf = requestAnimationFrame(() => {
-      setReady(true);
-    });
+    const raf = requestAnimationFrame(() => setReady(true));
     return () => cancelAnimationFrame(raf);
   }, []);
-
-  useEffect(() => {
-    springPct.set(score.bluePct);
-  }, [score.bluePct, springPct]);
 
   const blueLayers = useMemo(() => generateLayers(8, 42), []);
   const redLayers = useMemo(() => generateLayers(8, 99), []);
 
+  // CSS transition으로 처리 (spring이 아니라 브라우저 네이티브)
+  const blueW = `${score.bluePct + 8}%`;
+  const redW = `${score.redPct + 8}%`;
+
   return (
     <div
-      className="absolute inset-0 overflow-hidden bg-[#0c0c10] transition-opacity duration-[2000ms]"
-      style={{ opacity: ready ? 1 : 0 }}
+      className="absolute inset-0 overflow-hidden bg-[#0c0c10]"
+      style={{ opacity: ready ? 1 : 0, transition: "opacity 2s ease" }}
     >
       {/* 파랑 — 좌측 */}
-      <motion.div
+      <div
         className="absolute left-0 top-0 h-full origin-left"
         style={{
-          width: blueWidth,
+          width: blueW,
+          transition: "width 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
           animation: "edge-breathe 20s ease-in-out infinite",
         }}
       >
@@ -74,8 +66,8 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
           className="absolute inset-0"
           style={{
             background: `linear-gradient(to right,
-              #0a2050 0%, #0d2a6a 20%, #103080 40%,
-              rgba(16,48,128,0.6) 65%, rgba(16,48,128,0.2) 85%, transparent 100%
+              #0a2050 0%, #0d2a6a 15%, #103080 30%,
+              rgba(16,48,128,0.5) 55%, rgba(16,48,128,0.15) 75%, transparent 100%
             )`,
           }}
         />
@@ -91,17 +83,19 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
               borderRadius: "50%",
               background: `radial-gradient(circle, rgba(12,35,100,${layer.opacity}) 0%, rgba(12,35,100,${layer.opacity * 0.3}) 40%, transparent 70%)`,
               filter: "blur(30px)",
+              willChange: "transform",
               animation: `${layer.anim} ${layer.duration}s ease-in-out infinite`,
             }}
           />
         ))}
-      </motion.div>
+      </div>
 
       {/* 빨강 — 우측 */}
-      <motion.div
+      <div
         className="absolute right-0 top-0 h-full origin-right"
         style={{
-          width: redWidth,
+          width: redW,
+          transition: "width 1.5s cubic-bezier(0.4, 0, 0.2, 1)",
           animation: "edge-breathe 24s ease-in-out infinite reverse",
         }}
       >
@@ -109,8 +103,8 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
           className="absolute inset-0"
           style={{
             background: `linear-gradient(to left,
-              #501010 0%, #6a1515 20%, #801a1a 40%,
-              rgba(128,26,26,0.6) 65%, rgba(128,26,26,0.2) 85%, transparent 100%
+              #501010 0%, #6a1515 15%, #801a1a 30%,
+              rgba(128,26,26,0.5) 55%, rgba(128,26,26,0.15) 75%, transparent 100%
             )`,
           }}
         />
@@ -126,11 +120,12 @@ export function FluidBackground({ score }: FluidBackgroundProps) {
               borderRadius: "50%",
               background: `radial-gradient(circle, rgba(100,18,18,${layer.opacity}) 0%, rgba(100,18,18,${layer.opacity * 0.3}) 40%, transparent 70%)`,
               filter: "blur(30px)",
+              willChange: "transform",
               animation: `${layer.anim} ${layer.duration}s ease-in-out infinite`,
             }}
           />
         ))}
-      </motion.div>
+      </div>
 
       {/* 톤 다운 */}
       <div className="pointer-events-none absolute inset-0 bg-black/30" />
