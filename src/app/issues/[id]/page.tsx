@@ -1,6 +1,8 @@
 import { IssueDetailPage } from "@/components/issue-detail-page";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/json-ld";
 import { getIssueById, getEventByIssueId } from "@/lib/data";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -8,13 +10,28 @@ interface Props {
 
 export const revalidate = 300;
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const issue = await getIssueById(id);
-  if (!issue) return { title: "이슈를 찾을 수 없습니다 — 민낯" };
+  if (!issue) return { title: "이슈를 찾을 수 없습니다" };
   return {
-    title: `${issue.title} — 민낯`,
+    title: issue.title,
     description: issue.summary,
+    alternates: {
+      canonical: `https://minnat.kr/issues/${id}`,
+    },
+    openGraph: {
+      title: issue.title,
+      description: issue.summary,
+      type: "article",
+      publishedTime: issue.published_at,
+      url: `https://minnat.kr/issues/${id}`,
+    },
+    twitter: {
+      card: "summary",
+      title: issue.title,
+      description: issue.summary,
+    },
   };
 }
 
@@ -23,5 +40,22 @@ export default async function Page({ params }: Props) {
   const issue = await getIssueById(id);
   if (!issue) notFound();
   const event = await getEventByIssueId(id);
-  return <IssueDetailPage issue={issue} event={event} />;
+  return (
+    <>
+      <ArticleJsonLd
+        title={issue.title}
+        description={issue.summary}
+        datePublished={issue.published_at}
+        url={`https://minnat.kr/issues/${id}`}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "민낯", url: "https://minnat.kr" },
+          { name: "이슈", url: "https://minnat.kr/issues" },
+          { name: issue.title, url: `https://minnat.kr/issues/${id}` },
+        ]}
+      />
+      <IssueDetailPage issue={issue} event={event} />
+    </>
+  );
 }
