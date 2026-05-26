@@ -45,13 +45,18 @@ export async function getIssueById(id: string): Promise<Issue | null> {
   return data as Issue;
 }
 
-export async function getPoliticians(): Promise<Politician[]> {
+export async function getPoliticians(activeOnly = true): Promise<Politician[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("politicians")
     .select("*, party:parties(*)")
-    .eq("active", true)
     .order("name");
+
+  if (activeOnly) {
+    query = query.eq("active", true);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[data] getPoliticians error:", error.message);
