@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import type { Camp, IssueCategory } from "@/types";
-import { CATEGORIES, CAMP_COLORS } from "@/lib/constants";
+import { CATEGORIES } from "@/lib/constants";
 
 interface IssueFilterProps {
   onFilterChange: (filters: FilterState) => void;
 }
 
+export type EventTypeFilter = "all" | "scored" | "social" | "archive";
+
 export interface FilterState {
   camp: Camp | "all";
   category: IssueCategory | "all";
   sort: "latest" | "score";
+  eventType: EventTypeFilter;
 }
 
 export function IssueFilter({ onFilterChange }: IssueFilterProps) {
@@ -19,6 +22,7 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
     camp: "all",
     category: "all",
     sort: "latest",
+    eventType: "all",
   });
 
   function update(partial: Partial<FilterState>) {
@@ -29,6 +33,28 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
+      {/* 유형 필터 */}
+      <div className="flex rounded-lg border border-white/10 p-0.5">
+        {([
+          { value: "all" as const, label: "전체" },
+          { value: "scored" as const, label: "공식 처분" },
+          { value: "social" as const, label: "사회 이슈" },
+          { value: "archive" as const, label: "기록" },
+        ] as const).map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => update({ eventType: value })}
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${
+              filters.eventType === value
+                ? "bg-white/10 text-white"
+                : "text-white/40 hover:text-white/60"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* 진영 필터 */}
       <div className="flex rounded-lg border border-white/10 p-0.5">
         {([

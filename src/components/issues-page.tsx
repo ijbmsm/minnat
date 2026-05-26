@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Nav } from "./nav";
-import { IssueFilter, type FilterState } from "./issue-filter";
+import { IssueFilter, type FilterState, type EventTypeFilter } from "./issue-filter";
 import { calculateEventScore } from "@/lib/score";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import type { IssueEvent } from "@/types";
@@ -184,29 +184,38 @@ export function IssuesPage({ events }: IssuesPageProps) {
     camp: "all",
     category: "all",
     sort: "latest",
+    eventType: "all",
   });
-  const [showArchive, setShowArchive] = useState(false);
 
-  const { scored, archive, dateSections } = useMemo(() => {
+  function filterByEventType(e: IssueEvent, eventType: EventTypeFilter): boolean {
+    const isScored = CATEGORY_MAP[e.category]?.isScored ?? false;
+    const isSocial = e.category === "social_controversy";
+    switch (eventType) {
+      case "all": return true;
+      case "scored": return isScored;
+      case "social": return isSocial;
+      case "archive": return !isScored && !isSocial;
+    }
+  }
+
+  const { timelineEvents, dateSections } = useMemo(() => {
     const filtered = events.filter((event) => {
       if (filters.camp !== "all" && event.camp !== filters.camp) return false;
       if (filters.category !== "all" && event.category !== filters.category) return false;
+      if (!filterByEventType(event, filters.eventType)) return false;
       return true;
     });
 
-    const scored = filtered.filter((e) => CATEGORY_MAP[e.category]?.isScored);
-    const archive = filtered.filter((e) => !CATEGORY_MAP[e.category]?.isScored);
-
     // 타임라인 rows 생성
-    const rows = buildTimelineRows(scored);
+    const rows = buildTimelineRows(filtered);
     const dateSections = filters.sort === "latest" ? groupRowsByDate(rows) : [];
 
     // 점수순
     if (filters.sort === "score") {
-      scored.sort((a, b) => calculateEventScore(b) - calculateEventScore(a));
+      filtered.sort((a, b) => calculateEventScore(b) - calculateEventScore(a));
     }
 
-    return { scored, archive, dateSections };
+    return { timelineEvents: filtered, dateSections };
   }, [events, filters]);
 
   return (
@@ -228,7 +237,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
           <IssueFilter onFilterChange={setFilters} />
         </div>
 
-        {scored.length === 0 && archive.length === 0 ? (
+        {timelineEvents.length === 0 ? (
           <div className="rounded-2xl border border-white/5 py-20 text-center text-white/25">
             해당 조건의 사건이 없습니다
           </div>
@@ -308,11 +317,11 @@ export function IssuesPage({ events }: IssuesPageProps) {
                   </motion.section>
                 ))}
               </div>
-            ) : scored.length > 0 ? (
+            ) : timelineEvents.length > 0 ? (
               /* ── 점수순 ── */
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
                 {(["blue", "red"] as const).map((camp) => {
-                  const campEvents = scored.filter((e) => e.camp === camp);
+                  const campEvents = timelineEvents.filter((e) => e.camp === camp);
                   return (
                     <div key={camp}>
                       <div className="space-y-3">
@@ -339,60 +348,6 @@ export function IssuesPage({ events }: IssuesPageProps) {
               </div>
             ) : null}
 
-            {/* ── Archive 접기 ── */}
-            {archive.length > 0 && (
-              <div className="mt-16">
-                <button
-                  onClick={() => setShowArchive(!showArchive)}
-                  className="mb-5 flex w-full items-center gap-3 text-left transition-colors"
-                >
-                  <span className="rounded-full bg-white/[0.03] px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/25 uppercase">
-                    기록
-                  </span>
-                  <span className="text-xs text-white/20">{archive.length}건</span>
-                  <div className="h-px flex-1 bg-white/5" />
-                  <span className="text-xs text-white/20">
-                    {showArchive ? "접기" : "펼치기"}
-                  </span>
-                  <svg
-                    className={`h-3 w-3 text-white/15 transition-transform duration-300 ${showArchive ? "rotate-180" : ""}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {showArchive && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    transition={{ duration: 0.4, ease: EASE }}
-                    className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6"
-                  >
-                    {(["blue", "red"] as const).map((camp) => (
-                      <div key={camp} className="space-y-1 rounded-[1.25rem] bg-white/[0.01] p-3 ring-1 ring-white/5">
-                        <p className="mb-2 px-2 text-[10px] text-white/20">{CAMP_COLORS[camp].label}</p>
-                        {archive.filter((e) => e.camp === camp).map((event) => (
-                          <Link
-                            key={event.id}
-                            href={`/issues/${event.representative_issue_id}`}
-                            className="group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.03]"
-                          >
-                            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `${CAMP_COLORS[camp].primary}40` }} />
-                            <span className="flex-1 truncate text-[13px] text-white/35 transition-colors group-hover:text-white/55">
-                              {event.actor_name && <span className="text-white/20">{event.actor_name} — </span>}
-                              {event.summary || event.category}
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            )}
           </>
         )}
       </main>
