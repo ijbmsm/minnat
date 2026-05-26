@@ -93,9 +93,7 @@ BEGIN
     ('엄태영', v_red, '전 의원', NULL, false),
     ('전봉민', v_red, '전 의원', NULL, false),
     ('강효상', v_red, '전 의원', NULL, false),
-    ('이재용', v_red, '삼성전자 회장', NULL, false),
-    ('정용진', v_red, '신세계그룹 회장', NULL, false),
-    -- 기타 (김건희는 정치인은 아니지만 actor로 잡히므로)
+    -- 김건희는 정치인은 아니지만 actor로 잡히므로
     ('김건희', v_red, '전 영부인', NULL, false)
   ON CONFLICT DO NOTHING;
 
