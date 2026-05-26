@@ -66,7 +66,7 @@ export default function AboutPage() {
 
         {/* 형사 단계 가중치 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">형사 처분 단계별 가중치</h2>
+          <h2 className="mb-4 text-xl font-bold text-white/90">사법 기록 단계별 가중치</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/lib/supabase/client";
+import type { DisplayCamp } from "@/types";
 
 const NAV_ITEMS = [
   { href: "/", label: "스코어보드" },
@@ -11,12 +13,69 @@ const NAV_ITEMS = [
   { href: "/explore", label: "탐색" },
   { href: "/politicians", label: "정치인" },
   { href: "/board", label: "게시판" },
-  // { href: "/about", label: "방법론" },
+  { href: "/report", label: "제보" },
 ] as const;
+
+const CAMP_DOT_COLOR: Record<DisplayCamp, string> = {
+  red: "#ef4444",
+  blue: "#3b82f6",
+  free: "#71717a",
+};
 
 export function Nav() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<{ id: string; camp: DisplayCamp } | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+      if (!authUser) {
+        setUser(null);
+        return;
+      }
+      supabase
+        .from("user_profiles")
+        .select("display_camp")
+        .eq("id", authUser.id)
+        .single()
+        .then(({ data }) => {
+          setUser({
+            id: authUser.id,
+            camp: (data?.display_camp as DisplayCamp) ?? "free",
+          });
+        });
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setUser(null);
+        return;
+      }
+      supabase
+        .from("user_profiles")
+        .select("display_camp")
+        .eq("id", session.user.id)
+        .single()
+        .then(({ data }) => {
+          setUser({
+            id: session.user.id,
+            camp: (data?.display_camp as DisplayCamp) ?? "free",
+          });
+        });
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+    router.refresh();
+  }
 
   return (
     <>
@@ -39,13 +98,36 @@ export function Nav() {
                   key={href}
                   href={href}
                   className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                    isActive ? "bg-white/10 text-white" : "text-white/40 hover:text-white/70"
+                    isActive ? "bg-white/10 text-white" : "text-white/55 hover:text-white/80"
                   }`}
                 >
                   {label}
                 </Link>
               );
             })}
+
+            {/* 로그인 상태 */}
+            {user ? (
+              <div className="ml-2 flex items-center gap-2">
+                <div
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: CAMP_DOT_COLOR[user.camp] }}
+                />
+                <button
+                  onClick={handleLogout}
+                  className="rounded-lg px-3 py-1.5 text-sm text-white/50 transition-colors hover:text-white/70"
+                >
+                  로그아웃
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="ml-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-white/50 transition-colors hover:bg-white/10 hover:text-white/70"
+              >
+                로그인
+              </Link>
+            )}
           </div>
 
           {/* 모바일 햄버거 */}
@@ -98,7 +180,7 @@ export function Nav() {
                       href={href}
                       onClick={() => setOpen(false)}
                       className={`block rounded-xl px-5 py-3.5 text-center text-lg transition-colors ${
-                        isActive ? "bg-white/10 text-white" : "text-white/50 hover:text-white/70"
+                        isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white/80"
                       }`}
                     >
                       {label}
@@ -106,6 +188,31 @@ export function Nav() {
                   </motion.div>
                 );
               })}
+
+              {/* 모바일 로그인/로그아웃 */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: NAV_ITEMS.length * 0.05, duration: 0.3 }}
+                className="mt-4 w-full"
+              >
+                {user ? (
+                  <button
+                    onClick={() => { handleLogout(); setOpen(false); }}
+                    className="block w-full rounded-xl px-5 py-3.5 text-center text-lg text-white/30 transition-colors hover:text-white/50"
+                  >
+                    로그아웃
+                  </button>
+                ) : (
+                  <Link
+                    href="/auth/login"
+                    onClick={() => setOpen(false)}
+                    className="block rounded-xl bg-[#FEE500]/10 px-5 py-3.5 text-center text-lg text-[#FEE500]/70 transition-colors hover:bg-[#FEE500]/20"
+                  >
+                    로그인
+                  </Link>
+                )}
+              </motion.div>
             </div>
           </motion.div>
         )}

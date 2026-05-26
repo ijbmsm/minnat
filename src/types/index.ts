@@ -163,16 +163,18 @@ export interface IssueEvent {
 }
 
 // ── 전 대통령 ──
+export type TermEndReason = "normal" | "impeachment" | "resignation" | "assassination" | "coup" | "ongoing";
+
 export interface PresidentProfile {
   id: string;
   politician_id: string;
   term_start: string;
   term_end: string | null;
   term_number: number;
-  term_ended_by: "normal" | "impeachment" | "resignation" | "assassination" | "coup" | "ongoing";
+  term_ended_by: TermEndReason;
   party_at_time: string;
   created_at: string;
-  politician?: Politician;
+  politician?: Politician & { party?: Party };
 }
 
 export interface PresidentAssociate {
@@ -239,6 +241,50 @@ export interface PresidentFull extends PresidentProfile {
   promises: PresidentPromise[];
   appointments: PresidentAppointment[];
   events: IssueEvent[];
+}
+
+// ── 제보 ──
+export type ReportStatus = "pending" | "reviewing" | "accepted" | "rejected";
+
+export interface Report {
+  id: string;
+  reporter_name: string;
+  actor_name: string;
+  category: string;
+  description: string;
+  source_url: string;
+  status: ReportStatus;
+  admin_note: string | null;
+  created_at: string;
+}
+
+// ── 유저 ──
+export type DisplayCamp = "blue" | "red" | "free";
+
+export interface UserProfile {
+  id: string;
+  kakao_nickname: string | null;
+  profile_image: string | null;
+  display_camp: DisplayCamp;
+  created_at: string;
+}
+
+// ── 게시판 ──
+export interface BoardPost {
+  id: string;
+  user_id: string;
+  camp: DisplayCamp;
+  title: string;
+  content: string;
+  like_count: number;
+  view_count: number;
+  created_at: string;
+}
+
+export interface BoardLike {
+  user_id: string;
+  post_id: string;
+  created_at: string;
 }
 
 // ── 점수 계산 ──

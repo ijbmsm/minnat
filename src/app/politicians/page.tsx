@@ -1,7 +1,8 @@
 import { Nav } from "@/components/nav";
-import { getPoliticians, getPresidents } from "@/lib/data";
+import { getPoliticians, getPresidents, getEvents } from "@/lib/data";
 import { CAMP_COLORS } from "@/lib/constants";
 import Link from "next/link";
+import type { TermEndReason } from "@/types";
 
 export const metadata = {
   title: "정치인 스코어카드 — 민낯",
@@ -10,7 +11,7 @@ export const metadata = {
 
 export const revalidate = 300;
 
-const TERM_END_LABEL: Record<string, string> = {
+const TERM_END_LABEL: Record<TermEndReason, string> = {
   normal: "임기 만료",
   impeachment: "탄핵",
   resignation: "하야",
@@ -19,14 +20,31 @@ const TERM_END_LABEL: Record<string, string> = {
   ongoing: "재임 중",
 };
 
+const TERM_END_STYLE: Partial<Record<TermEndReason, string>> = {
+  impeachment: "bg-red-500/10 text-red-400/50",
+  resignation: "bg-red-500/10 text-red-400/50",
+  assassination: "bg-red-500/10 text-red-400/50",
+  coup: "bg-amber-500/10 text-amber-400/50",
+  ongoing: "bg-green-500/10 text-green-400/50",
+};
+
 export default async function PoliticiansPage() {
-  const [politicians, presidents] = await Promise.all([
+  const [politicians, presidents, events] = await Promise.all([
     getPoliticians(),
     getPresidents(),
+    getEvents({ limit: 500 }),
   ]);
 
+  // 정치인별 이벤트 건수 집계
+  const eventCountByName = new Map<string, number>();
+  for (const event of events) {
+    if (event.actor_name) {
+      eventCountByName.set(event.actor_name, (eventCountByName.get(event.actor_name) ?? 0) + 1);
+    }
+  }
+
   // 현직 정치인에서 전 대통령 제외
-  const presidentNames = new Set(presidents.map((p) => (p as any).politician?.name));
+  const presidentNames = new Set(presidents.map((p) => p.politician?.name));
   const currentPols = politicians.filter((p) => !presidentNames.has(p.name));
 
   const blueList = currentPols.filter((p) => p.party?.camp === "blue");
@@ -60,13 +78,13 @@ export default async function PoliticiansPage() {
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {presidents.map((pres) => {
-              const pol = (pres as any).politician;
-              const camp = pol?.party?.camp as "blue" | "red" | undefined;
+              const pol = pres.politician;
+              const camp = pol?.party?.camp;
               const colors = camp ? CAMP_COLORS[camp] : CAMP_COLORS.blue;
               const startYear = new Date(pres.term_start).getFullYear();
               const endYear = pres.term_end ? new Date(pres.term_end).getFullYear() : "현재";
-              const endLabel = TERM_END_LABEL[pres.term_ended_by] || "";
-              const isSpecial = endLabel !== "임기 만료" && endLabel !== "재임 중";
+              const endStyle = TERM_END_STYLE[pres.term_ended_by];
+              const endLabel = TERM_END_LABEL[pres.term_ended_by];
 
               return (
                 <Link
@@ -81,14 +99,9 @@ export default async function PoliticiansPage() {
                     >
                       {pres.term_number}대
                     </span>
-                    {isSpecial && (
-                      <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] text-red-400/50">
+                    {endStyle && (
+                      <span className={`rounded px-1.5 py-0.5 text-[9px] ${endStyle}`}>
                         {endLabel}
-                      </span>
-                    )}
-                    {endLabel === "재임 중" && (
-                      <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] text-green-400/50">
-                        재임 중
                       </span>
                     )}
                   </div>
@@ -122,16 +135,26 @@ export default async function PoliticiansPage() {
                 {CAMP_COLORS.blue.label} ({blueList.length}명)
               </h2>
               <div className="space-y-1">
-                {blueList.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/politicians/${p.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/5"
-                  >
-                    <span className="text-white/70">{p.name}</span>
-                    <span className="text-xs text-white/30">{p.position}</span>
-                  </Link>
-                ))}
+                {blueList.map((p) => {
+                  const count = eventCountByName.get(p.name) ?? 0;
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/politicians/${p.id}`}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/70">{p.name}</span>
+                        {count > 0 && (
+                          <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] tabular-nums text-blue-400/50">
+                            {count}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-white/30">{p.position}</span>
+                    </Link>
+                  );
+                })}
                 {blueList.length === 0 && (
                   <p className="py-4 text-center text-xs text-white/20">데이터 없음</p>
                 )}
@@ -147,16 +170,26 @@ export default async function PoliticiansPage() {
                 {CAMP_COLORS.red.label} ({redList.length}명)
               </h2>
               <div className="space-y-1">
-                {redList.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/politicians/${p.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/5"
-                  >
-                    <span className="text-white/70">{p.name}</span>
-                    <span className="text-xs text-white/30">{p.position}</span>
-                  </Link>
-                ))}
+                {redList.map((p) => {
+                  const count = eventCountByName.get(p.name) ?? 0;
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/politicians/${p.id}`}
+                      className="flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/70">{p.name}</span>
+                        {count > 0 && (
+                          <span className="rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] tabular-nums text-red-400/50">
+                            {count}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-white/30">{p.position}</span>
+                    </Link>
+                  );
+                })}
                 {redList.length === 0 && (
                   <p className="py-4 text-center text-xs text-white/20">데이터 없음</p>
                 )}

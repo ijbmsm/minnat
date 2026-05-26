@@ -7,12 +7,11 @@ import { SplitScreen } from "./split-screen";
 import { Nav } from "./nav";
 import { ViewTabs } from "./view-tabs";
 import { CategoryBarChart } from "./category-bar-chart";
-import { calculateScores, calculateEventScore, type ScoreView } from "@/lib/score";
+import { calculateEventScores, calculateEventScore, type ScoreView } from "@/lib/score";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
-import type { Issue, IssueEvent } from "@/types";
+import type { IssueEvent, CriminalStage } from "@/types";
 
 interface HomePageProps {
-  issues: Issue[];
   events: IssueEvent[];
 }
 
@@ -105,9 +104,124 @@ function CampEventCard({ event, view }: { event: IssueEvent; view: ScoreView }) 
   );
 }
 
-export function HomePage({ issues, events }: HomePageProps) {
+function formatRelativeDate(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "오늘";
+  if (days === 1) return "어제";
+  if (days < 7) return `${days}일 전`;
+  if (days < 30) return `${Math.floor(days / 7)}주 전`;
+  if (days < 365) return `${Math.floor(days / 30)}개월 전`;
+  return `${Math.floor(days / 365)}년 전`;
+}
+
+function RecentTimeline({ events }: { events: IssueEvent[] }) {
+  const recent = [...events]
+    .sort((a, b) => new Date(b.last_reported_at || b.created_at).getTime() - new Date(a.last_reported_at || a.created_at).getTime())
+    .slice(0, 12);
+
+  if (recent.length === 0) return null;
+
+  return (
+    <section className="mx-auto max-w-5xl px-4 pb-16">
+      <div className="mb-8">
+        <div className="mb-1 flex items-center gap-2.5">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400/60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400/80" />
+          </span>
+          <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase">
+            최근 기록
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-white/90">
+          공식 처분 타임라인
+        </h2>
+        <p className="mt-2 text-sm text-white/30">
+          법원·검찰·선관위 등 공식 기관의 최신 처분 기록
+        </p>
+      </div>
+
+      <div className="relative">
+        {/* 세로 타임라인 선 */}
+        <div className="absolute left-3 top-0 bottom-0 w-px bg-gradient-to-b from-white/10 via-white/5 to-transparent md:left-4" />
+
+        <div className="space-y-1">
+          {recent.map((event, i) => {
+            const colors = CAMP_COLORS[event.camp];
+            const config = CATEGORY_MAP[event.category];
+            const refDate = event.last_reported_at || event.created_at;
+            const relative = formatRelativeDate(refDate);
+            const dateStr = new Date(refDate).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
+
+            return (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, x: -10 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.04 }}
+              >
+                <Link
+                  href={`/issues/${event.representative_issue_id}`}
+                  className="group relative flex gap-4 rounded-xl py-3 pl-8 pr-4 transition-colors hover:bg-white/[0.03] md:pl-10"
+                >
+                  {/* 타임라인 점 */}
+                  <div
+                    className="absolute left-1.5 top-5 h-3 w-3 rounded-full ring-2 ring-[#0c0c10] md:left-2.5"
+                    style={{ backgroundColor: colors.primary }}
+                  />
+
+                  {/* 날짜 */}
+                  <div className="w-16 shrink-0 pt-0.5">
+                    <p className="text-[11px] font-medium text-white/35">{dateStr}</p>
+                    <p className="text-[10px] text-white/15">{relative}</p>
+                  </div>
+
+                  {/* 내용 */}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      {event.actor_name && (
+                        <span className="text-sm font-medium text-white/70">{event.actor_name}</span>
+                      )}
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px]"
+                        style={{ backgroundColor: `${colors.primary}15`, color: colors.glow }}
+                      >
+                        {config?.label}
+                      </span>
+                      {event.criminal_stage && (event.criminal_stage in CRIMINAL_STAGE_LABEL) && (
+                        <span className="text-[10px] text-white/25">
+                          {CRIMINAL_STAGE_LABEL[event.criminal_stage as CriminalStage]}
+                        </span>
+                      )}
+                    </div>
+                    <p className="line-clamp-1 text-[13px] text-white/45 transition-colors group-hover:text-white/65">
+                      {event.summary}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-6 text-center">
+        <Link
+          href="/issues"
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-2 text-sm text-white/35 transition-colors hover:border-white/20 hover:text-white/55"
+        >
+          전체 타임라인 보기 &rarr;
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+export function HomePage({ events }: HomePageProps) {
   const [view, setView] = useState<ScoreView>("recent");
-  const score = calculateScores(issues, view);
+  const score = calculateEventScores(events, view);
 
   // 진영별 상위 Event
   const scoredEvents = events.filter((e) => CATEGORY_MAP[e.category]?.isScored);
@@ -125,7 +239,7 @@ export function HomePage({ issues, events }: HomePageProps) {
       <Nav />
       <main>
         {/* 메인 스코어보드 */}
-        <SplitScreen score={score} issues={issues} view={view} onViewChange={setView} />
+        <SplitScreen score={score} view={view} onViewChange={setView} />
 
         {/* 카테고리 바 차트 */}
         <section className="mx-auto max-w-5xl px-4 py-24">
@@ -140,8 +254,11 @@ export function HomePage({ issues, events }: HomePageProps) {
             </div>
             <ViewTabs current={view} onChange={setView} />
           </div>
-          <CategoryBarChart issues={issues} view={view} />
+          <CategoryBarChart events={events} view={view} />
         </section>
+
+        {/* ── 최근 기록 타임라인 ── */}
+        <RecentTimeline events={events} />
 
         {/* ── 주요 사건: 파랑 vs 빨강 2열 ── */}
         <section className="mx-auto max-w-6xl px-4 pb-32">

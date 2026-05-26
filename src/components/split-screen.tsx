@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { ScoreResult, Issue } from "@/types";
+import type { ScoreResult } from "@/types";
 import { CAMP_COLORS } from "@/lib/constants";
 import { FluidBackground } from "./fluid-background";
 import { ViewTabs } from "./view-tabs";
@@ -9,12 +9,11 @@ import type { ScoreView } from "@/lib/score";
 
 interface SplitScreenProps {
   score: ScoreResult;
-  issues: Issue[];
   view: ScoreView;
   onViewChange: (view: ScoreView) => void;
 }
 
-export function SplitScreen({ score, issues, view, onViewChange }: SplitScreenProps) {
+export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
   return (
     <section className="relative h-[100dvh] w-full overflow-clip bg-[#0c0c10]">
       {/* 배경 */}

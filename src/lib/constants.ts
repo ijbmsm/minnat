@@ -3,7 +3,7 @@ import type { CategoryConfig, IssueCategory, CriminalStage } from "@/types";
 // ── 카테고리 설정 v1.1 ──
 export const CATEGORIES: CategoryConfig[] = [
   // 점수 부여 (공식 처분)
-  { key: "criminal_conviction",  label: "형사 처분",       description: "형사 유죄·기소·기소유예",           isScored: true,  isArchive: false },
+  { key: "criminal_conviction",  label: "사법 기록",       description: "형사 유죄·기소·기소유예",           isScored: true,  isArchive: false },
   { key: "civil_judgment",       label: "민사 패소",       description: "민사 소송 패소 판결",               isScored: true,  isArchive: false },
   { key: "ethics_violation",     label: "윤리위·선관위",   description: "윤리위·선관위 처분",                isScored: true,  isArchive: false },
   { key: "factcheck_false",      label: "팩트체크 거짓",   description: "IFCN 인증 매체 false 판정",         isScored: true,  isArchive: false },

@@ -246,8 +246,8 @@ export async function getPresidentById(id: string): Promise<PresidentFull | null
     supabase.from("president_appointments").select("*").eq("president_id", id).order("date", { ascending: true }).then(r => r.data ?? []),
   ]);
 
-  // 형사 처분 이벤트
-  const politicianName = (profile as any).politician?.name;
+  // 사법 기록 이벤트
+  const politicianName = (profile as PresidentProfile).politician?.name;
   let events: IssueEvent[] = [];
   if (politicianName) {
     const { data: evts } = await supabase
