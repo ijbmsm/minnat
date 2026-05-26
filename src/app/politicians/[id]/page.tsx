@@ -40,7 +40,7 @@ function EventCard({ event, colors }: { event: IssueEvent; colors: (typeof CAMP_
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.primary }} />
-        <span className="text-xs font-medium text-white/50">{config?.label ?? event.category}</span>
+        <span className="text-xs font-medium text-white/75">{config?.label ?? event.category}</span>
         {event.issue_count > 1 && (
           <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400/50">
             {event.issue_count}개 보도
@@ -51,18 +51,18 @@ function EventCard({ event, colors }: { event: IssueEvent; colors: (typeof CAMP_
             검증됨
           </span>
         )}
-        <span className="ml-auto text-[11px] text-white/20">{lastDate}</span>
+        <span className="ml-auto text-[11px] text-white/75">{lastDate}</span>
       </div>
 
-      <h3 className="mb-2 text-[15px] font-medium leading-snug text-white/85 transition-colors group-hover:text-white">
+      <h3 className="mb-2 text-[15px] font-medium leading-snug text-white transition-colors group-hover:text-white">
         {event.summary || "사건 요약 없음"}
       </h3>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-white/25">{event.coverage_count}개 매체</span>
+          <span className="text-xs text-white/75">{event.coverage_count}개 매체</span>
           {event.headline_days > 1 && (
-            <span className="text-[10px] text-white/15">{event.headline_days}일간</span>
+            <span className="text-[10px] text-white/75">{event.headline_days}일간</span>
           )}
         </div>
 
@@ -74,10 +74,10 @@ function EventCard({ event, colors }: { event: IssueEvent; colors: (typeof CAMP_
             >
               {score.toFixed(1)}
             </span>
-            <span className="text-[10px] text-white/15">/100</span>
+            <span className="text-[10px] text-white/75">/100</span>
           </div>
         ) : (
-          <span className="text-[10px] text-white/20">점수 없음</span>
+          <span className="text-[10px] text-white/75">점수 없음</span>
         )}
       </div>
     </Link>
@@ -109,7 +109,7 @@ export default async function PoliticianPage({ params }: Props) {
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20">
         <Link
           href="/politicians"
-          className="mb-6 inline-block text-sm text-white/40 transition-colors hover:text-white/60"
+          className="mb-6 inline-block text-sm text-white/75 transition-colors hover:text-white"
         >
           &larr; 정치인 목록
         </Link>
@@ -124,7 +124,7 @@ export default async function PoliticianPage({ params }: Props) {
           </div>
           <div>
             <h1 className="text-2xl font-bold">{politician.name}</h1>
-            <p className="text-sm text-white/40">
+            <p className="text-sm text-white/75">
               {politician.party?.name} · {politician.position}
               {politician.region ? ` · ${politician.region}` : ""}
             </p>
@@ -133,17 +133,17 @@ export default async function PoliticianPage({ params }: Props) {
 
         {/* 본인 입장 */}
         <div className="mb-8 rounded-xl border border-white/5 bg-white/[0.02] p-4">
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-white/75">
             본인 입장 확인되지 않음 — 공식 SNS·보도자료에서 자동 수집 예정
           </p>
         </div>
 
         {/* 공식 처분 (Events) */}
-        <h2 className="mb-4 text-sm font-semibold text-white/50">
+        <h2 className="mb-4 text-sm font-semibold text-white/75">
           공식 처분 ({scoredEvents.length + scoredOrphans.length}건의 사건)
         </h2>
         {scoredEvents.length === 0 && scoredOrphans.length === 0 ? (
-          <div className="mb-8 rounded-xl border border-white/5 py-8 text-center text-white/25">
+          <div className="mb-8 rounded-xl border border-white/5 py-8 text-center text-white/75">
             관련 공식 처분 없음
           </div>
         ) : (
@@ -158,12 +158,12 @@ export default async function PoliticianPage({ params }: Props) {
         )}
 
         {/* 행보 기록 (Events) */}
-        <h2 className="mb-4 text-sm font-semibold text-white/50">
+        <h2 className="mb-4 text-sm font-semibold text-white/75">
           행보 기록 ({archiveEvents.length + archiveOrphans.length}건)
-          <span className="ml-2 text-xs font-normal text-white/20">점수 없음</span>
+          <span className="ml-2 text-xs font-normal text-white/75">점수 없음</span>
         </h2>
         {archiveEvents.length === 0 && archiveOrphans.length === 0 ? (
-          <div className="rounded-xl border border-white/5 py-8 text-center text-white/25">
+          <div className="rounded-xl border border-white/5 py-8 text-center text-white/75">
             관련 기록 없음
           </div>
         ) : (

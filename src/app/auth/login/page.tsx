@@ -29,7 +29,7 @@ function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <h1 className="mb-2 text-center text-2xl font-bold">로그인</h1>
-      <p className="mb-8 text-center text-sm text-white/40">
+      <p className="mb-8 text-center text-sm text-white/75">
         민낯 게시판에 참여하려면 로그인이 필요합니다
       </p>
 
@@ -47,7 +47,7 @@ function LoginForm() {
         {loading ? "로그인 중..." : "카카오로 시작하기"}
       </button>
 
-      <p className="mt-6 text-center text-xs text-white/20">
+      <p className="mt-6 text-center text-xs text-white/75">
         카카오 계정으로 간편하게 로그인할 수 있습니다
       </p>
     </div>
@@ -59,7 +59,7 @@ export default function LoginPage() {
     <>
       <Nav />
       <main className="flex min-h-[80dvh] flex-col items-center justify-center px-4 pt-14">
-        <Suspense fallback={<div className="text-sm text-white/20">로딩...</div>}>
+        <Suspense fallback={<div className="text-sm text-white/75">로딩...</div>}>
           <LoginForm />
         </Suspense>
       </main>

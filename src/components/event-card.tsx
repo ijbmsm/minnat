@@ -53,16 +53,16 @@ export function EventCard({ event, size }: EventCardProps) {
         </div>
 
         {/* 제목 */}
-        <h3 className="mb-2 text-lg font-semibold leading-snug text-white/90 transition-colors group-hover:text-white">
+        <h3 className="mb-2 text-lg font-semibold leading-snug text-white transition-colors group-hover:text-white">
           {event.actor_name && (
-            <span className="mr-1.5 text-white/40">{event.actor_name}</span>
+            <span className="mr-1.5 text-white/75">{event.actor_name}</span>
           )}
           {event.summary || "사건 요약 없음"}
         </h3>
 
         {/* 하단: 메트릭 + 점수 */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-white/30">
+          <div className="flex items-center gap-3 text-xs text-white/75">
             <span>{event.coverage_count}개 매체</span>
             {event.headline_days > 1 && <span>{event.headline_days}일간 지속</span>}
           </div>
@@ -74,7 +74,7 @@ export function EventCard({ event, size }: EventCardProps) {
               >
                 {score.toFixed(1)}
               </span>
-              <span className="text-[10px] text-white/20">/100</span>
+              <span className="text-[10px] text-white/75">/100</span>
             </div>
           )}
         </div>
@@ -92,19 +92,19 @@ export function EventCard({ event, size }: EventCardProps) {
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex items-center gap-2">
               <div className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.primary }} />
-              <span className="text-[11px] text-white/40">{config?.label}</span>
+              <span className="text-[11px] text-white/75">{config?.label}</span>
               {event.criminal_stage && (
                 <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] text-red-400/50">
                   {CRIMINAL_STAGE_LABEL[event.criminal_stage]}
                 </span>
               )}
               {event.issue_count > 1 && (
-                <span className="text-[10px] text-white/20">{event.issue_count}개 보도</span>
+                <span className="text-[10px] text-white/75">{event.issue_count}개 보도</span>
               )}
             </div>
-            <p className="line-clamp-2 text-sm leading-snug text-white/75 transition-colors group-hover:text-white/90">
+            <p className="line-clamp-2 text-sm leading-snug text-white/75 transition-colors group-hover:text-white">
               {event.actor_name && (
-                <span className="text-white/35">{event.actor_name} — </span>
+                <span className="text-white/75">{event.actor_name} — </span>
               )}
               {event.summary || "사건 요약 없음"}
             </p>
@@ -129,13 +129,13 @@ export function EventCard({ event, size }: EventCardProps) {
       className="group flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-white/[0.03]"
     >
       <div className="h-1.5 w-1.5 rounded-full bg-white/15" />
-      <span className="flex-1 truncate text-[13px] text-white/40 transition-colors group-hover:text-white/60">
+      <span className="flex-1 truncate text-[13px] text-white/75 transition-colors group-hover:text-white">
         {event.actor_name && (
-          <span className="text-white/25">{event.actor_name} — </span>
+          <span className="text-white/75">{event.actor_name} — </span>
         )}
         {event.summary || event.category}
       </span>
-      <span className="shrink-0 text-[10px] text-white/15">{config?.label}</span>
+      <span className="shrink-0 text-[10px] text-white/75">{config?.label}</span>
     </Link>
   );
 }

@@ -42,7 +42,7 @@ function SetupForm() {
   return (
     <div className="w-full max-w-md">
       <h1 className="mb-2 text-center text-2xl font-bold">정치 성향을 알려주세요</h1>
-      <p className="mb-8 text-center text-sm text-white/60">
+      <p className="mb-8 text-center text-sm text-white/75">
         지지하는 정당을 선택해주세요. 언제든 변경할 수 있습니다.
       </p>
 
@@ -58,7 +58,7 @@ function SetupForm() {
             }`}
           >
             <p className="text-sm font-semibold" style={{ color: opt.color === "#666" ? "rgba(255,255,255,0.9)" : opt.color }}>{opt.label}</p>
-            <p className="mt-0.5 text-[11px] text-white/50">{opt.description}</p>
+            <p className="mt-0.5 text-[11px] text-white/75">{opt.description}</p>
           </button>
         ))}
       </div>
@@ -66,14 +66,14 @@ function SetupForm() {
       <button
         onClick={handleSubmit}
         disabled={!selected || loading}
-        className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/15 disabled:opacity-30"
+        className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium text-white transition-colors hover:bg-white/15 disabled:opacity-30"
       >
         {loading ? "저장 중..." : "선택 완료"}
       </button>
 
       <button
         onClick={() => router.push(next)}
-        className="mt-3 w-full py-2 text-xs text-white/40 transition-colors hover:text-white/60"
+        className="mt-3 w-full py-2 text-xs text-white/75 transition-colors hover:text-white"
       >
         나중에 선택하기
       </button>
@@ -86,7 +86,7 @@ export default function SetupPage() {
     <>
       <Nav />
       <main className="flex min-h-[80dvh] flex-col items-center justify-center px-4 pt-14">
-        <Suspense fallback={<div className="text-sm text-white/40">로딩...</div>}>
+        <Suspense fallback={<div className="text-sm text-white/75">로딩...</div>}>
           <SetupForm />
         </Suspense>
       </main>

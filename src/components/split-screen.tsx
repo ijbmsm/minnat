@@ -30,7 +30,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
           initial={{ opacity: 0, letterSpacing: "0.5em" }}
           animate={{ opacity: 1, letterSpacing: "0.35em" }}
           transition={{ duration: 1.5, delay: 2 }}
-          className="mb-2 text-[10px] text-white/30 uppercase sm:text-xs"
+          className="mb-2 text-[10px] text-white/75 uppercase sm:text-xs"
         >
           색안경 벗고, 팩트로 보는 정치
         </motion.p>
@@ -63,9 +63,9 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
               }}
             >
               {score.bluePct}
-              <span className="text-2xl font-normal text-white/25 sm:text-3xl">%</span>
+              <span className="text-2xl font-normal text-white/75 sm:text-3xl">%</span>
             </span>
-            <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
+            <span className="mt-2 text-xs tracking-wide text-white/75 sm:text-sm">
               {CAMP_COLORS.blue.label}
             </span>
           </motion.div>
@@ -82,7 +82,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 4.2 }}
-              className="text-[10px] tracking-widest text-white/20 uppercase"
+              className="text-[10px] tracking-widest text-white/75 uppercase"
             >
               vs
             </motion.span>
@@ -104,9 +104,9 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
               }}
             >
               {score.redPct}
-              <span className="text-2xl font-normal text-white/25 sm:text-3xl">%</span>
+              <span className="text-2xl font-normal text-white/75 sm:text-3xl">%</span>
             </span>
-            <span className="mt-2 text-xs tracking-wide text-white/30 sm:text-sm">
+            <span className="mt-2 text-xs tracking-wide text-white/75 sm:text-sm">
               {CAMP_COLORS.red.label}
             </span>
           </motion.div>
@@ -117,7 +117,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 4.2 }}
-          className="mb-4 flex w-full max-w-3xl justify-between text-[10px] tabular-nums text-white/20"
+          className="mb-4 flex w-full max-w-3xl justify-between text-[10px] tabular-nums text-white/75"
         >
           <span>이슈 {score.blueCount}건 | 1인당 {score.bluePerCapita.toFixed(1)}</span>
           <span>{score.redPerCapita.toFixed(1)} 1인당 | {score.redCount}건 이슈</span>
@@ -131,7 +131,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
           className="flex flex-col items-center gap-2"
         >
           <ViewTabs current={view} onChange={onViewChange} />
-          <p className="text-center text-[10px] text-white/15">
+          <p className="text-center text-[10px] text-white/75">
             비율이 높을수록 해당 진영의 부정적 이슈가 많습니다
           </p>
         </motion.div>

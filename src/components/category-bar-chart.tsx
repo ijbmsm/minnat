@@ -31,7 +31,7 @@ export function CategoryBarChart({ events, view }: CategoryBarChartProps) {
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-xl border border-white/5 py-12 text-center text-white/25">
+      <div className="rounded-xl border border-white/5 py-12 text-center text-white/75">
         비교할 공식 처분 사건이 없습니다.
       </div>
     );
@@ -47,8 +47,8 @@ export function CategoryBarChart({ events, view }: CategoryBarChartProps) {
         return (
           <div key={cat.key}>
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium text-white/70">{cat.label}</span>
-              <span className="text-xs text-white/25">
+              <span className="text-sm font-medium text-white">{cat.label}</span>
+              <span className="text-xs text-white/75">
                 총 {cat.blueCount + cat.redCount}건
               </span>
             </div>
@@ -93,7 +93,7 @@ export function CategoryBarChart({ events, view }: CategoryBarChartProps) {
       })}
 
       {/* 범례 */}
-      <div className="flex justify-center gap-8 pt-2 text-xs text-white/30">
+      <div className="flex justify-center gap-8 pt-2 text-xs text-white/75">
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded" style={{ backgroundColor: CAMP_COLORS.blue.primary }} />
           {CAMP_COLORS.blue.label}

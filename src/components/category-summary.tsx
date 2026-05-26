@@ -49,7 +49,7 @@ export function CategorySummary({ camp, issues, view = "recent" }: CategorySumma
         <h3 className="text-sm font-semibold tracking-wide" style={{ color: colors.glow }}>
           {colors.label}
         </h3>
-        <span className="text-xs tabular-nums text-white/25">
+        <span className="text-xs tabular-nums text-white/75">
           {totalScoredIssues + totalArchiveIssues}건
         </span>
       </div>
@@ -57,15 +57,15 @@ export function CategorySummary({ camp, issues, view = "recent" }: CategorySumma
       {/* 점수 이슈 */}
       {scored.length > 0 && (
         <div className="mb-4 space-y-2">
-          <p className="text-[10px] uppercase tracking-widest text-white/20">공식 처분</p>
+          <p className="text-[10px] uppercase tracking-widest text-white/75">공식 처분</p>
           {scored.map((cat) => {
             const barWidth = Math.max(4, (cat.totalScore / maxScore) * 100);
             return (
               <div key={cat.key}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="text-white/60">{cat.label}</span>
+                  <span className="text-white/75">{cat.label}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs tabular-nums text-white/30">{cat.count}건</span>
+                    <span className="text-xs tabular-nums text-white/75">{cat.count}건</span>
                     <span className="min-w-[3rem] text-right font-mono text-xs tabular-nums font-medium" style={{ color: colors.glow }}>
                       {cat.totalScore}
                     </span>
@@ -86,11 +86,11 @@ export function CategorySummary({ camp, issues, view = "recent" }: CategorySumma
       {/* Archive 이슈 */}
       {archived.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] uppercase tracking-widest text-white/15">기록 (점수 X)</p>
+          <p className="text-[10px] uppercase tracking-widest text-white/75">기록 (점수 X)</p>
           {archived.map((cat) => (
             <div key={cat.key} className="flex items-center justify-between text-xs">
-              <span className="text-white/30">{cat.label}</span>
-              <span className="tabular-nums text-white/20">{cat.count}건</span>
+              <span className="text-white/75">{cat.label}</span>
+              <span className="tabular-nums text-white/75">{cat.count}건</span>
             </div>
           ))}
         </div>

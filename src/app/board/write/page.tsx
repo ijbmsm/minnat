@@ -71,8 +71,8 @@ export default function BoardWritePage() {
         <main className="flex min-h-[80dvh] flex-col items-center justify-center px-4 pt-14">
           <div className="rounded-3xl bg-white/[0.02] px-10 py-12 text-center ring-1 ring-white/5">
             <div className="mb-4 text-3xl opacity-20">&#128274;</div>
-            <p className="mb-2 text-sm text-white/50">글을 작성하려면 로그인이 필요합니다</p>
-            <p className="mb-6 text-xs text-white/25">카카오 계정으로 간편하게 시작하세요</p>
+            <p className="mb-2 text-sm text-white/75">글을 작성하려면 로그인이 필요합니다</p>
+            <p className="mb-6 text-xs text-white/75">카카오 계정으로 간편하게 시작하세요</p>
             <Link
               href="/auth/login?next=/board/write"
               className="inline-block rounded-full bg-[#FEE500] px-8 py-3 text-sm font-semibold text-[#191919] transition-opacity hover:opacity-90"
@@ -89,12 +89,12 @@ export default function BoardWritePage() {
     <>
       <Nav />
       <main className="mx-auto max-w-2xl px-6 pt-24 pb-20 md:px-8">
-        <Link href="/board" className="mb-8 inline-flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white/60">
+        <Link href="/board" className="mb-8 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white">
           <span>&larr;</span><span>게시판</span>
         </Link>
 
         <div className="mb-10">
-          <span className="mb-2 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase">
+          <span className="mb-2 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase">
             새 글
           </span>
           <h1 className="text-3xl font-bold tracking-tight">글쓰기</h1>
@@ -103,7 +103,7 @@ export default function BoardWritePage() {
         <form onSubmit={handleSubmit}>
           {/* 게시판 선택 */}
           <div className="mb-8">
-            <label className="mb-3 block text-sm font-medium text-white/50">게시판 선택</label>
+            <label className="mb-3 block text-sm font-medium text-white/75">게시판 선택</label>
             <div className="grid grid-cols-3 gap-3">
               {CAMP_OPTIONS.map((opt) => {
                 const selected = camp === opt.value;
@@ -136,21 +136,21 @@ export default function BoardWritePage() {
 
           {/* 제목 */}
           <div className="mb-6">
-            <label className="mb-2 block text-sm font-medium text-white/50">제목</label>
+            <label className="mb-2 block text-sm font-medium text-white/75">제목</label>
             <input
               required
               maxLength={100}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="제목을 입력하세요"
-              className="w-full rounded-2xl bg-white/[0.03] px-5 py-4 text-[15px] text-white/85 border border-white/5 placeholder:text-white/20 focus:outline-none focus:border-white/15 transition-colors"
+              className="w-full rounded-2xl bg-white/[0.03] px-5 py-4 text-[15px] text-white border border-white/5 placeholder:text-white/75 focus:outline-none focus:border-white/15 transition-colors"
             />
-            <p className="mt-1.5 text-right text-[11px] text-white/20">{title.length}/100</p>
+            <p className="mt-1.5 text-right text-[11px] text-white/75">{title.length}/100</p>
           </div>
 
           {/* 내용 */}
           <div className="mb-8">
-            <label className="mb-2 block text-sm font-medium text-white/50">내용</label>
+            <label className="mb-2 block text-sm font-medium text-white/75">내용</label>
             <textarea
               required
               rows={12}
@@ -158,9 +158,9 @@ export default function BoardWritePage() {
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="내용을 입력하세요 (최소 10자)"
-              className="w-full resize-none rounded-2xl bg-white/[0.03] px-5 py-4 text-[15px] leading-[1.8] text-white/85 border border-white/5 placeholder:text-white/20 focus:outline-none focus:border-white/15 transition-colors"
+              className="w-full resize-none rounded-2xl bg-white/[0.03] px-5 py-4 text-[15px] leading-[1.8] text-white border border-white/5 placeholder:text-white/75 focus:outline-none focus:border-white/15 transition-colors"
             />
-            <p className="mt-1.5 text-right text-[11px] text-white/20">{content.length}/5000</p>
+            <p className="mt-1.5 text-right text-[11px] text-white/75">{content.length}/5000</p>
           </div>
 
           {/* Honeypot */}
@@ -176,14 +176,14 @@ export default function BoardWritePage() {
           <div className="flex gap-3">
             <Link
               href="/board"
-              className="flex-1 rounded-2xl border border-white/8 py-3.5 text-center text-sm text-white/45 transition-colors hover:border-white/15 hover:text-white/60"
+              className="flex-1 rounded-2xl border border-white/8 py-3.5 text-center text-sm text-white/75 transition-colors hover:border-white/15 hover:text-white"
             >
               취소
             </Link>
             <button
               type="submit"
               disabled={loading || !camp}
-              className="flex-1 rounded-2xl bg-white/[0.1] py-3.5 text-sm font-semibold text-white/80 transition-all hover:bg-white/[0.15] disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 rounded-2xl bg-white/[0.1] py-3.5 text-sm font-semibold text-white transition-all hover:bg-white/[0.15] disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {loading ? "등록 중..." : "등록하기"}
             </button>

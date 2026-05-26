@@ -38,15 +38,15 @@ export default async function PresidentsPage() {
         <main className="mx-auto max-w-5xl px-6 pt-24 pb-20 md:px-8">
           <Link
             href="/politicians"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-white/30 transition-colors hover:text-white/50"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white"
           >
             <span>&larr;</span>
             <span>정치인</span>
           </Link>
           <h1 className="mb-4 text-3xl font-bold tracking-tight">대한민국 역대 대통령</h1>
           <div className="rounded-2xl bg-white/[0.02] p-12 text-center ring-1 ring-white/5">
-            <p className="text-sm text-white/30">대통령 데이터가 아직 등록되지 않았습니다</p>
-            <p className="mt-1 text-xs text-white/15">시드 데이터 실행 후 표시됩니다</p>
+            <p className="text-sm text-white/75">대통령 데이터가 아직 등록되지 않았습니다</p>
+            <p className="mt-1 text-xs text-white/75">시드 데이터 실행 후 표시됩니다</p>
           </div>
         </main>
       </>
@@ -60,16 +60,16 @@ export default async function PresidentsPage() {
         <div className="mb-12">
           <Link
             href="/politicians"
-            className="mb-6 inline-flex items-center gap-2 text-sm text-white/30 transition-colors hover:text-white/50"
+            className="mb-6 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white"
           >
             <span>&larr;</span>
             <span>정치인</span>
           </Link>
-          <span className="mb-3 block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase w-fit">
+          <span className="mb-3 block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase w-fit">
             역대 대통령
           </span>
           <h1 className="text-3xl font-bold tracking-tight">대한민국 역대 대통령</h1>
-          <p className="mt-2 text-sm text-white/35">
+          <p className="mt-2 text-sm text-white/75">
             사법 기록 · 관련인물 · 사면 · 경제 성적표를 팩트 기반으로 정리합니다
           </p>
         </div>
@@ -83,8 +83,8 @@ export default async function PresidentsPage() {
             { label: "비정상 종료", value: `${presidents.filter(p => ["coup", "resignation", "assassination"].includes(p.term_ended_by)).length}명` },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-xl bg-white/[0.03] px-4 py-3 ring-1 ring-white/5">
-              <p className="text-[10px] text-white/25 uppercase tracking-wider">{label}</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-white/70">{value}</p>
+              <p className="text-[10px] text-white/75 uppercase tracking-wider">{label}</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-white">{value}</p>
             </div>
           ))}
         </div>
@@ -124,10 +124,10 @@ export default async function PresidentsPage() {
                     {/* 정보 */}
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex flex-wrap items-center gap-2.5">
-                        <h2 className="text-lg font-semibold text-white/90 transition-colors group-hover:text-white">
+                        <h2 className="text-lg font-semibold text-white transition-colors group-hover:text-white">
                           {pol?.name}
                         </h2>
-                        <span className="text-sm text-white/30">
+                        <span className="text-sm text-white/75">
                           {startYear}–{endYear}
                         </span>
                         {endStyle && (
@@ -137,11 +137,11 @@ export default async function PresidentsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-sm text-white/30">
+                        <p className="text-sm text-white/75">
                           {pres.party_at_time}
                         </p>
                         {termYears && (
-                          <span className="text-[11px] text-white/15">
+                          <span className="text-[11px] text-white/75">
                             재임 {termYears}년
                           </span>
                         )}
@@ -149,7 +149,7 @@ export default async function PresidentsPage() {
                     </div>
 
                     {/* 화살표 */}
-                    <span className="shrink-0 text-white/15 transition-colors group-hover:text-white/30">
+                    <span className="shrink-0 text-white/75 transition-colors group-hover:text-white">
                       &rarr;
                     </span>
                   </div>

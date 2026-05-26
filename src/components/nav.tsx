@@ -83,7 +83,7 @@ export function Nav() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <Link
             href="/"
-            className="text-xl font-bold tracking-tight text-white/90 transition-colors hover:text-white"
+            className="text-xl font-bold tracking-tight text-white transition-colors hover:text-white"
             style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}
           >
             민낯
@@ -98,7 +98,7 @@ export function Nav() {
                   key={href}
                   href={href}
                   className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                    isActive ? "bg-white/10 text-white" : "text-white/55 hover:text-white/80"
+                    isActive ? "bg-white/10 text-white" : "text-white/75 hover:text-white"
                   }`}
                 >
                   {label}
@@ -115,7 +115,7 @@ export function Nav() {
                 />
                 <button
                   onClick={handleLogout}
-                  className="rounded-lg px-3 py-1.5 text-sm text-white/50 transition-colors hover:text-white/70"
+                  className="rounded-lg px-3 py-1.5 text-sm text-white/75 transition-colors hover:text-white"
                 >
                   로그아웃
                 </button>
@@ -123,7 +123,7 @@ export function Nav() {
             ) : (
               <Link
                 href="/auth/login"
-                className="ml-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-white/50 transition-colors hover:bg-white/10 hover:text-white/70"
+                className="ml-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-white/75 transition-colors hover:bg-white/10 hover:text-white"
               >
                 로그인
               </Link>
@@ -180,7 +180,7 @@ export function Nav() {
                       href={href}
                       onClick={() => setOpen(false)}
                       className={`block rounded-xl px-5 py-3.5 text-center text-lg transition-colors ${
-                        isActive ? "bg-white/10 text-white" : "text-white/60 hover:text-white/80"
+                        isActive ? "bg-white/10 text-white" : "text-white/75 hover:text-white"
                       }`}
                     >
                       {label}
@@ -199,7 +199,7 @@ export function Nav() {
                 {user ? (
                   <button
                     onClick={() => { handleLogout(); setOpen(false); }}
-                    className="block w-full rounded-xl px-5 py-3.5 text-center text-lg text-white/30 transition-colors hover:text-white/50"
+                    className="block w-full rounded-xl px-5 py-3.5 text-center text-lg text-white/75 transition-colors hover:text-white"
                   >
                     로그아웃
                   </button>

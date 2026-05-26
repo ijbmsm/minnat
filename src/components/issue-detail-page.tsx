@@ -61,7 +61,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
           >
             <Link
               href="/issues"
-              className="mb-8 inline-flex items-center gap-2 text-sm text-white/30 transition-colors duration-300 hover:text-white/50"
+              className="mb-8 inline-flex items-center gap-2 text-sm text-white/75 transition-colors duration-300 hover:text-white"
             >
               <span>&larr;</span>
               <span>타임라인</span>
@@ -84,7 +84,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
             >
               {colors.label}
             </span>
-            <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.1em] text-white/40 uppercase">
+            <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.1em] text-white/75 uppercase">
               {config?.label}
             </span>
             {criminalStage && (
@@ -119,10 +119,10 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4, ease: EASE }}
-            className="mb-8 flex flex-wrap items-center gap-4 text-sm text-white/30"
+            className="mb-8 flex flex-wrap items-center gap-4 text-sm text-white/75"
           >
             {issue.actor_name && (
-              <span className="text-white/50">{issue.actor_name}</span>
+              <span className="text-white/75">{issue.actor_name}</span>
             )}
             <span>{publishedDate}</span>
             <span>{SOURCE_TIER_LABEL[issue.source_tier]}</span>
@@ -146,7 +146,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
               >
                 {score.toFixed(1)}
               </span>
-              <span className="mb-2 text-lg text-white/20">/100</span>
+              <span className="mb-2 text-lg text-white/75">/100</span>
             </motion.div>
           )}
 
@@ -167,7 +167,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
               viewport={{ once: true }}
               transition={{ duration: 0.7, ease: EASE }}
             >
-              <p className="text-lg leading-relaxed text-white/60 md:text-xl md:leading-relaxed">
+              <p className="text-lg leading-relaxed text-white/75 md:text-xl md:leading-relaxed">
                 {issue.summary}
               </p>
             </motion.div>
@@ -184,16 +184,16 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                 <div className="rounded-[1.5rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
                   <div className="rounded-[calc(1.5rem-1px)] bg-[#0c0c10] p-6 md:p-8">
                     <div className="mb-6 flex items-center gap-3">
-                      <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                      <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
                         사건 맥락
                       </span>
-                      <span className="text-xs text-white/20">
+                      <span className="text-xs text-white/75">
                         {event.issue_count}개 보도 · {event.headline_days}일간 지속
                       </span>
                     </div>
 
                     {/* 타임라인 */}
-                    <div className="mb-6 flex items-center gap-2 text-[11px] text-white/25">
+                    <div className="mb-6 flex items-center gap-2 text-[11px] text-white/75">
                       <span>{new Date(event.first_reported_at).toLocaleDateString("ko-KR")}</span>
                       <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10" />
                       <span>{new Date(event.last_reported_at).toLocaleDateString("ko-KR")}</span>
@@ -214,21 +214,21 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                           >
                             <div className="min-w-0 flex-1">
                               {isCurrent ? (
-                                <p className="text-sm text-white/70">
+                                <p className="text-sm text-white">
                                   {mi.title}
-                                  <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/25">
+                                  <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/75">
                                     현재
                                   </span>
                                 </p>
                               ) : (
                                 <Link
                                   href={`/issues/${mi.id}`}
-                                  className="block text-sm text-white/45 transition-colors duration-300 hover:text-white/70"
+                                  className="block text-sm text-white/75 transition-colors duration-300 hover:text-white"
                                 >
                                   {mi.title}
                                 </Link>
                               )}
-                              <p className="mt-1 text-[11px] text-white/20">
+                              <p className="mt-1 text-[11px] text-white/75">
                                 {mi.source_name} · {new Date(mi.published_at).toLocaleDateString("ko-KR")}
                               </p>
                             </div>
@@ -237,7 +237,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                                 href={mi.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="shrink-0 rounded-full border border-white/5 px-3 py-1 text-[10px] text-white/20 transition-colors duration-300 hover:border-white/15 hover:text-white/40"
+                                className="shrink-0 rounded-full border border-white/5 px-3 py-1 text-[10px] text-white/75 transition-colors duration-300 hover:border-white/15 hover:text-white"
                               >
                                 원문
                               </a>
@@ -261,15 +261,15 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
               >
                 <div className="rounded-[1.5rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
                   <div className="rounded-[calc(1.5rem-1px)] bg-[#0c0c10] p-6 md:p-8">
-                    <span className="mb-6 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                    <span className="mb-6 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
                       AI 분석
                     </span>
 
                     {/* 신뢰도 바 */}
                     <div className="mb-6">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs text-white/30">분류 신뢰도</span>
-                        <span className="font-mono text-sm tabular-nums text-white/50">
+                        <span className="text-xs text-white/75">분류 신뢰도</span>
+                        <span className="font-mono text-sm tabular-nums text-white/75">
                           {Math.round(issue.ai_analysis.confidence * 100)}%
                         </span>
                       </div>
@@ -286,17 +286,17 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
 
                     <div className="space-y-5 text-sm">
                       <div>
-                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/25 uppercase">판단 근거</p>
-                        <p className="leading-relaxed text-white/55">{issue.ai_analysis.reasoning}</p>
+                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">판단 근거</p>
+                        <p className="leading-relaxed text-white/75">{issue.ai_analysis.reasoning}</p>
                       </div>
                       <div>
-                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/25 uppercase">진영 판단</p>
-                        <p className="leading-relaxed text-white/55">{issue.ai_analysis.camp_reasoning}</p>
+                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">진영 판단</p>
+                        <p className="leading-relaxed text-white/75">{issue.ai_analysis.camp_reasoning}</p>
                       </div>
                       {issue.ai_analysis.evidence_sentence && (
                         <div>
-                          <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/25 uppercase">근거 문장</p>
-                          <p className="border-l-2 border-white/10 pl-4 leading-relaxed text-white/50 italic">
+                          <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">근거 문장</p>
+                          <p className="border-l-2 border-white/10 pl-4 leading-relaxed text-white/75 italic">
                             &ldquo;{issue.ai_analysis.evidence_sentence}&rdquo;
                           </p>
                         </div>
@@ -320,7 +320,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
               >
                 <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
                   <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                    <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                    <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
                       점수 근거
                     </span>
 
@@ -330,31 +330,31 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                       </p>
                     )}
 
-                    <p className="mb-4 text-[10px] leading-relaxed text-white/20">
+                    <p className="mb-4 text-[10px] leading-relaxed text-white/75">
                       base = 보도량(×0.40) + 공식처리(×0.35) + 지속일수(×0.25)
                       <br />→ ×다양도 ×직책 ×시간감쇠
                     </p>
 
                     <div className="space-y-3 text-[13px]">
                       <div className="flex justify-between">
-                        <span className="text-white/35">보도 매체</span>
-                        <span className="font-mono tabular-nums text-white/55">{coverageCount}개</span>
+                        <span className="text-white/75">보도 매체</span>
+                        <span className="font-mono tabular-nums text-white/75">{coverageCount}개</span>
                       </div>
                       {criminalStage && (
                         <div className="flex justify-between">
-                          <span className="text-white/35">형사 단계</span>
-                          <span className="font-mono tabular-nums text-white/55">
+                          <span className="text-white/75">형사 단계</span>
+                          <span className="font-mono tabular-nums text-white/75">
                             {CRIMINAL_STAGE_LABEL[criminalStage]} ({CRIMINAL_STAGE_WEIGHT[criminalStage]}/10)
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-white/35">지속일수</span>
-                        <span className="font-mono tabular-nums text-white/55">{headlineDays}일</span>
+                        <span className="text-white/75">지속일수</span>
+                        <span className="font-mono tabular-nums text-white/75">{headlineDays}일</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/35">직책 가중치</span>
-                        <span className="font-mono tabular-nums text-white/55">×{posWeight}</span>
+                        <span className="text-white/75">직책 가중치</span>
+                        <span className="font-mono tabular-nums text-white/75">×{posWeight}</span>
                       </div>
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                   <span className="mb-3 inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-medium text-amber-400/60">
                     기록 — 점수 없음
                   </span>
-                  <p className="text-sm leading-relaxed text-white/40">
+                  <p className="text-sm leading-relaxed text-white/75">
                     공식 처분이 아닌 기록입니다. 원문과 맥락을 보존하며, 판단은 사용자의 몫입니다.
                   </p>
                 </div>
@@ -385,12 +385,12 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
             >
               <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
                 <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                  <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                  <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
                     출처
                   </span>
 
-                  <p className="mb-1 text-sm text-white/60">{issue.source_name}</p>
-                  <p className="mb-4 text-[11px] text-white/25">
+                  <p className="mb-1 text-sm text-white/75">{issue.source_name}</p>
+                  <p className="mb-4 text-[11px] text-white/75">
                     {SOURCE_TIER_LABEL[issue.source_tier]} (Tier {issue.source_tier})
                   </p>
 
@@ -398,7 +398,7 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                     href={issue.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/8 px-4 py-2.5 text-xs text-white/40 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/20 hover:text-white/60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/8 px-4 py-2.5 text-xs text-white/75 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/20 hover:text-white"
                   >
                     원문 보기
                     <span className="text-[10px]">&nearr;</span>
@@ -407,12 +407,12 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                   {/* 교차검증 */}
                   {crossSources.length > 0 && (
                     <div className="mt-4 border-t border-white/5 pt-4">
-                      <p className="mb-2 text-[10px] text-white/20">교차검증 매체</p>
+                      <p className="mb-2 text-[10px] text-white/75">교차검증 매체</p>
                       <div className="flex flex-wrap gap-1.5">
                         {crossSources.map((s, i) => (
                           <span
                             key={i}
-                            className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] text-white/30"
+                            className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] text-white/75"
                           >
                             {s.name}
                           </span>
@@ -427,10 +427,10 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
             {/* 본인 입장 */}
             <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
               <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+                <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
                   본인 입장
                 </span>
-                <p className="text-xs text-white/20">확인되지 않음</p>
+                <p className="text-xs text-white/75">확인되지 않음</p>
               </div>
             </div>
           </div>

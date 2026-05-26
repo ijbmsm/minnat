@@ -47,7 +47,7 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
             className={`rounded-md px-3 py-1 text-xs transition-colors ${
               filters.eventType === value
                 ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/60"
+                : "text-white/75 hover:text-white"
             }`}
           >
             {label}
@@ -68,7 +68,7 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
             className={`rounded-md px-3 py-1 text-xs transition-colors ${
               filters.camp === value
                 ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/60"
+                : "text-white/75 hover:text-white"
             }`}
           >
             {label}
@@ -80,7 +80,7 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
       <select
         value={filters.category}
         onChange={(e) => update({ category: e.target.value as IssueCategory | "all" })}
-        className="rounded-lg border border-white/10 bg-transparent px-3 py-1.5 text-xs text-white/70 outline-none"
+        className="rounded-lg border border-white/10 bg-transparent px-3 py-1.5 text-xs text-white outline-none"
       >
         <option value="all" className="bg-[#0a0a0c]">전체 카테고리</option>
         {CATEGORIES.map((cat) => (
@@ -102,7 +102,7 @@ export function IssueFilter({ onFilterChange }: IssueFilterProps) {
             className={`rounded-md px-3 py-1 text-xs transition-colors ${
               filters.sort === value
                 ? "bg-white/10 text-white"
-                : "text-white/40 hover:text-white/60"
+                : "text-white/75 hover:text-white"
             }`}
           >
             {label}

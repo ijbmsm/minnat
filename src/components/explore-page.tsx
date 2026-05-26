@@ -32,10 +32,10 @@ function EventRow({ event, view }: { event: IssueEvent; view: ScoreView }) {
     >
       <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colors.primary }} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-white/70 transition-colors group-hover:text-white/90">
+        <p className="truncate text-sm text-white transition-colors group-hover:text-white">
           {event.summary || "사건 요약 없음"}
         </p>
-        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/25">
+        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-white/75">
           <span>{config?.label}</span>
           {event.actor_name && <span>{event.actor_name}</span>}
           {event.criminal_stage && (
@@ -74,11 +74,11 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
       <main className="mx-auto max-w-5xl px-4 pt-24 pb-20 md:px-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase">
+            <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase">
               탐색
             </span>
             <h1 className="text-3xl font-bold tracking-tight">이슈 탐색</h1>
-            <p className="mt-1 text-sm text-white/35">다양한 시각으로 사건을 탐색합니다</p>
+            <p className="mt-1 text-sm text-white/75">다양한 시각으로 사건을 탐색합니다</p>
           </div>
           <ViewTabs current={view} onChange={setView} />
         </div>
@@ -96,7 +96,7 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
               className={`flex-1 rounded-lg px-4 py-2.5 text-sm transition-all duration-300 ${
                 tab === key
                   ? "bg-white/10 text-white"
-                  : "text-white/30 hover:text-white/50"
+                  : "text-white/75 hover:text-white"
               }`}
             >
               {label}
@@ -107,14 +107,14 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
         {/* 탭 콘텐츠 */}
         {tab === "bubble" && (
           <div>
-            <p className="mb-4 text-xs text-white/25">원이 클수록 점수가 높은 이슈. 호버하면 상세 표시.</p>
+            <p className="mb-4 text-xs text-white/75">원이 클수록 점수가 높은 이슈. 호버하면 상세 표시.</p>
             <IssueBubble issues={issues} view={view} />
           </div>
         )}
 
         {tab === "timeline" && (
           <div>
-            <p className="mb-4 text-xs text-white/25">연도별 공식 처분 이력 — 좌측 파랑, 우측 빨강</p>
+            <p className="mb-4 text-xs text-white/75">연도별 공식 처분 이력 — 좌측 파랑, 우측 빨강</p>
             <TimelineView issues={issues} view={view} />
           </div>
         )}
@@ -123,8 +123,8 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
           <div>
             {/* Scored */}
             <div className="mb-2 flex items-center gap-3">
-              <span className="text-xs font-medium text-white/40">공식 처분</span>
-              <span className="text-[11px] text-white/20">{scoredEvents.length}건</span>
+              <span className="text-xs font-medium text-white/75">공식 처분</span>
+              <span className="text-[11px] text-white/75">{scoredEvents.length}건</span>
               <div className="h-px flex-1 bg-white/5" />
             </div>
             <div className="mb-8 rounded-[1.25rem] bg-white/[0.01] ring-1 ring-white/5">
@@ -142,8 +142,8 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
 
             {/* Archive */}
             <div className="mb-2 flex items-center gap-3">
-              <span className="text-xs font-medium text-white/30">기록</span>
-              <span className="text-[11px] text-white/15">{archiveEvents.length}건</span>
+              <span className="text-xs font-medium text-white/75">기록</span>
+              <span className="text-[11px] text-white/75">{archiveEvents.length}건</span>
               <div className="h-px flex-1 bg-white/5" />
             </div>
             <div className="rounded-[1.25rem] bg-white/[0.01] ring-1 ring-white/5">

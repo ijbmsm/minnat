@@ -37,8 +37,8 @@ const PROMISE_LABEL: Record<PromiseStatus, { label: string; color: string }> = {
   partial: { label: "부분이행", color: "bg-yellow-500/15 text-yellow-400/70" },
   broken: { label: "미이행", color: "bg-red-500/15 text-red-400/70" },
   ongoing: { label: "진행중", color: "bg-blue-500/15 text-blue-400/70" },
-  not_started: { label: "미착수", color: "bg-white/5 text-white/30" },
-  impossible: { label: "이행불가", color: "bg-white/5 text-white/30" },
+  not_started: { label: "미착수", color: "bg-white/5 text-white/75" },
+  impossible: { label: "이행불가", color: "bg-white/5 text-white/75" },
 };
 
 function SectionShell({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
@@ -47,11 +47,11 @@ function SectionShell({ title, count, children }: { title: string; count?: numbe
       <div className="rounded-[1.5rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
         <div className="rounded-[calc(1.5rem-1px)] bg-[#0c0c10] p-6 md:p-8">
           <div className="mb-5 flex items-center gap-2.5">
-            <span className="inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/35 uppercase">
+            <span className="inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
               {title}
             </span>
             {count !== undefined && count > 0 && (
-              <span className="text-[11px] tabular-nums text-white/20">{count}건</span>
+              <span className="text-[11px] tabular-nums text-white/75">{count}건</span>
             )}
           </div>
           {children}
@@ -156,7 +156,7 @@ export default async function PresidentDetailPage({ params }: Props) {
         {/* 뒤로가기 */}
         <Link
           href="/politicians/presidents"
-          className="mb-8 inline-flex items-center gap-2 text-sm text-white/30 transition-colors hover:text-white/50"
+          className="mb-8 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white"
         >
           <span>&larr;</span>
           <span>역대 대통령</span>
@@ -178,9 +178,9 @@ export default async function PresidentDetailPage({ params }: Props) {
             </div>
             <div className="flex-1">
               <h1 className="text-3xl font-bold tracking-tight">{pol?.name}</h1>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/40">
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-white/75">
                 <span>{pres.party_at_time}</span>
-                <span className="text-white/15">&middot;</span>
+                <span className="text-white/75">&middot;</span>
                 <span>{startYear}–{endYear}</span>
                 {endLabel !== "임기 만료" && (
                   <span className={`rounded-full px-2 py-0.5 text-[10px] ${
@@ -196,26 +196,26 @@ export default async function PresidentDetailPage({ params }: Props) {
           {/* 요약 통계 카드 */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-white/[0.04] px-3 py-2.5">
-              <p className="text-[10px] text-white/25">사법 기록</p>
+              <p className="text-[10px] text-white/75">사법 기록</p>
               <p className="mt-0.5 text-lg font-bold tabular-nums" style={{ color: scoredEvents.length > 0 ? colors.glow : "rgba(255,255,255,0.3)" }}>
                 {scoredEvents.length}건
               </p>
             </div>
             <div className="rounded-xl bg-white/[0.04] px-3 py-2.5">
-              <p className="text-[10px] text-white/25">관련인물 기록</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-white/60">
+              <p className="text-[10px] text-white/75">관련인물 기록</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-white/75">
                 {pres.associates.length}건
               </p>
             </div>
             <div className="rounded-xl bg-white/[0.04] px-3 py-2.5">
-              <p className="text-[10px] text-white/25">평균 GDP 성장률</p>
+              <p className="text-[10px] text-white/75">평균 GDP 성장률</p>
               <p className={`mt-0.5 text-lg font-bold tabular-nums ${avgGdp !== null && avgGdp < 0 ? "text-red-400/70" : "text-green-400/70"}`}>
                 {avgGdp !== null ? `${avgGdp > 0 ? "+" : ""}${avgGdp.toFixed(1)}%` : "—"}
               </p>
             </div>
             <div className="rounded-xl bg-white/[0.04] px-3 py-2.5">
-              <p className="text-[10px] text-white/25">공약 이행률</p>
-              <p className="mt-0.5 text-lg font-bold tabular-nums text-white/60">
+              <p className="text-[10px] text-white/75">공약 이행률</p>
+              <p className="mt-0.5 text-lg font-bold tabular-nums text-white/75">
                 {fulfillRate !== null ? `${fulfillRate}%` : "—"}
               </p>
             </div>
@@ -225,7 +225,7 @@ export default async function PresidentDetailPage({ params }: Props) {
         {/* ── [2] 사법 기록 (본인) ── */}
         <SectionShell title="사법 기록" count={scoredEvents.length}>
           {scoredEvents.length === 0 ? (
-            <p className="text-sm text-white/25">관련 사법 기록 없음</p>
+            <p className="text-sm text-white/75">관련 사법 기록 없음</p>
           ) : (
             <div className="space-y-3">
               {scoredEvents.map((event) => {
@@ -243,11 +243,11 @@ export default async function PresidentDetailPage({ params }: Props) {
                             {CRIMINAL_STAGE_LABEL[event.criminal_stage]}
                           </span>
                         )}
-                        <span className="text-[11px] text-white/20">
+                        <span className="text-[11px] text-white/75">
                           {event.coverage_count}개 매체
                         </span>
                       </div>
-                      <p className="text-sm text-white/60 transition-colors group-hover:text-white/80">
+                      <p className="text-sm text-white/75 transition-colors group-hover:text-white">
                         {event.summary}
                       </p>
                     </div>
@@ -272,20 +272,20 @@ export default async function PresidentDetailPage({ params }: Props) {
                   {criminalAssociates.map((a) => (
                     <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
                       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-white/70">{a.name}</span>
-                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">{a.relation}</span>
+                        <span className="text-sm font-medium text-white">{a.name}</span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/75">{a.relation}</span>
                         {a.criminal_stage && isCriminalStage(a.criminal_stage) && (
                           <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400/50">
                             {CRIMINAL_STAGE_LABEL[a.criminal_stage]}
                           </span>
                         )}
                         {a.date && (
-                          <span className="text-[10px] text-white/15">{a.date}</span>
+                          <span className="text-[10px] text-white/75">{a.date}</span>
                         )}
                       </div>
-                      <p className="text-[13px] leading-relaxed text-white/45">{a.description}</p>
+                      <p className="text-[13px] leading-relaxed text-white/75">{a.description}</p>
                       {a.sentence && (
-                        <p className="mt-1 text-xs text-white/25">결과: {a.sentence}</p>
+                        <p className="mt-1 text-xs text-white/75">결과: {a.sentence}</p>
                       )}
                     </div>
                   ))}
@@ -298,20 +298,20 @@ export default async function PresidentDetailPage({ params }: Props) {
                   {investigationAssociates.map((a) => (
                     <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
                       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-white/70">{a.name}</span>
-                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">{a.relation}</span>
+                        <span className="text-sm font-medium text-white">{a.name}</span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/75">{a.relation}</span>
                         {a.criminal_stage && isCriminalStage(a.criminal_stage) && (
                           <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400/50">
                             {CRIMINAL_STAGE_LABEL[a.criminal_stage]}
                           </span>
                         )}
                         {a.date && (
-                          <span className="text-[10px] text-white/15">{a.date}</span>
+                          <span className="text-[10px] text-white/75">{a.date}</span>
                         )}
                       </div>
-                      <p className="text-[13px] leading-relaxed text-white/45">{a.description}</p>
+                      <p className="text-[13px] leading-relaxed text-white/75">{a.description}</p>
                       {a.sentence && (
-                        <p className="mt-1 text-xs text-white/25">결과: {a.sentence}</p>
+                        <p className="mt-1 text-xs text-white/75">결과: {a.sentence}</p>
                       )}
                     </div>
                   ))}
@@ -324,13 +324,13 @@ export default async function PresidentDetailPage({ params }: Props) {
                   {controversyAssociates.map((a) => (
                     <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
                       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-white/70">{a.name}</span>
-                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/30">{a.relation}</span>
+                        <span className="text-sm font-medium text-white">{a.name}</span>
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/75">{a.relation}</span>
                         {a.date && (
-                          <span className="text-[10px] text-white/15">{a.date}</span>
+                          <span className="text-[10px] text-white/75">{a.date}</span>
                         )}
                       </div>
-                      <p className="text-[13px] leading-relaxed text-white/45">{a.description}</p>
+                      <p className="text-[13px] leading-relaxed text-white/75">{a.description}</p>
                     </div>
                   ))}
                 </div>
@@ -339,7 +339,7 @@ export default async function PresidentDetailPage({ params }: Props) {
           </>
         ) : (
           <SectionShell title="가족·측근">
-            <p className="text-sm text-white/25">관련 기록 없음</p>
+            <p className="text-sm text-white/75">관련 기록 없음</p>
           </SectionShell>
         )}
 
@@ -349,14 +349,14 @@ export default async function PresidentDetailPage({ params }: Props) {
             <div className="space-y-6">
               {receivedPardons.length > 0 && (
                 <div>
-                  <h3 className="mb-3 text-xs font-medium text-white/30">받은 사면</h3>
+                  <h3 className="mb-3 text-xs font-medium text-white/75">받은 사면</h3>
                   <div className="space-y-2">
                     {receivedPardons.map((p) => (
                       <div key={p.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
-                        <p className="text-sm text-white/60">
+                        <p className="text-sm text-white/75">
                           {p.pardoned_by} 대통령으로부터 특별사면
                         </p>
-                        <p className="mt-1 text-xs text-white/25">
+                        <p className="mt-1 text-xs text-white/75">
                           원래 혐의: {p.original_charge} · 형량: {p.original_sentence} · {p.pardon_date}
                         </p>
                       </div>
@@ -366,17 +366,17 @@ export default async function PresidentDetailPage({ params }: Props) {
               )}
               {grantedPardons.length > 0 && (
                 <div>
-                  <h3 className="mb-3 text-xs font-medium text-white/30">부여한 사면</h3>
+                  <h3 className="mb-3 text-xs font-medium text-white/75">부여한 사면</h3>
                   <div className="space-y-2">
                     {grantedPardons.map((p) => (
                       <div key={p.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
                         <div className="mb-1 flex items-center gap-2">
-                          <span className="text-sm text-white/60">{p.target_name}</span>
+                          <span className="text-sm text-white/75">{p.target_name}</span>
                           {p.target_role && (
-                            <span className="text-[11px] text-white/25">{p.target_role}</span>
+                            <span className="text-[11px] text-white/75">{p.target_role}</span>
                           )}
                         </div>
-                        <p className="text-xs text-white/25">
+                        <p className="text-xs text-white/75">
                           원래 혐의: {p.original_charge} · 형량: {p.original_sentence} · {p.pardon_date}
                         </p>
                       </div>
@@ -393,11 +393,11 @@ export default async function PresidentDetailPage({ params }: Props) {
           <SectionShell title="경제 성적표">
             {/* GDP 미니 바 차트 */}
             <div className="mb-6">
-              <h3 className="mb-3 text-xs font-medium text-white/30">GDP 성장률 추이</h3>
+              <h3 className="mb-3 text-xs font-medium text-white/75">GDP 성장률 추이</h3>
               <div className="space-y-1">
                 {pres.economy.map((e) => (
                   <div key={e.year} className="flex items-center gap-3">
-                    <span className="w-10 shrink-0 text-right font-mono text-[11px] text-white/30">{e.year}</span>
+                    <span className="w-10 shrink-0 text-right font-mono text-[11px] text-white/75">{e.year}</span>
                     {e.gdp_growth !== null ? (
                       <>
                         <GdpBar value={e.gdp_growth} />
@@ -406,7 +406,7 @@ export default async function PresidentDetailPage({ params }: Props) {
                         </span>
                       </>
                     ) : (
-                      <span className="text-[11px] text-white/15">—</span>
+                      <span className="text-[11px] text-white/75">—</span>
                     )}
                   </div>
                 ))}
@@ -417,7 +417,7 @@ export default async function PresidentDetailPage({ params }: Props) {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] text-white/30">
+                  <tr className="text-[11px] text-white/75">
                     <th className="pb-3 text-left font-medium">연도</th>
                     <th className="pb-3 text-right font-medium">GDP 성장률</th>
                     <th className="pb-3 text-right font-medium">실업률</th>
@@ -427,16 +427,16 @@ export default async function PresidentDetailPage({ params }: Props) {
                 <tbody>
                   {pres.economy.map((e) => (
                     <tr key={e.year} className="border-t border-white/5">
-                      <td className="py-2.5 font-mono text-white/50">{e.year}</td>
+                      <td className="py-2.5 font-mono text-white/75">{e.year}</td>
                       <td className="py-2.5 text-right font-mono tabular-nums">
                         <span className={e.gdp_growth !== null && e.gdp_growth < 0 ? "text-red-400/60" : "text-green-400/60"}>
                           {e.gdp_growth !== null ? `${e.gdp_growth > 0 ? "+" : ""}${e.gdp_growth}%` : "—"}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right font-mono tabular-nums text-white/40">
+                      <td className="py-2.5 text-right font-mono tabular-nums text-white/75">
                         {e.unemployment !== null ? `${e.unemployment}%` : "—"}
                       </td>
-                      <td className="py-2.5 text-right font-mono tabular-nums text-white/40">
+                      <td className="py-2.5 text-right font-mono tabular-nums text-white/75">
                         {e.inflation !== null ? `${e.inflation}%` : "—"}
                       </td>
                     </tr>
@@ -444,7 +444,7 @@ export default async function PresidentDetailPage({ params }: Props) {
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-[10px] text-white/15">출처: 한국은행 ECOS, 통계청 KOSIS</p>
+            <p className="mt-3 text-[10px] text-white/75">출처: 한국은행 ECOS, 통계청 KOSIS</p>
           </SectionShell>
         )}
 
@@ -454,9 +454,9 @@ export default async function PresidentDetailPage({ params }: Props) {
             {/* 이행률 헤드라인 */}
             <div className="mb-5 flex items-end gap-3">
               {fulfillRate !== null && (
-                <span className="text-3xl font-bold tabular-nums text-white/70">{fulfillRate}%</span>
+                <span className="text-3xl font-bold tabular-nums text-white">{fulfillRate}%</span>
               )}
-              <span className="mb-1 text-xs text-white/25">
+              <span className="mb-1 text-xs text-white/75">
                 이행 {promiseCounts.fulfilled} · 부분이행 {promiseCounts.partial} · 미이행 {promiseCounts.broken}
               </span>
             </div>
@@ -485,7 +485,7 @@ export default async function PresidentDetailPage({ params }: Props) {
                   return (
                     <span key={status} className="flex items-center gap-1.5">
                       <span className={`rounded-full px-2 py-0.5 ${info.color}`}>{info.label}</span>
-                      <span className="text-white/25">{count}건</span>
+                      <span className="text-white/75">{count}건</span>
                     </span>
                   );
                 })}
@@ -506,7 +506,7 @@ export default async function PresidentDetailPage({ params }: Props) {
               }
               return Array.from(byCategory.entries()).map(([cat, promises]) => (
                 <div key={cat} className="mb-4">
-                  <h4 className="mb-2 text-[11px] font-medium text-white/25">{cat}</h4>
+                  <h4 className="mb-2 text-[11px] font-medium text-white/75">{cat}</h4>
                   <div className="space-y-1.5">
                     {promises.map((p) => {
                       const info = PROMISE_LABEL[p.status];
@@ -516,8 +516,8 @@ export default async function PresidentDetailPage({ params }: Props) {
                             {info.label}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[13px] text-white/55">{p.promise}</p>
-                            {p.detail && <p className="mt-0.5 text-[11px] text-white/20">{p.detail}</p>}
+                            <p className="text-[13px] text-white/75">{p.promise}</p>
+                            {p.detail && <p className="mt-0.5 text-[11px] text-white/75">{p.detail}</p>}
                           </div>
                         </div>
                       );
@@ -536,8 +536,8 @@ export default async function PresidentDetailPage({ params }: Props) {
               {pres.appointments.map((a) => (
                 <div key={a.id} className="rounded-xl bg-white/[0.02] px-4 py-3">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium text-white/60">{a.appointee_name}</span>
-                    <span className="text-[11px] text-white/25">{a.position_appointed}</span>
+                    <span className="text-sm font-medium text-white/75">{a.appointee_name}</span>
+                    <span className="text-[11px] text-white/75">{a.position_appointed}</span>
                     {a.result && (
                       <span className={`rounded-full px-2 py-0.5 text-[10px] ${
                         a.result === "낙마" || a.result === "임명철회" || a.result === "자진사퇴"
@@ -548,10 +548,10 @@ export default async function PresidentDetailPage({ params }: Props) {
                       </span>
                     )}
                     {a.date && (
-                      <span className="text-[10px] text-white/15">{a.date}</span>
+                      <span className="text-[10px] text-white/75">{a.date}</span>
                     )}
                   </div>
-                  <p className="text-[13px] text-white/35">{a.issue}</p>
+                  <p className="text-[13px] text-white/75">{a.issue}</p>
                 </div>
               ))}
             </div>

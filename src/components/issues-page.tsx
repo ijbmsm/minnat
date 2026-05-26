@@ -154,19 +154,19 @@ function CampCard({ event }: { event: IssueEvent }) {
           </div>
 
           {/* 핵심 헤드라인 — 1줄 */}
-          <h3 className="mb-1 truncate text-[15px] font-semibold text-white/90 transition-colors duration-300 group-hover:text-white">
+          <h3 className="mb-1 truncate text-[15px] font-semibold text-white transition-colors duration-300 group-hover:text-white">
             {headline}
           </h3>
 
           {/* 보조 요약 — 1줄 */}
           {event.summary && (
-            <p className="mb-2 line-clamp-1 text-[13px] leading-snug text-white/40">
+            <p className="mb-2 line-clamp-1 text-[13px] leading-snug text-white/75">
               {event.summary}
             </p>
           )}
 
           {/* 하단 메트릭 */}
-          <div className="flex items-center gap-2.5 text-[11px] text-white/25">
+          <div className="flex items-center gap-2.5 text-[11px] text-white/75">
             {event.coverage_count > 1 && <span>{event.coverage_count}개 매체</span>}
             {event.issue_count > 1 && <span>{event.issue_count}개 보도</span>}
             {event.headline_days > 1 && <span>{event.headline_days}일</span>}
@@ -224,11 +224,11 @@ export function IssuesPage({ events }: IssuesPageProps) {
       <main className="mx-auto max-w-6xl px-4 pt-24 pb-20 md:px-8">
         {/* 헤더 */}
         <div className="mb-10">
-          <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase">
+          <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase">
             타임라인
           </span>
           <h1 className="text-3xl font-bold tracking-tight">이슈 타임라인</h1>
-          <p className="mt-2 text-sm text-white/35">
+          <p className="mt-2 text-sm text-white/75">
             공식 처분 기반 정치 사건을 시간순으로 비교합니다
           </p>
         </div>
@@ -238,7 +238,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
         </div>
 
         {timelineEvents.length === 0 ? (
-          <div className="rounded-2xl border border-white/5 py-20 text-center text-white/25">
+          <div className="rounded-2xl border border-white/5 py-20 text-center text-white/75">
             해당 조건의 사건이 없습니다
           </div>
         ) : (
@@ -257,7 +257,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
                         boxShadow: `0 0 10px ${colors.primary}50`,
                       }}
                     />
-                    <span className="text-xs font-medium text-white/40">{colors.label}</span>
+                    <span className="text-xs font-medium text-white/75">{colors.label}</span>
                     <div className={`h-px flex-1 bg-gradient-to-r ${fromColor} to-transparent`} />
                   </div>
                 );
@@ -277,9 +277,9 @@ export function IssuesPage({ events }: IssuesPageProps) {
                   >
                     {/* 날짜 헤더 */}
                     <div className="mb-5 flex items-center gap-4">
-                      <h2 className="text-sm font-semibold text-white/50">{section.label}</h2>
+                      <h2 className="text-sm font-semibold text-white/75">{section.label}</h2>
                       <div className="h-px flex-1 bg-white/5" />
-                      <span className="text-[11px] tabular-nums text-white/20">
+                      <span className="text-[11px] tabular-nums text-white/75">
                         {section.rows.length}건
                       </span>
                     </div>
@@ -337,7 +337,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
                           </motion.div>
                         ))}
                         {campEvents.length === 0 && (
-                          <div className="rounded-xl border border-white/[0.03] py-12 text-center text-xs text-white/15">
+                          <div className="rounded-xl border border-white/[0.03] py-12 text-center text-xs text-white/75">
                             해당 없음
                           </div>
                         )}

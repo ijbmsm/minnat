@@ -49,7 +49,7 @@ export function IssueCard({ issue, index }: IssueCardProps) {
             className="h-2 w-2 rounded-full"
             style={{ backgroundColor: colors.primary }}
           />
-          <span className="text-xs font-medium text-white/50">
+          <span className="text-xs font-medium text-white/75">
             {config?.label ?? issue.category}
           </span>
 
@@ -62,7 +62,7 @@ export function IssueCard({ issue, index }: IssueCardProps) {
 
           {/* archive/scored 뱃지 */}
           {isArchive && (
-            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/25">
+            <span className="rounded-md bg-white/5 px-1.5 py-0.5 text-[10px] text-white/75">
               기록
             </span>
           )}
@@ -84,30 +84,30 @@ export function IssueCard({ issue, index }: IssueCardProps) {
             )
           )}
 
-          <span className="ml-auto text-[11px] text-white/20">
+          <span className="ml-auto text-[11px] text-white/75">
             {relativeTime(issue.published_at)}
           </span>
         </div>
 
         {/* 제목 */}
-        <h3 className="mb-2 text-[15px] font-medium leading-snug text-white/85 transition-colors group-hover:text-white">
+        <h3 className="mb-2 text-[15px] font-medium leading-snug text-white transition-colors group-hover:text-white">
           {issue.title}
         </h3>
 
         {/* 요약 */}
-        <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-white/35">
+        <p className="mb-3 line-clamp-2 text-sm leading-relaxed text-white/75">
           {issue.summary}
         </p>
 
         {/* 하단 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-white/25">{issue.source_name}</span>
-            <span className="text-[10px] text-white/15">
+            <span className="text-xs text-white/75">{issue.source_name}</span>
+            <span className="text-[10px] text-white/75">
               {SOURCE_TIER_LABEL[issue.source_tier]}
             </span>
             {issue.coverage_count > 1 && (
-              <span className="text-[10px] text-white/15">
+              <span className="text-[10px] text-white/75">
                 {issue.coverage_count}개 매체
               </span>
             )}
@@ -121,10 +121,10 @@ export function IssueCard({ issue, index }: IssueCardProps) {
               >
                 {score.toFixed(1)}
               </span>
-              <span className="text-[10px] text-white/15">/100</span>
+              <span className="text-[10px] text-white/75">/100</span>
             </div>
           ) : isArchive ? (
-            <span className="text-[10px] text-white/20">점수 없음</span>
+            <span className="text-[10px] text-white/75">점수 없음</span>
           ) : null}
         </div>
       </Link>

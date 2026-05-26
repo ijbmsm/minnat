@@ -93,8 +93,8 @@ export default function BoardDetailPage() {
         <Nav />
         <main className="flex min-h-[80dvh] flex-col items-center justify-center pt-14">
           <div className="mb-3 text-3xl opacity-15">&#128683;</div>
-          <p className="text-sm text-white/40">게시글을 찾을 수 없습니다</p>
-          <Link href="/board" className="mt-4 rounded-full bg-white/[0.06] px-5 py-2 text-sm text-white/50 hover:bg-white/[0.1]">
+          <p className="text-sm text-white/75">게시글을 찾을 수 없습니다</p>
+          <Link href="/board" className="mt-4 rounded-full bg-white/[0.06] px-5 py-2 text-sm text-white/75 hover:bg-white/[0.1]">
             게시판으로 돌아가기
           </Link>
         </main>
@@ -111,7 +111,7 @@ export default function BoardDetailPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-3xl px-6 pt-24 pb-20 md:px-8">
-        <Link href="/board" className="mb-8 inline-flex items-center gap-2 text-sm text-white/40 transition-colors hover:text-white/60">
+        <Link href="/board" className="mb-8 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white">
           <span>&larr;</span><span>게시판</span>
         </Link>
 
@@ -122,18 +122,18 @@ export default function BoardDetailPage() {
 
           <div className="p-6 md:p-8">
             {/* 메타 */}
-            <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-white/35">
+            <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-white/75">
               <span style={{ color: `${barColor}bb` }} className="font-medium">{CAMP_LABEL[post.camp]}</span>
-              <span className="text-white/10">&middot;</span>
+              <span className="text-white/75">&middot;</span>
               <span>익명</span>
-              <span className="text-white/10">&middot;</span>
+              <span className="text-white/75">&middot;</span>
               <span>{dateStr}</span>
-              <span className="text-white/10">&middot;</span>
+              <span className="text-white/75">&middot;</span>
               <span>조회 {post.view_count}</span>
             </div>
 
             {/* 제목 */}
-            <h1 className="mb-8 text-2xl font-bold tracking-tight text-white/90 leading-snug">
+            <h1 className="mb-8 text-2xl font-bold tracking-tight text-white leading-snug">
               {post.title}
             </h1>
 
@@ -142,7 +142,7 @@ export default function BoardDetailPage() {
 
             {/* 본문 */}
             <div className="mb-8 min-h-[120px]">
-              <p className="whitespace-pre-wrap text-[15px] leading-[1.8] text-white/65">
+              <p className="whitespace-pre-wrap text-[15px] leading-[1.8] text-white/75">
                 {post.content}
               </p>
             </div>
@@ -157,7 +157,7 @@ export default function BoardDetailPage() {
                 className={`group flex items-center gap-2.5 rounded-full px-6 py-3 text-sm font-medium transition-all duration-200 ${
                   liked
                     ? "bg-red-500/15 text-red-400/80 shadow-[0_0_16px_rgba(239,68,68,0.08)]"
-                    : "bg-white/[0.04] text-white/45 hover:bg-white/[0.08] hover:text-white/65"
+                    : "bg-white/[0.04] text-white/75 hover:bg-white/[0.08] hover:text-white"
                 }`}
               >
                 <span className={`text-base transition-transform duration-200 ${liked ? "scale-110" : "group-hover:scale-105"}`}>
@@ -170,7 +170,7 @@ export default function BoardDetailPage() {
               {isOwner && (
                 <button
                   onClick={handleDelete}
-                  className="rounded-lg px-4 py-2 text-xs text-white/25 transition-colors hover:text-red-400/60"
+                  className="rounded-lg px-4 py-2 text-xs text-white/75 transition-colors hover:text-red-400/60"
                 >
                   삭제
                 </button>

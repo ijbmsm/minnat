@@ -12,15 +12,15 @@ export default function AboutPage() {
       <Nav />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20">
         <h1 className="mb-2 text-3xl font-bold">방법론</h1>
-        <p className="mb-12 text-sm text-white/40">
+        <p className="mb-12 text-sm text-white/75">
           민낯의 모든 룰은 공개합니다. 시비 들어오면 룰로 답합니다.
         </p>
 
         {/* 핵심 철학 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">핵심 철학</h2>
-          <div className="space-y-3 text-sm leading-relaxed text-white/60">
-            <p className="font-medium text-white/80">
+          <h2 className="mb-4 text-xl font-bold text-white">핵심 철학</h2>
+          <div className="space-y-3 text-sm leading-relaxed text-white/75">
+            <p className="font-medium text-white">
               &quot;우리는 점수 매기지 않는다. 사회·제도의 반응을 측정만 한다.&quot;
             </p>
             <p>
@@ -37,12 +37,12 @@ export default function AboutPage() {
 
         {/* 점수 카테고리 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">점수 카테고리 (공식 처분)</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">점수 카테고리 (공식 처분)</h2>
           <div className="space-y-3">
             {SCORED_CATEGORIES.map((cat) => (
               <div key={cat.key} className="rounded-xl border border-white/5 bg-white/[0.02] p-4">
-                <p className="text-sm font-medium text-white/70">{cat.label}</p>
-                <p className="text-xs text-white/40">{cat.description}</p>
+                <p className="text-sm font-medium text-white">{cat.label}</p>
+                <p className="text-xs text-white/75">{cat.description}</p>
               </div>
             ))}
           </div>
@@ -50,15 +50,15 @@ export default function AboutPage() {
 
         {/* Archive 카테고리 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">기록 카테고리 (점수 없음)</h2>
-          <p className="mb-4 text-sm text-white/40">
+          <h2 className="mb-4 text-xl font-bold text-white">기록 카테고리 (점수 없음)</h2>
+          <p className="mb-4 text-sm text-white/75">
             원문과 맥락을 보존하되 점수를 매기지 않습니다. 판단은 사용자의 몫입니다.
           </p>
           <div className="space-y-2">
             {ARCHIVE_CATEGORIES.map((cat) => (
               <div key={cat.key} className="flex items-center justify-between rounded-lg border border-white/[0.03] px-4 py-2.5">
-                <span className="text-sm text-white/50">{cat.label}</span>
-                <span className="text-xs text-white/25">{cat.description}</span>
+                <span className="text-sm text-white/75">{cat.label}</span>
+                <span className="text-xs text-white/75">{cat.description}</span>
               </div>
             ))}
           </div>
@@ -66,11 +66,11 @@ export default function AboutPage() {
 
         {/* 형사 단계 가중치 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">사법 기록 단계별 가중치</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">사법 기록 단계별 가중치</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5 text-left text-xs text-white/30">
+                <tr className="border-b border-white/5 text-left text-xs text-white/75">
                   <th className="pb-2 pr-4">단계</th>
                   <th className="pb-2 pr-4 text-right">가중치</th>
                   <th className="pb-2">처리</th>
@@ -79,9 +79,9 @@ export default function AboutPage() {
               <tbody>
                 {(Object.entries(CRIMINAL_STAGE_WEIGHT) as [string, number][]).map(([stage, weight]) => (
                   <tr key={stage} className="border-b border-white/[0.03]">
-                    <td className="py-2.5 pr-4 text-white/60">{CRIMINAL_STAGE_LABEL[stage as keyof typeof CRIMINAL_STAGE_LABEL]}</td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums text-white/50">{weight}</td>
-                    <td className="py-2.5 text-xs text-white/30">
+                    <td className="py-2.5 pr-4 text-white/75">{CRIMINAL_STAGE_LABEL[stage as keyof typeof CRIMINAL_STAGE_LABEL]}</td>
+                    <td className="py-2.5 pr-4 text-right tabular-nums text-white/75">{weight}</td>
+                    <td className="py-2.5 text-xs text-white/75">
                       {weight === 0 ? "점수 0 (UI 숨김)" : weight === 10 && stage === "pardoned" ? "점수 유지 (죄 무효 X)" : "점수 반영"}
                     </td>
                   </tr>
@@ -93,13 +93,13 @@ export default function AboutPage() {
 
         {/* 점수 공식 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">점수 공식</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">점수 공식</h2>
           <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
-            <div className="space-y-2 font-mono text-sm text-white/60">
+            <div className="space-y-2 font-mono text-sm text-white/75">
               <p>base = 보도량(×0.40) + 공식처리단계(×0.35) + 지속일수(×0.25)</p>
               <p>score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간감쇠</p>
             </div>
-            <div className="mt-4 space-y-1.5 text-xs text-white/30">
+            <div className="mt-4 space-y-1.5 text-xs text-white/75">
               <p>보도량: 보도 매체 수 (1~15+ → 0~1 정규화)</p>
               <p>공식처리: 형사 = 단계별 가중치, 기타 = 기본 5/10</p>
               <p>지속일수: 첫 보도~마지막 보도 일수 (1~20+ → 0~1)</p>
@@ -111,7 +111,7 @@ export default function AboutPage() {
 
         {/* 시간 감쇠 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">시간 감쇠 (뷰별)</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">시간 감쇠 (뷰별)</h2>
           <div className="space-y-2 text-sm">
             {[
               { view: "최근 30일 (Hot)", formula: "score / (경과시간+2)^1.8" },
@@ -120,8 +120,8 @@ export default function AboutPage() {
               { view: "역대 (All-time)", formula: "무감쇠" },
             ].map((item) => (
               <div key={item.view} className="flex items-center justify-between rounded-lg border border-white/[0.03] px-4 py-2.5">
-                <span className="text-white/50">{item.view}</span>
-                <span className="font-mono text-xs text-white/30">{item.formula}</span>
+                <span className="text-white/75">{item.view}</span>
+                <span className="font-mono text-xs text-white/75">{item.formula}</span>
               </div>
             ))}
           </div>
@@ -129,7 +129,7 @@ export default function AboutPage() {
 
         {/* 신뢰도 게이트 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">신뢰도 게이트</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">신뢰도 게이트</h2>
           <div className="space-y-3">
             {[
               { signal: "자기 진영 매체가 자기 진영 비판 + 다수 매체", level: "HIGH" },
@@ -145,7 +145,7 @@ export default function AboutPage() {
                 }`}>
                   {item.level.split(" ")[0]}
                 </span>
-                <span className="text-sm text-white/50">{item.signal}</span>
+                <span className="text-sm text-white/75">{item.signal}</span>
               </div>
             ))}
           </div>
@@ -153,7 +153,7 @@ export default function AboutPage() {
 
         {/* 안 하는 것 */}
         <section className="mb-12">
-          <h2 className="mb-4 text-xl font-bold text-white/90">명시적으로 안 하는 것</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">명시적으로 안 하는 것</h2>
           <div className="space-y-1.5">
             {[
               "정치인 개인 종합 점수",
@@ -166,7 +166,7 @@ export default function AboutPage() {
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2 text-sm">
                 <span className="text-red-400/40">✕</span>
-                <span className="text-white/40">{item}</span>
+                <span className="text-white/75">{item}</span>
               </div>
             ))}
           </div>
@@ -174,7 +174,7 @@ export default function AboutPage() {
 
         {/* 핵심 원칙 */}
         <section>
-          <h2 className="mb-4 text-xl font-bold text-white/90">핵심 원칙</h2>
+          <h2 className="mb-4 text-xl font-bold text-white">핵심 원칙</h2>
           <div className="space-y-2">
             {[
               "사회·제도의 반응 측정 — 우리가 판단하지 않는다",
@@ -185,10 +185,10 @@ export default function AboutPage() {
               "편향 감사 — 주간 자동 + 분기 자문위 점검",
             ].map((principle, i) => (
               <div key={i} className="flex items-start gap-3 text-sm">
-                <span className="mt-0.5 text-xs tabular-nums text-white/20">
+                <span className="mt-0.5 text-xs tabular-nums text-white/75">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <span className="text-white/60">{principle}</span>
+                <span className="text-white/75">{principle}</span>
               </div>
             ))}
           </div>

@@ -69,7 +69,7 @@ function FeedCard({ event, index }: { event: IssueEvent; index: number }) {
               <span style={{ color: `${colors.glow}cc` }} className="font-medium">
                 {CAMP_COLORS[event.camp].label}
               </span>
-              <span className="text-white/10">&middot;</span>
+              <span className="text-white/75">&middot;</span>
               <span
                 className="rounded-full px-2 py-0.5 text-[10px]"
                 style={{ backgroundColor: `${colors.primary}0d`, color: `${colors.glow}99` }}
@@ -78,28 +78,28 @@ function FeedCard({ event, index }: { event: IssueEvent; index: number }) {
               </span>
               {event.criminal_stage && (event.criminal_stage in CRIMINAL_STAGE_LABEL) && (
                 <>
-                  <span className="text-white/10">&middot;</span>
+                  <span className="text-white/75">&middot;</span>
                   <span className="text-red-400/50">
                     {CRIMINAL_STAGE_LABEL[event.criminal_stage as CriminalStage]}
                   </span>
                 </>
               )}
-              <span className="ml-auto text-white/20">{formatRelative(getRefDate(event))}</span>
+              <span className="ml-auto text-white/75">{formatRelative(getRefDate(event))}</span>
             </div>
 
             {/* 행위자 */}
             {event.actor_name && (
-              <p className="mb-1 text-xs font-semibold text-white/45">{event.actor_name}</p>
+              <p className="mb-1 text-xs font-semibold text-white/75">{event.actor_name}</p>
             )}
 
             {/* 요약 */}
-            <p className="line-clamp-2 text-[15px] leading-relaxed text-white/60 transition-colors duration-300 group-hover:text-white/85">
+            <p className="line-clamp-2 text-[15px] leading-relaxed text-white/75 transition-colors duration-300 group-hover:text-white">
               {event.summary || config?.label}
             </p>
 
             {/* 하단 메트릭 */}
             {(event.coverage_count > 1 || event.headline_days > 1) && (
-              <div className="mt-2.5 flex items-center gap-4 text-[10px] text-white/15">
+              <div className="mt-2.5 flex items-center gap-4 text-[10px] text-white/75">
                 {event.coverage_count > 1 && <span>{event.coverage_count}개 매체</span>}
                 {event.headline_days > 1 && <span>{event.headline_days}일째</span>}
               </div>
@@ -123,7 +123,7 @@ function SideFeed({ camp, events }: { camp: "blue" | "red"; events: IssueEvent[]
           className="h-2 w-2 rounded-full"
           style={{ backgroundColor: colors.primary }}
         />
-        <span className="text-sm font-semibold text-white/50">{colors.label}</span>
+        <span className="text-sm font-semibold text-white/75">{colors.label}</span>
         <div
           className="h-px flex-1"
           style={{ background: `linear-gradient(to right, ${colors.primary}20, transparent)` }}
@@ -145,15 +145,15 @@ function SideFeed({ camp, events }: { camp: "blue" | "red"; events: IssueEvent[]
                 href={`/issues/${event.representative_issue_id}`}
                 className="group flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors duration-200 hover:bg-white/[0.03]"
               >
-                <span className="mt-1 text-[11px] font-bold tabular-nums text-white/15">{i + 1}</span>
+                <span className="mt-1 text-[11px] font-bold tabular-nums text-white/75">{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 text-[13px] leading-snug text-white/50 transition-colors duration-200 group-hover:text-white/75">
+                  <p className="line-clamp-2 text-[13px] leading-snug text-white/75 transition-colors duration-200 group-hover:text-white">
                     {event.actor_name && (
-                      <span className="font-medium text-white/60">{event.actor_name} </span>
+                      <span className="font-medium text-white/75">{event.actor_name} </span>
                     )}
                     {event.summary || config?.label}
                   </p>
-                  <span className="mt-1 block text-[10px] text-white/15">{formatRelative(getRefDate(event))}</span>
+                  <span className="mt-1 block text-[10px] text-white/75">{formatRelative(getRefDate(event))}</span>
                 </div>
               </Link>
             </motion.div>
@@ -162,7 +162,7 @@ function SideFeed({ camp, events }: { camp: "blue" | "red"; events: IssueEvent[]
       </div>
 
       {events.length === 0 && (
-        <p className="py-8 text-center text-[11px] text-white/15">수집된 이슈 없음</p>
+        <p className="py-8 text-center text-[11px] text-white/75">수집된 이슈 없음</p>
       )}
     </div>
   );
@@ -201,14 +201,14 @@ export function HomePage({ events }: HomePageProps) {
             transition={{ duration: 0.6, ease: EASE }}
           >
             <div>
-              <span className="mb-2 inline-block rounded-full bg-white/[0.04] px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/25 uppercase">
+              <span className="mb-2 inline-block rounded-full bg-white/[0.04] px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase">
                 이슈 피드
               </span>
-              <h2 className="text-3xl font-bold tracking-tight text-white/90">최신 이슈</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-white">최신 이슈</h2>
             </div>
             <Link
               href="/issues"
-              className="text-sm text-white/30 transition-colors hover:text-white/55"
+              className="text-sm text-white/75 transition-colors hover:text-white"
             >
               전체 보기 &rarr;
             </Link>
@@ -223,7 +223,7 @@ export function HomePage({ events }: HomePageProps) {
               ))}
 
               {mainFeed.length === 0 && (
-                <div className="py-20 text-center text-sm text-white/20">
+                <div className="py-20 text-center text-sm text-white/75">
                   수집된 이슈가 없습니다
                 </div>
               )}
@@ -237,13 +237,13 @@ export function HomePage({ events }: HomePageProps) {
 
                 {/* 하단 링크 */}
                 <div className="space-y-2 pt-4 border-t border-white/[0.04]">
-                  <Link href="/board" className="block text-sm text-white/30 transition-colors hover:text-white/55">
+                  <Link href="/board" className="block text-sm text-white/75 transition-colors hover:text-white">
                     게시판 &rarr;
                   </Link>
-                  <Link href="/report" className="block text-sm text-white/30 transition-colors hover:text-white/55">
+                  <Link href="/report" className="block text-sm text-white/75 transition-colors hover:text-white">
                     누락 기록 제보 &rarr;
                   </Link>
-                  <Link href="/politicians" className="block text-sm text-white/30 transition-colors hover:text-white/55">
+                  <Link href="/politicians" className="block text-sm text-white/75 transition-colors hover:text-white">
                     정치인 &rarr;
                   </Link>
                 </div>
@@ -253,8 +253,8 @@ export function HomePage({ events }: HomePageProps) {
         </section>
 
         <footer className="border-t border-white/[0.04] py-16 text-center">
-          <p className="text-xs tracking-widest text-white/20">민낯 — 사회·제도의 반응을 측정합니다</p>
-          <p className="mt-2 text-[11px] text-white/10">모든 점수의 근거는 투명하게 공개됩니다</p>
+          <p className="text-xs tracking-widest text-white/75">민낯 — 사회·제도의 반응을 측정합니다</p>
+          <p className="mt-2 text-[11px] text-white/75">모든 점수의 근거는 투명하게 공개됩니다</p>
         </footer>
       </main>
     </>

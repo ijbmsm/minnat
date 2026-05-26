@@ -20,7 +20,7 @@ export function ViewTabs({ current, onChange }: ViewTabsProps) {
           className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
             current === view
               ? "bg-white/10 text-white"
-              : "text-white/35 hover:text-white/55"
+              : "text-white/75 hover:text-white"
           }`}
         >
           {SCORE_VIEW_LABELS[view]}

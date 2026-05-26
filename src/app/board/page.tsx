@@ -91,7 +91,7 @@ function BoardContent() {
               className={`relative shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 active
                   ? "bg-white/[0.12] text-white shadow-[0_0_12px_rgba(255,255,255,0.04)]"
-                  : "text-white/40 hover:text-white/65 hover:bg-white/[0.04]"
+                  : "text-white/75 hover:text-white hover:bg-white/[0.04]"
               }`}
             >
               {t.color && active && (
@@ -113,10 +113,10 @@ function BoardContent() {
       ) : posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl bg-white/[0.02] py-20 ring-1 ring-white/5">
           <div className="mb-3 text-3xl opacity-20">&#9998;</div>
-          <p className="text-sm text-white/35">아직 게시글이 없습니다</p>
+          <p className="text-sm text-white/75">아직 게시글이 없습니다</p>
           <Link
             href="/board/write"
-            className="mt-4 rounded-full bg-white/[0.08] px-5 py-2 text-sm text-white/60 transition-colors hover:bg-white/[0.12]"
+            className="mt-4 rounded-full bg-white/[0.08] px-5 py-2 text-sm text-white/75 transition-colors hover:bg-white/[0.12]"
           >
             첫 번째 글 작성하기
           </Link>
@@ -140,14 +140,14 @@ function BoardContent() {
                 <div className="flex items-center gap-4 py-4 pl-5 pr-4">
                   {/* 메인 콘텐츠 */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-medium text-white/75 transition-colors group-hover:text-white/90">
+                    <p className="truncate text-[15px] font-medium text-white/75 transition-colors group-hover:text-white">
                       {post.title}
                     </p>
-                    <div className="mt-1.5 flex items-center gap-2.5 text-[11px] text-white/30">
+                    <div className="mt-1.5 flex items-center gap-2.5 text-[11px] text-white/75">
                       <span style={{ color: `${barColor}99` }}>{CAMP_LABEL[post.camp]}</span>
-                      <span className="text-white/10">&middot;</span>
+                      <span className="text-white/75">&middot;</span>
                       <span>익명</span>
-                      <span className="text-white/10">&middot;</span>
+                      <span className="text-white/75">&middot;</span>
                       <span>{formatDate(post.created_at)}</span>
                     </div>
                   </div>
@@ -157,12 +157,12 @@ function BoardContent() {
                     {post.like_count > 0 && (
                       <div className="flex flex-col items-center">
                         <span className="text-xs font-semibold tabular-nums text-red-400/60">{post.like_count}</span>
-                        <span className="text-[9px] text-white/15">추천</span>
+                        <span className="text-[9px] text-white/75">추천</span>
                       </div>
                     )}
                     <div className="flex flex-col items-center">
-                      <span className="text-xs tabular-nums text-white/25">{post.view_count}</span>
-                      <span className="text-[9px] text-white/15">조회</span>
+                      <span className="text-xs tabular-nums text-white/75">{post.view_count}</span>
+                      <span className="text-[9px] text-white/75">조회</span>
                     </div>
                   </div>
                 </div>
@@ -176,7 +176,7 @@ function BoardContent() {
         <div className="mt-8 text-center">
           <button
             onClick={loadMore}
-            className="rounded-full bg-white/[0.05] px-8 py-2.5 text-sm text-white/45 transition-all hover:bg-white/[0.08] hover:text-white/65"
+            className="rounded-full bg-white/[0.05] px-8 py-2.5 text-sm text-white/75 transition-all hover:bg-white/[0.08] hover:text-white"
           >
             더 보기
           </button>
@@ -194,14 +194,14 @@ export default function BoardPage() {
         {/* 헤더 */}
         <div className="mb-10 flex items-end justify-between">
           <div>
-            <span className="mb-2 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/30 uppercase">
+            <span className="mb-2 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/75 uppercase">
               커뮤니티
             </span>
             <h1 className="text-3xl font-bold tracking-tight">게시판</h1>
           </div>
           <Link
             href="/board/write"
-            className="rounded-full bg-white/[0.08] px-5 py-2.5 text-sm font-medium text-white/70 transition-all hover:bg-white/[0.12] hover:text-white/90 hover:shadow-[0_0_16px_rgba(255,255,255,0.03)]"
+            className="rounded-full bg-white/[0.08] px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/[0.12] hover:text-white hover:shadow-[0_0_16px_rgba(255,255,255,0.03)]"
           >
             글쓰기
           </Link>

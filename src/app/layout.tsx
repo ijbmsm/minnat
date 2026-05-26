@@ -61,7 +61,7 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[#0a0a0c] text-white/90">
+      <body className="min-h-full bg-[#0a0a0c] text-white">
         <OrganizationJsonLd />
         <WebsiteJsonLd />
         {children}

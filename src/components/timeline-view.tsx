@@ -27,7 +27,7 @@ export function TimelineView({ issues, view }: TimelineViewProps) {
 
   if (years.length === 0) {
     return (
-      <div className="rounded-xl border border-white/5 py-12 text-center text-white/25">
+      <div className="rounded-xl border border-white/5 py-12 text-center text-white/75">
         타임라인에 표시할 공식 처분 이슈가 없습니다.
       </div>
     );
@@ -47,7 +47,7 @@ export function TimelineView({ issues, view }: TimelineViewProps) {
           <div key={year} className="mb-8">
             {/* 연도 마커 */}
             <div className="relative mb-4 flex justify-center">
-              <span className="relative z-10 rounded-full border border-white/10 bg-[#0c0c10] px-4 py-1 text-sm font-bold tabular-nums text-white/50">
+              <span className="relative z-10 rounded-full border border-white/10 bg-[#0c0c10] px-4 py-1 text-sm font-bold tabular-nums text-white/75">
                 {year}
               </span>
             </div>
@@ -60,7 +60,7 @@ export function TimelineView({ issues, view }: TimelineViewProps) {
                   <TimelineCard key={issue.id} issue={issue} side="blue" index={i} view={view} />
                 ))}
                 {blueIssues.length === 0 && (
-                  <div className="py-4 text-center text-xs text-white/10">—</div>
+                  <div className="py-4 text-center text-xs text-white/75">—</div>
                 )}
               </div>
 
@@ -70,7 +70,7 @@ export function TimelineView({ issues, view }: TimelineViewProps) {
                   <TimelineCard key={issue.id} issue={issue} side="red" index={i} view={view} />
                 ))}
                 {redIssues.length === 0 && (
-                  <div className="py-4 text-center text-xs text-white/10">—</div>
+                  <div className="py-4 text-center text-xs text-white/75">—</div>
                 )}
               </div>
             </div>
@@ -109,14 +109,14 @@ function TimelineCard({
         style={{ borderColor: `${colors.primary}20` }}
       >
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10px] text-white/25">{month}</span>
+          <span className="text-[10px] text-white/75">{month}</span>
           {issue.criminal_stage && (
             <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[9px] text-red-400/50">
               {CRIMINAL_STAGE_LABEL[issue.criminal_stage]}
             </span>
           )}
         </div>
-        <p className="mb-1 line-clamp-2 text-xs leading-snug text-white/60">
+        <p className="mb-1 line-clamp-2 text-xs leading-snug text-white/75">
           {issue.title}
         </p>
         {score > 0 && (

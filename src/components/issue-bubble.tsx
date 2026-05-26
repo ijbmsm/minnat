@@ -48,7 +48,7 @@ export function IssueBubble({ issues, view }: IssueBubbleProps) {
 
   if (bubbles.length === 0) {
     return (
-      <div className="rounded-xl border border-white/5 py-12 text-center text-white/25">
+      <div className="rounded-xl border border-white/5 py-12 text-center text-white/75">
         표시할 이슈가 없습니다.
       </div>
     );
@@ -57,10 +57,10 @@ export function IssueBubble({ issues, view }: IssueBubbleProps) {
   return (
     <div className="relative h-[400px] w-full overflow-hidden rounded-xl border border-white/5 bg-white/[0.01]">
       {/* 좌우 라벨 */}
-      <div className="absolute top-3 left-4 text-xs text-white/20" style={{ color: CAMP_COLORS.blue.glow }}>
+      <div className="absolute top-3 left-4 text-xs text-white/75" style={{ color: CAMP_COLORS.blue.glow }}>
         {CAMP_COLORS.blue.label}
       </div>
-      <div className="absolute top-3 right-4 text-xs text-white/20" style={{ color: CAMP_COLORS.red.glow }}>
+      <div className="absolute top-3 right-4 text-xs text-white/75" style={{ color: CAMP_COLORS.red.glow }}>
         {CAMP_COLORS.red.label}
       </div>
 
@@ -100,10 +100,10 @@ export function IssueBubble({ issues, view }: IssueBubbleProps) {
 
               {/* 호버 툴팁 */}
               <div className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-48 -translate-x-1/2 rounded-lg border border-white/10 bg-[#0c0c10] p-2.5 shadow-xl group-hover:block">
-                <p className="mb-1 line-clamp-2 text-[11px] leading-snug text-white/70">
+                <p className="mb-1 line-clamp-2 text-[11px] leading-snug text-white">
                   {b.issue.title}
                 </p>
-                <div className="flex items-center gap-2 text-[9px] text-white/30">
+                <div className="flex items-center gap-2 text-[9px] text-white/75">
                   {b.issue.criminal_stage && (
                     <span>{CRIMINAL_STAGE_LABEL[b.issue.criminal_stage]}</span>
                   )}
