@@ -5,7 +5,6 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Nav } from "./nav";
 import { ViewTabs } from "./view-tabs";
-import { IssueBubble } from "./issue-bubble";
 import { TimelineView } from "./timeline-view";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import { calculateEventScore, type ScoreView } from "@/lib/score";
@@ -13,7 +12,7 @@ import type { Issue, IssueEvent } from "@/types";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
-type Tab = "bubble" | "timeline" | "all";
+type Tab = "timeline" | "all";
 
 interface ExplorePageProps {
   issues: Issue[];
@@ -55,7 +54,7 @@ function EventRow({ event, view }: { event: IssueEvent; view: ScoreView }) {
 
 export function ExplorePage({ issues, events }: ExplorePageProps) {
   const [view, setView] = useState<ScoreView>("alltime");
-  const [tab, setTab] = useState<Tab>("bubble");
+  const [tab, setTab] = useState<Tab>("timeline");
 
   const sortedEvents = [...events].sort((a, b) => {
     const scoreB = calculateEventScore(b, view);
@@ -86,7 +85,6 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
         {/* 탭 전환 */}
         <div className="mb-8 flex rounded-xl border border-white/8 p-0.5">
           {([
-            { key: "bubble" as const, label: "이슈 맵" },
             { key: "timeline" as const, label: "타임라인" },
             { key: "all" as const, label: "전체 사건" },
           ]).map(({ key, label }) => (
@@ -105,16 +103,9 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
         </div>
 
         {/* 탭 콘텐츠 */}
-        {tab === "bubble" && (
-          <div>
-            <p className="mb-4 text-xs text-white/75">원이 클수록 점수가 높은 이슈. 호버하면 상세 표시.</p>
-            <IssueBubble issues={issues} view={view} />
-          </div>
-        )}
-
         {tab === "timeline" && (
           <div>
-            <p className="mb-4 text-xs text-white/75">연도별 공식 처분 이력 — 좌측 파랑, 우측 빨강</p>
+            <p className="mb-4 text-xs text-white/75">연도별 공식 처분 이력 — 좌측 더불어민주당, 우측 국민의힘</p>
             <TimelineView issues={issues} view={view} />
           </div>
         )}
