@@ -15,6 +15,7 @@ export const CATEGORIES: CategoryConfig[] = [
   { key: "attendance_record",      label: "출석 기록",    description: "본회의·상임위 출석률",               isScored: false, isArchive: true },
   { key: "media_coverage",         label: "보도 모음",    description: "관련 보도 아카이브",                 isScored: false, isArchive: true },
   { key: "politician_sns",         label: "본인 SNS",     description: "본인 공식 SNS 게시물",              isScored: false, isArchive: true },
+  { key: "social_controversy",     label: "사회 이슈",    description: "사회 논란 → 정치권 확산",            isScored: false, isArchive: true },
   // 입법 기록 (점수 X)
   { key: "bill_proposed",    label: "법안 발의",    description: "법안 발의/제안/제출",    isScored: false, isArchive: true },
   { key: "bill_committee",   label: "위원회 통과",  description: "상임위/소위 가결",       isScored: false, isArchive: true },

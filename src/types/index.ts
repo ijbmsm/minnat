@@ -19,7 +19,8 @@ export type ArchiveCategory =
   | "policy_record"           // 발의·표결 이력
   | "attendance_record"       // 출석률
   | "media_coverage"          // 보도 모음
-  | "politician_sns";         // 본인 SNS
+  | "politician_sns"          // 본인 SNS
+  | "social_controversy";     // 사회 이슈 (정치권 확산)
 
 // 입법 기록 (점수 X, 사실 기록만)
 export type BillCategory =
