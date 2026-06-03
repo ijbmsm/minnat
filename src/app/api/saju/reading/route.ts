@@ -18,13 +18,16 @@ import { buildFactSheet, type SajuFactSheet } from '@/lib/saju/factsheet';
 // ── 요청 스키마 ──
 
 const RequestSchema = z.object({
-  year:   z.number().int().min(1880).max(2100),
-  month:  z.number().int().min(1).max(12),
-  day:    z.number().int().min(1).max(31),
-  hour:   z.number().int().min(0).max(23).nullable(),
-  sex:    z.enum(['male', 'female']),
-  tier:   z.enum(['free', 'paid']).default('free'),
-  type:   z.enum(['full', 'career', 'love']).default('full'),
+  year:        z.number().int().min(1880).max(2100),
+  month:       z.number().int().min(1).max(12),
+  day:         z.number().int().min(1).max(31),
+  hour:        z.number().int().min(0).max(23).nullable(),
+  sex:         z.enum(['male', 'female']),
+  tier:        z.enum(['free', 'paid']).default('free'),
+  type:        z.enum(['full', 'career', 'love']).default('full'),
+  longitudeE:  z.number().min(-180).max(180).default(127.0),
+  name:        z.string().max(20).optional(),
+  concern:     z.string().max(200).optional(),
 });
 
 // ── 응답 타입 ──
@@ -65,7 +68,7 @@ function buildPrompt(
   fs: SajuFactSheet,
   opts: { tier: 'free' | 'paid'; type: 'full' | 'career' | 'love' },
 ): { system: string; user: string } {
-  const { dayMaster: dm, elements, elementTotal, tenGodCounts, bodyStrength, notableSignals, cautions, daeunStartAge, seyun } = fs;
+  const { dayMaster: dm, elements, elementTotal, tenGodCounts, bodyStrength, notableSignals, cautions, daeunStartAge, seyun, name, concern } = fs;
 
   const elementLines = Object.entries(elements)
     .map(([el, cnt]) => `  ${el}: ${cnt}/${elementTotal} (${Math.round(cnt/elementTotal*100)}%)`)
@@ -94,15 +97,18 @@ function buildPrompt(
     ? `\n[주의사항 — 이 항목은 단정 해석 금지]\n${cautions.map(c=>`- ${c}`).join('\n')}`
     : '';
 
-  const system = `너는 한국 전통 사주명리 전문가야. 친구한테 사주 봐주듯이 써줘.
+  const nameRef = name ? `이름: ${name}` : '';
+  const concernRef = concern ? `\n\n[사용자 고민/질문]\n"${concern}"\n→ 이 고민에 연결해서 해석해줘. 관련 섹션에서 직접 언급하고 사주 관점으로 답해.` : '';
 
+  const system = `너는 한국 전통 사주명리 전문가야. 친구한테 사주 봐주듯이 써줘.
+${nameRef ? `상대방 ${nameRef}. 이름으로 자연스럽게 불러줘.` : ''}
 규칙:
 1. notableSignals에 나온 사실만 근거로 써. 없는 사실 지어내지 마.
 2. "~할 것이다" 단정 금지. "~하는 경향", "~를 경계할 만하다" 식으로.
 3. 반말, 친근하게. 점집 말투 금지.
 4. 각 섹션 4~6문장. 너무 짧거나 너무 길지 않게.
 5. 구체적으로 써. "좋다" "나쁘다" 같은 뭉뚱그린 표현 말고, 어떤 상황에서 어떻게 나타나는지.
-6. 신살·격국은 factsheet에 없으면 언급 금지.${cautionNote}`;
+6. 신살·격국은 factsheet에 없으면 언급 금지.${cautionNote}${concernRef}`;
 
   // 타입별 섹션 정의
   const sections: string = opts.type === 'love'
@@ -201,19 +207,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 });
   }
 
-  const { year, month, day, hour, sex, tier, type } = body;
+  const { year, month, day, hour, sex, tier, type, longitudeE, name, concern } = body;
 
   // 사주 계산 (서버, 파일시스템)
   let fp;
   try {
-    fp = calcSajuServer(year, month, day, hour, sex);
+    fp = calcSajuServer(year, month, day, hour, sex, longitudeE);
   } catch (err) {
     return NextResponse.json({ error: `사주 계산 오류: ${err instanceof Error ? err.message : err}` }, { status: 500 });
   }
 
   // 팩트시트
-  const fs = buildFactSheet(fp, tier, type);
-  const cacheKey = fs.meta.cacheKey;
+  const fs = buildFactSheet(fp, tier, type, { name, concern });
+  // concern이 있으면 캐시 키에 포함 (고민 다르면 다른 해석)
+  const concernHash = concern
+    ? `:q${Buffer.from(concern).toString('base64').slice(0, 12)}`
+    : '';
+  const cacheKey = fs.meta.cacheKey + concernHash;
 
   // 캐시 확인
   if (redis) {

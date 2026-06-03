@@ -9,6 +9,21 @@ import { getSipshin, getBranchSipshin } from "@/lib/saju/sipshin";
 import { DAY_MASTER_PROFILE, ELEMENT_COMMENT } from "@/lib/saju/interpret";
 import type { Element, Stem } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
+import { lunarToSolar } from "@/lib/saju/lunar";
+
+// ── 출생지 프리셋 ──
+const BIRTH_CITIES = [
+  { label: '서울', lon: 127.0 },
+  { label: '부산', lon: 129.1 },
+  { label: '대구', lon: 128.6 },
+  { label: '인천', lon: 126.7 },
+  { label: '광주', lon: 126.9 },
+  { label: '제주', lon: 126.5 },
+  { label: '도쿄', lon: 139.7 },
+  { label: 'LA',   lon: -118.2 },
+  { label: 'NY',   lon: -74.0 },
+  { label: '기타', lon: null },
+] as const;
 
 // ── seolgi.json 로더 (클라이언트 캐시) ──
 let seolgiCache: SeolgiIndex | null = null;
@@ -25,6 +40,9 @@ async function loadSeolgi(): Promise<SeolgiIndex> {
 interface BirthParams {
   year: number; month: number; day: number;
   hour: number | null; sex: 'male' | 'female';
+  longitudeE: number;
+  name?: string;
+  concern?: string;
 }
 
 interface SajuUIResult {
@@ -170,7 +188,13 @@ function ReadingTab({ birth }: { birth: BirthParams }) {
       const res = await fetch('/api/saju/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...birth, tier: 'free', type }),
+        body: JSON.stringify({
+          year: birth.year, month: birth.month, day: birth.day,
+          hour: birth.hour, sex: birth.sex,
+          longitudeE: birth.longitudeE,
+          name: birth.name, concern: birth.concern,
+          tier: 'free', type,
+        }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -435,31 +459,40 @@ function CompatTab({ myElement }: { myElement: Element }) {
 
 // ── 입력 요약 바 (결과 화면 상단) ──
 function BirthSummary({ birth, onReset }: { birth: BirthParams; onReset: () => void }) {
-  const hourLabel = birth.hour === null ? '시간 모름' : `${birth.hour}시`;
+  const hourLabel = birth.hour === null ? '모름' : `${birth.hour}시`;
   const sexLabel  = birth.sex === 'male' ? '남' : '여';
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
       className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
     >
-      <div className="flex items-center gap-4">
-        <div className="text-center">
+      <div className="flex items-center gap-3 flex-wrap">
+        {birth.name && (
+          <>
+            <div>
+              <p className="text-[9px] text-white/30 mb-0.5">이름</p>
+              <p className="text-sm font-medium text-white">{birth.name}</p>
+            </div>
+            <div className="h-6 w-px bg-white/8" />
+          </>
+        )}
+        <div>
           <p className="text-[9px] text-white/30 mb-0.5">성별</p>
           <p className="text-sm font-medium text-white">{sexLabel}</p>
         </div>
         <div className="h-6 w-px bg-white/8" />
-        <div className="text-center">
+        <div>
           <p className="text-[9px] text-white/30 mb-0.5">생년월일</p>
           <p className="text-sm font-medium text-white">{birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')}</p>
         </div>
         <div className="h-6 w-px bg-white/8" />
-        <div className="text-center">
+        <div>
           <p className="text-[9px] text-white/30 mb-0.5">출생시</p>
           <p className="text-sm font-medium text-white">{hourLabel}</p>
         </div>
       </div>
       <button onClick={onReset}
-        className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
+        className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
         다시입력
       </button>
     </motion.div>
@@ -468,34 +501,69 @@ function BirthSummary({ birth, onReset }: { birth: BirthParams; onReset: () => v
 
 // ── 메인 페이지 ──
 export function SajuPage() {
-  const [form, setForm] = useState({ year:'', month:'', day:'', hour:'', unknownHour:false, sex:'male' as 'male'|'female' });
+  const [form, setForm] = useState({
+    name: '', concern: '',
+    year: '', month: '', day: '', hour: '',
+    unknownHour: false,
+    sex: 'male' as 'male' | 'female',
+    calType: 'solar' as 'solar' | 'lunar',
+    isLeapMonth: false,
+    city: '서울',
+    customLon: '',
+  });
   const [result, setResult] = useState<SajuUIResult | null>(null);
-  const [error, setError] = useState<string|null>(null);
+  const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  function getLongitude(): number {
+    const preset = BIRTH_CITIES.find(c => c.label === form.city);
+    if (preset && preset.lon !== null) return preset.lon;
+    const custom = parseFloat(form.customLon);
+    return isNaN(custom) ? 127.0 : custom;
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setLoading(true);
-    const y=parseInt(form.year), m=parseInt(form.month), d=parseInt(form.day);
+
+    let y = parseInt(form.year), m = parseInt(form.month), d = parseInt(form.day);
     const h = form.unknownHour ? null : parseInt(form.hour);
-    if (!y||!m||!d||y<1880||y>2100||m<1||m>12||d<1||d>31) {
+
+    if (!y || !m || !d || y < 1880 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) {
       setError('날짜를 올바르게 입력해주세요. (1880~2100)'); setLoading(false); return;
     }
-    if (!form.unknownHour && (isNaN(h!)||h!<0||h!>23)) {
+    if (!form.unknownHour && (isNaN(h!) || h! < 0 || h! > 23)) {
       setError('시간은 0~23시로 입력하거나 "시간 모름"을 체크하세요.'); setLoading(false); return;
     }
+
+    // 음력 → 양력 변환
+    if (form.calType === 'lunar') {
+      try {
+        const solar = lunarToSolar(y, m, d, form.isLeapMonth);
+        y = solar.year; m = solar.month; d = solar.day;
+      } catch {
+        setError('음력 날짜 변환에 실패했습니다. 날짜를 확인해주세요.'); setLoading(false); return;
+      }
+    }
+
+    const longitudeE = getLongitude();
+
     try {
       const index = await loadSeolgi();
-      const fp = computeFourPillars(index, fromKST(y,m,d,h), form.sex);
-      setResult(buildUIResult(fp, { year:y, month:m, day:d, hour:h, sex:form.sex }));
-    } catch(err) {
+      const fp = computeFourPillars(index, fromKST(y, m, d, h, 0, longitudeE), form.sex);
+      setResult(buildUIResult(fp, {
+        year: y, month: m, day: d, hour: h, sex: form.sex,
+        longitudeE,
+        name:    form.name.trim()    || undefined,
+        concern: form.concern.trim() || undefined,
+      }));
+    } catch (err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally { setLoading(false); }
   }
 
-  const set = (k: string, v: string|boolean) => setForm(f=>({...f,[k]:v}));
-
-  // 결과 있으면 폼 숨기고 요약 + 결과만
   if (result) {
     return (
       <main className="mx-auto max-w-lg px-4 pt-24 pb-20 space-y-4">
@@ -513,42 +581,97 @@ export function SajuPage() {
         <p className="mt-1 text-sm text-white/50">DE440 천문 데이터 · 절기 초 단위 정밀도</p>
       </div>
 
-      <form onSubmit={submit} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-4">
+      <form onSubmit={submit} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-5">
+
+        {/* 이름 */}
+        <div>
+          <label className="text-xs text-white/50 mb-2 block">이름 <span className="text-white/25">(선택)</span></label>
+          <input type="text" placeholder="홍길동" maxLength={20} value={form.name}
+            onChange={e => set('name', e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+        </div>
+
+        {/* 성별 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">성별</label>
           <div className="flex gap-2">
-            {(['male','female'] as const).map(s=>(
-              <button key={s} type="button" onClick={()=>set('sex',s)}
-                className={`flex-1 rounded-lg py-2 text-sm transition-all ${form.sex===s?'bg-white/15 text-white':'bg-white/5 text-white/50 hover:text-white'}`}>
-                {s==='male'?'남자':'여자'}
+            {(['male', 'female'] as const).map(s => (
+              <button key={s} type="button" onClick={() => set('sex', s)}
+                className={`flex-1 rounded-lg py-2 text-sm transition-all ${form.sex === s ? 'bg-white/15 text-white' : 'bg-white/5 text-white/50 hover:text-white'}`}>
+                {s === 'male' ? '남자' : '여자'}
               </button>
             ))}
           </div>
         </div>
 
+        {/* 양력/음력 + 생년월일 */}
         <div>
-          <label className="text-xs text-white/50 mb-2 block">생년월일</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs text-white/50">생년월일</label>
+            <div className="flex rounded-lg border border-white/10 p-0.5 gap-0.5">
+              {(['solar', 'lunar'] as const).map(t => (
+                <button key={t} type="button" onClick={() => set('calType', t)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${form.calType === t ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'}`}>
+                  {t === 'solar' ? '양력' : '음력'}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex gap-2">
-            <input type="number" placeholder="년도 (예: 1995)" value={form.year} onChange={e=>set('year',e.target.value)}
+            <input type="number" placeholder="년도 (예: 1995)" value={form.year} onChange={e => set('year', e.target.value)}
               className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
-            <input type="number" placeholder="월" value={form.month} onChange={e=>set('month',e.target.value)}
+            <input type="number" placeholder="월" value={form.month} onChange={e => set('month', e.target.value)}
               className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
-            <input type="number" placeholder="일" value={form.day} onChange={e=>set('day',e.target.value)}
+            <input type="number" placeholder="일" value={form.day} onChange={e => set('day', e.target.value)}
               className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
           </div>
+          {form.calType === 'lunar' && (
+            <label className="mt-2 flex items-center gap-1.5 text-xs text-white/40 cursor-pointer">
+              <input type="checkbox" checked={form.isLeapMonth} onChange={e => set('isLeapMonth', e.target.checked)} className="rounded" />
+              윤달
+            </label>
+          )}
         </div>
 
+        {/* 출생 시간 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">출생 시간 (0~23시)</label>
           <div className="flex items-center gap-3">
             <input type="number" placeholder="시 (예: 14)" value={form.hour} disabled={form.unknownHour}
-              onChange={e=>set('hour',e.target.value)}
+              onChange={e => set('hour', e.target.value)}
               className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 disabled:opacity-30" />
             <label className="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer">
-              <input type="checkbox" checked={form.unknownHour} onChange={e=>set('unknownHour',e.target.checked)} className="rounded" />
+              <input type="checkbox" checked={form.unknownHour} onChange={e => set('unknownHour', e.target.checked)} className="rounded" />
               시간 모름
             </label>
           </div>
+        </div>
+
+        {/* 출생지 */}
+        <div>
+          <label className="text-xs text-white/50 mb-2 block">출생지</label>
+          <div className="flex flex-wrap gap-1.5">
+            {BIRTH_CITIES.map(c => (
+              <button key={c.label} type="button" onClick={() => set('city', c.label)}
+                className={`rounded-lg px-3 py-1.5 text-xs transition-all ${form.city === c.label ? 'bg-white/15 text-white border border-white/20' : 'bg-white/5 text-white/50 border border-white/8 hover:text-white'}`}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+          {form.city === '기타' && (
+            <input type="number" placeholder="경도 (예: 126.5 = 제주, -118.2 = LA)" value={form.customLon}
+              onChange={e => set('customLon', e.target.value)} step="0.1" min="-180" max="180"
+              className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+          )}
+        </div>
+
+        {/* 현재 고민 */}
+        <div>
+          <label className="text-xs text-white/50 mb-2 block">지금 가장 궁금한 것 <span className="text-white/25">(선택 · AI 맥락 반영)</span></label>
+          <textarea placeholder="예: 올해 이직해도 될까요? / 지금 만나는 사람이랑 잘 맞는지 궁금해요" value={form.concern}
+            onChange={e => set('concern', e.target.value)} maxLength={200} rows={2}
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 resize-none" />
+          <p className="mt-1 text-[10px] text-white/25 text-right">{form.concern.length}/200</p>
         </div>
 
         {error && <p className="text-xs text-red-400">{error}</p>}

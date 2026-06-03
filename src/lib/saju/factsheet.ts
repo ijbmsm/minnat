@@ -73,6 +73,10 @@ export interface SajuFactSheet {
     sipshinStem:   Sipshin;
     sipshinBranch: Sipshin;
   }>;
+  /** 사용자 이름 (있으면 AI 호칭 개인화) */
+  name?: string;
+  /** 현재 고민 (있으면 AI 맥락 주입) */
+  concern?: string;
   /** 이 차트에서 가장 두드러진 팩트 3-8개 — LLM anchoring용 */
   notableSignals: string[];
   /** LLM이 단정 해석을 피해야 하는 주의사항 */
@@ -96,6 +100,7 @@ export function buildFactSheet(
   fp: FourPillars,
   tier: 'free' | 'paid' = 'free',
   readingType: 'full' | 'career' | 'love' = 'full',
+  opts: { name?: string; concern?: string } = {},
 ): SajuFactSheet {
   const dm       = fp.day.stem;
   const dmData   = STEM_DATA[dm];
@@ -224,6 +229,8 @@ export function buildFactSheet(
     bodyStrength,
     daeunStartAge: daeunAge,
     seyun,
+    name:    opts.name    || undefined,
+    concern: opts.concern || undefined,
     notableSignals,
     cautions,
   };
