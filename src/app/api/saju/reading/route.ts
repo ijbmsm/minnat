@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { Redis } from '@upstash/redis';
+import { Ratelimit } from '@upstash/ratelimit';
 import { z } from 'zod';
 import { calcSajuServer } from '@/lib/saju/server';
 import { buildFactSheet, type SajuFactSheet } from '@/lib/saju/factsheet';
@@ -54,6 +55,15 @@ const redis =
         token: process.env.UPSTASH_REDIS_REST_TOKEN,
       })
     : null;
+
+// ── Rate Limiting (IP 기준 분당 5회) ──
+const ratelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, '1 m'),
+      analytics: false,
+    })
+  : null;
 
 // ── Anthropic 클라이언트 ──
 let _anthropic: Anthropic | null = null;
@@ -197,6 +207,18 @@ function parsesections(raw: string): ReadingSection[] {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY 미설정' }, { status: 503 });
+  }
+
+  // Rate limiting
+  if (ratelimit) {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1';
+    const { success, limit, remaining } = await ratelimit.limit(`saju:${ip}`);
+    if (!success) {
+      return NextResponse.json(
+        { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'X-RateLimit-Limit': String(limit), 'X-RateLimit-Remaining': String(remaining) } },
+      );
+    }
   }
 
   // 파싱 & 검증

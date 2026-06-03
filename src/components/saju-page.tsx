@@ -222,6 +222,93 @@ function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
   );
 }
 
+// ── 공유 카드 모달 ──
+interface ShareParams {
+  stem: string; hanja: string; element: string;
+  image: string; name: string; keywords: string; core: string;
+}
+
+function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => void }) {
+  const [downloading, setDownloading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const ogUrl = `/api/saju/og?${new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v))
+  ).toString()}`;
+
+  async function download() {
+    setDownloading(true);
+    try {
+      const blob = await fetch(ogUrl).then(r => r.blob());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = '사주카드.png';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally { setDownloading(false); }
+  }
+
+  async function share() {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: '내 사주', text: `${params.name ? params.name + '님의 ' : ''}사주 카드`, url: window.location.href });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch { /* user cancelled */ }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+        onClick={e => e.stopPropagation()}
+        className="rounded-2xl border border-white/10 bg-zinc-950 p-4 w-full max-w-sm"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-white">사주 카드 공유</p>
+          <button onClick={onClose} className="text-white/40 hover:text-white text-lg leading-none">×</button>
+        </div>
+
+        {/* 카드 미리보기 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={ogUrl}
+          alt="사주 카드"
+          className="w-full rounded-xl mb-3 border border-white/8"
+          style={{ aspectRatio: '1 / 1', objectFit: 'cover' }}
+        />
+
+        <div className="flex gap-2">
+          <button
+            onClick={download} disabled={downloading}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+          >
+            {downloading ? '저장 중...' : '이미지 저장'}
+          </button>
+          <button
+            onClick={share}
+            className="flex-1 rounded-xl bg-white/10 py-2.5 text-sm text-white hover:bg-white/15 transition-colors"
+          >
+            {copied ? '복사됨!' : (typeof navigator !== 'undefined' && 'share' in navigator ? '공유' : 'URL 복사')}
+          </button>
+        </div>
+        <p className="mt-2 text-[10px] text-white/25 text-center">카드를 저장해서 카카오톡·인스타에 공유해봐</p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 type ReadingType = 'full' | 'love' | 'career';
 const READING_TYPES: { key: ReadingType; label: string; desc: string }[] = [
   { key: 'full',   label: '종합',   desc: '성격·연애·직업·세운 전체' },
@@ -644,44 +731,72 @@ function CompatTab({ myElement }: { myElement: Element }) {
 }
 
 // ── 입력 요약 바 (결과 화면 상단) ──
-function BirthSummary({ birth, onReset }: { birth: BirthParams; onReset: () => void }) {
+function BirthSummary({ birth, dayMaster, onReset }: {
+  birth: BirthParams;
+  dayMaster: SajuUIResult['dayMaster'];
+  onReset: () => void;
+}) {
+  const [showShare, setShowShare] = useState(false);
   const hourLabel = birth.hour === null ? '모름' : `${birth.hour}시`;
   const sexLabel  = birth.sex === 'male' ? '남' : '여';
+
+  const shareParams: ShareParams = {
+    stem:     dayMaster.stem,
+    hanja:    dayMaster.hanja,
+    element:  dayMaster.element,
+    image:    dayMaster.image,
+    name:     birth.name ?? '',
+    keywords: dayMaster.profile.keyword.join(','),
+    core:     dayMaster.profile.core,
+  };
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-      className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
-    >
-      <div className="flex items-center gap-3 flex-wrap">
-        {birth.name && (
-          <>
-            <div>
-              <p className="text-[9px] text-white/30 mb-0.5">이름</p>
-              <p className="text-sm font-medium text-white">{birth.name}</p>
-            </div>
-            <div className="h-6 w-px bg-white/8" />
-          </>
-        )}
-        <div>
-          <p className="text-[9px] text-white/30 mb-0.5">성별</p>
-          <p className="text-sm font-medium text-white">{sexLabel}</p>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+        className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+      >
+        <div className="flex items-center gap-3 flex-wrap">
+          {birth.name && (
+            <>
+              <div>
+                <p className="text-[9px] text-white/30 mb-0.5">이름</p>
+                <p className="text-sm font-medium text-white">{birth.name}</p>
+              </div>
+              <div className="h-6 w-px bg-white/8" />
+            </>
+          )}
+          <div>
+            <p className="text-[9px] text-white/30 mb-0.5">성별</p>
+            <p className="text-sm font-medium text-white">{sexLabel}</p>
+          </div>
+          <div className="h-6 w-px bg-white/8" />
+          <div>
+            <p className="text-[9px] text-white/30 mb-0.5">생년월일</p>
+            <p className="text-sm font-medium text-white">{birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')}</p>
+          </div>
+          <div className="h-6 w-px bg-white/8" />
+          <div>
+            <p className="text-[9px] text-white/30 mb-0.5">출생시</p>
+            <p className="text-sm font-medium text-white">{hourLabel}</p>
+          </div>
         </div>
-        <div className="h-6 w-px bg-white/8" />
-        <div>
-          <p className="text-[9px] text-white/30 mb-0.5">생년월일</p>
-          <p className="text-sm font-medium text-white">{birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')}</p>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShowShare(true)}
+            className="rounded-lg bg-white/8 border border-white/10 px-3 py-1.5 text-[11px] text-white/70 hover:text-white hover:bg-white/12 transition-all">
+            카드 공유
+          </button>
+          <button onClick={onReset}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
+            다시입력
+          </button>
         </div>
-        <div className="h-6 w-px bg-white/8" />
-        <div>
-          <p className="text-[9px] text-white/30 mb-0.5">출생시</p>
-          <p className="text-sm font-medium text-white">{hourLabel}</p>
-        </div>
-      </div>
-      <button onClick={onReset}
-        className="shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
-        다시입력
-      </button>
-    </motion.div>
+      </motion.div>
+
+      <AnimatePresence>
+        {showShare && <ShareModal params={shareParams} onClose={() => setShowShare(false)} />}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -755,7 +870,7 @@ export function SajuPage() {
   if (result) {
     return (
       <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-4">
-        <BirthSummary birth={result.birth} onReset={() => setResult(null)} />
+        <BirthSummary birth={result.birth} dayMaster={result.dayMaster} onReset={() => setResult(null)} />
         <ResultView result={result} />
       </main>
     );
@@ -845,7 +960,7 @@ export function SajuPage() {
             {DOMESTIC_CITIES.map(c => (
               <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
             ))}
-            <option value="__overseas__" className="bg-zinc-900">── 해외 ──</option>
+            <option value="__overseas__" disabled className="bg-zinc-900">── 해외 ──</option>
             {OVERSEAS_CITIES.map(c => (
               <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
             ))}
