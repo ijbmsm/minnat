@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { href: "/issues", label: "이슈" },
   { href: "/explore", label: "탐색" },
   { href: "/politicians", label: "정치인" },
-  { href: "/board", label: "게시판" },
   { href: "/report", label: "제보" },
 ] as const;
 
@@ -106,28 +105,7 @@ export function Nav() {
               );
             })}
 
-            {/* 로그인 상태 */}
-            {user ? (
-              <div className="ml-2 flex items-center gap-2">
-                <div
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: CAMP_DOT_COLOR[user.camp] }}
-                />
-                <button
-                  onClick={handleLogout}
-                  className="rounded-lg px-3 py-1.5 text-sm text-white/75 transition-colors hover:text-white"
-                >
-                  로그아웃
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/auth/login"
-                className="ml-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm text-white/75 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                로그인
-              </Link>
-            )}
+            {/* 로그인 상태 — 임시 비노출 */}
           </div>
 
           {/* 모바일 햄버거 */}
@@ -189,30 +167,7 @@ export function Nav() {
                 );
               })}
 
-              {/* 모바일 로그인/로그아웃 */}
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: NAV_ITEMS.length * 0.05, duration: 0.3 }}
-                className="mt-4 w-full"
-              >
-                {user ? (
-                  <button
-                    onClick={() => { handleLogout(); setOpen(false); }}
-                    className="block w-full rounded-xl px-5 py-3.5 text-center text-lg text-white/75 transition-colors hover:text-white"
-                  >
-                    로그아웃
-                  </button>
-                ) : (
-                  <Link
-                    href="/auth/login"
-                    onClick={() => setOpen(false)}
-                    className="block rounded-xl bg-[#FEE500]/10 px-5 py-3.5 text-center text-lg text-[#FEE500]/70 transition-colors hover:bg-[#FEE500]/20"
-                  >
-                    로그인
-                  </Link>
-                )}
-              </motion.div>
+              {/* 모바일 로그인/로그아웃 — 임시 비노출 */}
             </div>
           </motion.div>
         )}

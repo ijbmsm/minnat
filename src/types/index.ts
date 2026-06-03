@@ -299,3 +299,61 @@ export interface ScoreResult {
   bluePerCapita: number;
   redPerCapita: number;
 }
+
+// ── 감경 시스템 (양형기준 2단계 인자 체계) ──
+
+export type CreditType = "special" | "general";
+
+export type SpecialCreditCategory =
+  | "damage_recovery"          // 피해 회복
+  | "voluntary_surrender"      // 자진 출석/신고
+  | "whistleblowing"           // 내부 고발
+  | "legislative_achievement"; // 입법 성과
+
+export type GeneralCreditCategory =
+  | "full_attendance"    // 전체 출석
+  | "asset_disclosure"   // 재산 공개
+  | "ethics_clean"       // 윤리 무결
+  | "oversight_active"   // 감사 활동
+  | "donation_legal";    // 합법 후원
+
+export type CreditCategory = SpecialCreditCategory | GeneralCreditCategory;
+
+export interface CreditEvent {
+  id: string;
+  event_id: string | null;
+  actor_name: string;
+  camp: Camp;
+  credit_type: CreditType;
+  credit_category: CreditCategory;
+  description: string | null;
+  source_url: string | null;
+  source_name: string | null;
+  verified: boolean;
+  credit_value: number;
+  effective_date: string | null;
+  created_at: string;
+}
+
+// ── 유사 사례 비교 ──
+
+export interface SimilarCase {
+  id: string;
+  representative_issue_id: string;
+  actor_name: string | null;
+  category: IssueCategory;
+  camp: Camp;
+  summary: string | null;
+  weighted_score: number;
+  criminal_stage: CriminalStage | null;
+  first_reported_at: string;
+  similarity: number;
+}
+
+// ── 감경 반영 점수 ──
+
+export interface NetScore {
+  grossScore: number;
+  creditRatio: number;
+  netScore: number;
+}

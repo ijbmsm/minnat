@@ -103,6 +103,21 @@ function groupRowsByDate(rows: TimelineRow[]): DateSection[] {
   return order.map((label) => ({ label, rows: sections[label] }));
 }
 
+// ── 상대 시간 ──
+
+function relativeTimeLabel(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "방금";
+  if (mins < 60) return `${mins}분 전`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}일 전`;
+  const months = Math.floor(days / 30);
+  return `${months}개월 전`;
+}
+
 // ── 진영별 카드 ──
 
 function buildHeadline(event: IssueEvent): string {
@@ -124,13 +139,16 @@ function CampCard({ event }: { event: IssueEvent }) {
   const score = calculateEventScore(event);
   const headline = buildHeadline(event);
 
+  const timeLabel = relativeTimeLabel(event.last_reported_at || event.created_at);
+  const hasMetrics = event.coverage_count > 1 || event.issue_count > 1 || event.headline_days > 1;
+
   return (
-    <Link href={`/issues/${event.representative_issue_id}`} className="group block">
+    <Link href={`/issues/${event.representative_issue_id}`} className="group block h-full">
       <div
-        className="rounded-[1.25rem] p-[1px] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.01]"
+        className="h-full rounded-[1.25rem] p-[1px] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-[1.01]"
         style={{ background: `linear-gradient(135deg, ${colors.primary}15, transparent 60%)` }}
       >
-        <div className="rounded-[calc(1.25rem-1px)] bg-white/[0.03] p-4 md:p-5">
+        <div className="flex h-full flex-col rounded-[calc(1.25rem-1px)] bg-white/[0.03] p-4 md:p-5">
           {/* 상단: 카테고리 뱃지 + 점수 */}
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -165,8 +183,10 @@ function CampCard({ event }: { event: IssueEvent }) {
             </p>
           )}
 
-          {/* 하단 메트릭 */}
-          <div className="flex items-center gap-2.5 text-[11px] text-white/75">
+          {/* 하단: 시간 + 메트릭 — 항상 바닥에 고정 */}
+          <div className="mt-auto flex items-center gap-2.5 pt-2 text-[11px] text-white/50">
+            <span>{timeLabel}</span>
+            {hasMetrics && <span className="text-white/20">·</span>}
             {event.coverage_count > 1 && <span>{event.coverage_count}개 매체</span>}
             {event.issue_count > 1 && <span>{event.issue_count}개 보도</span>}
             {event.headline_days > 1 && <span>{event.headline_days}일</span>}

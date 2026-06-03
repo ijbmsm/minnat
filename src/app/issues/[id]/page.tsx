@@ -1,6 +1,9 @@
+import { Suspense } from "react";
 import { IssueDetailPage } from "@/components/issue-detail-page";
 import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/json-ld";
-import { getIssueById, getEventByIssueId } from "@/lib/data";
+import { SimilarCasesLoader } from "@/components/similar-cases-loader";
+import { SimilarCasesSkeleton } from "@/components/similar-cases-section";
+import { getIssueById, getEventByIssueId, getCreditsForEvent } from "@/lib/data";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -39,7 +42,13 @@ export default async function Page({ params }: Props) {
   const { id } = await params;
   const issue = await getIssueById(id);
   if (!issue) notFound();
-  const event = await getEventByIssueId(id);
+
+  // 병렬 로딩: 이벤트 + 감경 데이터
+  const [event, credits] = await Promise.all([
+    getEventByIssueId(id),
+    issue.event_id ? getCreditsForEvent(issue.event_id) : Promise.resolve([]),
+  ]);
+
   return (
     <>
       <ArticleJsonLd
@@ -55,7 +64,18 @@ export default async function Page({ params }: Props) {
           { name: issue.title, url: `https://minnat.kr/issues/${id}` },
         ]}
       />
-      <IssueDetailPage issue={issue} event={event} />
+      <IssueDetailPage
+        issue={issue}
+        event={event}
+        credits={credits}
+        similarCasesSlot={
+          event ? (
+            <Suspense fallback={<SimilarCasesSkeleton />}>
+              <SimilarCasesLoader eventId={event.id} />
+            </Suspense>
+          ) : null
+        }
+      />
     </>
   );
 }

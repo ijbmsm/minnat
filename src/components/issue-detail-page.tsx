@@ -1,26 +1,37 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Nav } from "./nav";
-import type { Issue, IssueEvent } from "@/types";
+import { CreditSection } from "./credit-section";
+import { NetScoreToggle } from "./net-score-toggle";
+import type { Issue, IssueEvent, CreditEvent } from "@/types";
 import { CATEGORY_MAP, CAMP_COLORS, SOURCE_TIER_LABEL, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
-import { calculateIssueScore, calculateEventScore } from "@/lib/score";
+import { calculateIssueScore, calculateEventScore, calculateNetEventScore } from "@/lib/score";
 
 interface IssueDetailPageProps {
   issue: Issue;
   event?: IssueEvent | null;
+  credits?: CreditEvent[];
+  similarCasesSlot?: ReactNode;
 }
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
-export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
+export function IssueDetailPage({ issue, event, credits = [], similarCasesSlot }: IssueDetailPageProps) {
+  const [scoreMode, setScoreMode] = useState<"gross" | "net">("net");
+
   const config = CATEGORY_MAP[issue.category];
   const colors = CAMP_COLORS[issue.camp];
   const isArchive = config?.isArchive ?? false;
   const isScored = config?.isScored ?? false;
 
-  const score = event ? calculateEventScore(event) : calculateIssueScore(issue);
+  const netScoreData = event
+    ? calculateNetEventScore(event, credits)
+    : { grossScore: calculateIssueScore(issue), creditRatio: 0, netScore: calculateIssueScore(issue) };
+  const score = scoreMode === "net" ? netScoreData.netScore : netScoreData.grossScore;
+  const hasCredits = credits.length > 0;
   const coverageCount = event?.coverage_count ?? issue.coverage_count;
   const headlineDays = event?.headline_days ?? issue.headline_days;
   const posWeight = event?.position_weight ?? issue.position_weight;
@@ -135,18 +146,29 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.5, ease: EASE }}
-              className="flex items-end gap-3"
             >
-              <span
-                className="font-mono text-6xl font-bold tabular-nums leading-none md:text-7xl"
-                style={{
-                  color: colors.glow,
-                  textShadow: `0 0 40px ${colors.primary}50`,
-                }}
-              >
-                {score.toFixed(1)}
-              </span>
-              <span className="mb-2 text-lg text-white/75">/100</span>
+              <div className="flex items-end gap-3">
+                <span
+                  className="font-mono text-6xl font-bold tabular-nums leading-none transition-all duration-300 md:text-7xl"
+                  style={{
+                    color: colors.glow,
+                    textShadow: `0 0 40px ${colors.primary}50`,
+                  }}
+                >
+                  {score.toFixed(1)}
+                </span>
+                <span className="mb-2 text-lg text-white/75">/100</span>
+                {hasCredits && scoreMode === "net" && (
+                  <span className="mb-2 text-sm text-emerald-400/50">
+                    ↓{Math.round(netScoreData.creditRatio * 100)}% 감경
+                  </span>
+                )}
+              </div>
+              {hasCredits && (
+                <div className="mt-3">
+                  <NetScoreToggle mode={scoreMode} onChange={setScoreMode} />
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -306,6 +328,9 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                 </div>
               </motion.div>
             )}
+
+            {/* 유사 사례 (Suspense 스트리밍) */}
+            {similarCasesSlot}
           </div>
 
           {/* 우측 사이드바: 메타 정보 (데스크탑) */}
@@ -360,6 +385,15 @@ export function IssueDetailPage({ issue, event }: IssueDetailPageProps) {
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {/* 감경 요소 */}
+            {isScored && hasCredits && (
+              <CreditSection
+                credits={credits}
+                netScore={netScoreData}
+                campColor={colors.glow}
+              />
             )}
 
             {/* Archive 안내 */}

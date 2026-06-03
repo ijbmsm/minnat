@@ -1,4 +1,4 @@
-import type { Issue, IssueEvent, ScoreResult, Camp, IssueCategory } from "@/types";
+import type { Issue, IssueEvent, ScoreResult, Camp, IssueCategory, CreditEvent, NetScore } from "@/types";
 import { CATEGORY_MAP, CRIMINAL_STAGE_WEIGHT } from "./constants";
 
 // ── 시간 감쇠 뷰 ──
@@ -14,13 +14,21 @@ export const SCORE_VIEW_LABELS: Record<ScoreView, string> = {
 function viewDecay(daysSince: number, view: ScoreView): number {
   switch (view) {
     case "hot":
+      // 30일 뷰: 강한 감쇠 — 최근 이슈가 압도적으로 중요
+      // 7일=0.70, 14일=0.50, 30일=0.22
       return Math.exp(-0.05 * daysSince);
     case "recent":
-      return Math.exp(-0.005 * daysSince);
+      // 1년 뷰: 완만한 감쇠 — 1년 전 이벤트도 48% 가중치 유지
+      // 30일=0.94, 180일=0.70, 365일=0.48
+      return Math.exp(-0.002 * daysSince);
     case "midterm":
-      return Math.max(0.3, Math.exp(-0.002 * daysSince));
+      // 5년 뷰: 거의 균등 — 전 기간 고르게 반영
+      // 1년=0.86, 3년=0.64, 5년=0.50
+      return Math.max(0.4, Math.exp(-0.0003 * daysSince));
     case "alltime":
-      return 1;
+      // 역대: 로그 감쇠 — 10년 전 73%, 20년 전 58%, 30년 전 48%
+      // 순수 누적 방지하되 역사 기록은 유지
+      return 1 / (1 + 0.0001 * daysSince);
   }
 }
 
@@ -234,4 +242,29 @@ export function getCategoryBreakdown(issues: Issue[], camp: Camp, view: ScoreVie
   }
 
   return result as Record<IssueCategory, { count: number; score: number }>;
+}
+
+/**
+ * 감경 점수 계산
+ *
+ * gross_score: 기존 부정 점수 (원본 보존)
+ * credit_ratio: Σ credit_values (최대 0.7 = 70% 캡)
+ * net_score: gross_score × max(0.3, 1 - credit_ratio)
+ */
+export function calculateNetEventScore(
+  event: IssueEvent,
+  credits: CreditEvent[],
+  view: ScoreView = "recent",
+): NetScore {
+  const grossScore = calculateEventScore(event, view);
+
+  if (grossScore === 0 || credits.length === 0) {
+    return { grossScore, creditRatio: 0, netScore: grossScore };
+  }
+
+  const rawRatio = credits.reduce((sum, c) => sum + c.credit_value, 0);
+  const creditRatio = Math.min(rawRatio, 0.7); // 70% 감경 캡
+  const netScore = Math.round(grossScore * Math.max(0.3, 1 - creditRatio) * 100) / 100;
+
+  return { grossScore, creditRatio, netScore };
 }

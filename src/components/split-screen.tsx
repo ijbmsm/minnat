@@ -25,16 +25,6 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
         {/* 상단 spacer — 스크롤 힌트와 균형 */}
         <div className="flex-1" />
 
-        {/* 부제 */}
-        <motion.p
-          initial={{ opacity: 0, letterSpacing: "0.5em" }}
-          animate={{ opacity: 1, letterSpacing: "0.35em" }}
-          transition={{ duration: 1.5, delay: 2 }}
-          className="mb-2 text-[10px] text-white/75 uppercase sm:text-xs"
-        >
-          색안경 벗고, 팩트로 보는 정치
-        </motion.p>
-
         {/* 타이틀 */}
         <motion.h1
           initial={{ opacity: 0, scale: 1.3, filter: "blur(12px)" }}

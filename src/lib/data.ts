@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Issue, IssueEvent, Politician, ScoreSnapshot, PresidentProfile, PresidentFull } from "@/types";
+import type { Issue, IssueEvent, Politician, ScoreSnapshot, PresidentProfile, PresidentFull, CreditEvent, SimilarCase } from "@/types";
 
 export async function getIssues(options?: {
   camp?: string;
@@ -195,6 +195,60 @@ export async function getEventsByPolitician(name: string): Promise<IssueEvent[]>
   }
   return (data ?? []) as IssueEvent[];
 }
+
+// ── 감경 이벤트 ──
+
+export async function getCreditsForEvent(eventId: string): Promise<CreditEvent[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("credit_events")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("verified", true)
+    .order("effective_date", { ascending: false });
+
+  if (error) {
+    console.error("[data] getCreditsForEvent error:", error.message);
+    return [];
+  }
+  return (data ?? []) as CreditEvent[];
+}
+
+export async function getCreditsByActor(actorName: string): Promise<CreditEvent[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("credit_events")
+    .select("*")
+    .eq("actor_name", actorName)
+    .eq("verified", true)
+    .order("effective_date", { ascending: false });
+
+  if (error) {
+    console.error("[data] getCreditsByActor error:", error.message);
+    return [];
+  }
+  return (data ?? []) as CreditEvent[];
+}
+
+// ── 유사 사례 ──
+
+export async function getSimilarEvents(eventId: string): Promise<SimilarCase[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .rpc("match_similar_events", {
+      query_event_id: eventId,
+      match_count: 5,
+      similarity_threshold: 0.5,
+    });
+
+  if (error) {
+    console.error("[data] getSimilarEvents error:", error.message);
+    return [];
+  }
+  return (data ?? []) as SimilarCase[];
+}
+
+// ── 스냅샷 ──
 
 export async function getLatestSnapshot(): Promise<ScoreSnapshot | null> {
   const supabase = await createClient();
