@@ -9,10 +9,12 @@ import { TimelineView } from "./timeline-view";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import { calculateEventScore, type ScoreView } from "@/lib/score";
 import type { Issue, IssueEvent } from "@/types";
+import { IssueBubble } from "./issue-bubble";
+import { CategoryBarChart } from "./category-bar-chart";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
-type Tab = "timeline" | "all";
+type Tab = "bubble" | "category" | "timeline" | "all";
 
 interface ExplorePageProps {
   issues: Issue[];
@@ -54,7 +56,7 @@ function EventRow({ event, view }: { event: IssueEvent; view: ScoreView }) {
 
 export function ExplorePage({ issues, events }: ExplorePageProps) {
   const [view, setView] = useState<ScoreView>("alltime");
-  const [tab, setTab] = useState<Tab>("timeline");
+  const [tab, setTab] = useState<Tab>("bubble");
 
   const sortedEvents = [...events].sort((a, b) => {
     const scoreB = calculateEventScore(b, view);
@@ -85,6 +87,8 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
         {/* 탭 전환 */}
         <div className="mb-8 flex rounded-xl border border-white/8 p-0.5">
           {([
+            { key: "bubble" as const, label: "버블맵" },
+            { key: "category" as const, label: "카테고리" },
             { key: "timeline" as const, label: "타임라인" },
             { key: "all" as const, label: "전체 사건" },
           ]).map(({ key, label }) => (
@@ -103,6 +107,20 @@ export function ExplorePage({ issues, events }: ExplorePageProps) {
         </div>
 
         {/* 탭 콘텐츠 */}
+        {tab === "bubble" && (
+          <div>
+            <p className="mb-4 text-xs text-white/75">점수 크기 비례 — 클수록 파급력이 큰 공식 처분. 버블 클릭 시 이슈 상세로 이동합니다.</p>
+            <IssueBubble issues={issues} view={view} />
+          </div>
+        )}
+
+        {tab === "category" && (
+          <div>
+            <p className="mb-6 text-xs text-white/75">카테고리별 진영 비교 — 같은 기간, 같은 기준으로 건수를 대조합니다.</p>
+            <CategoryBarChart events={events} view={view} />
+          </div>
+        )}
+
         {tab === "timeline" && (
           <div>
             <p className="mb-4 text-xs text-white/75">연도별 공식 처분 이력 — 좌측 더불어민주당, 우측 국민의힘</p>
