@@ -80,6 +80,52 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   };
 }
 
+// ── 세운 행 ──
+const STEMS_ARR = ['갑','을','병','정','무','기','경','신','임','계'] as const;
+const BRANCHES_ARR = ['자','축','인','묘','진','사','오','미','신','유','술','해'] as const;
+const mod = (n: number, m: number) => ((n % m) + m) % m;
+
+function calcSeyunPillar(year: number) {
+  const gz = mod(year - 4, 60);
+  const stem = STEMS_ARR[gz % 10];
+  const branch = BRANCHES_ARR[gz % 12];
+  return { stem, branch, gz };
+}
+
+function SeyunRow({ dm }: { dm: Stem }) {
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear, currentYear + 1];
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
+      <p className="text-[10px] text-white/35 tracking-widest mb-3">세운 (년운)</p>
+      <div className="flex gap-3">
+        {years.map((y, i) => {
+          const { stem, branch } = calcSeyunPillar(y);
+          const se = STEM_DATA[stem];
+          const be = BRANCH_DATA[branch];
+          const ss = getSipshin(dm, stem);
+          const sb = getBranchSipshin(dm, branch);
+          return (
+            <div key={y} className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-2.5 border ${i === 0 ? 'border-white/15 bg-white/[0.05]' : 'border-white/5'}`}>
+              <div>
+                <p className="text-[10px] text-white/35 mb-1">{y}년{i === 0 ? ' ·올해' : ''}</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[se.element] }}>{stem}</span>
+                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[be.element] }}>{branch}</span>
+                </div>
+              </div>
+              <div className="ml-auto text-right">
+                <p className="text-[10px] text-white/40">{ss}</p>
+                <p className="text-[10px] text-white/30">{sb}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── PillarCell ──
 function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
   label: string; pillar: Pillar;
@@ -101,65 +147,102 @@ function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
   );
 }
 
+type ReadingType = 'full' | 'love' | 'career';
+const READING_TYPES: { key: ReadingType; label: string; desc: string }[] = [
+  { key: 'full',   label: '종합',   desc: '성격·연애·직업·세운 전체' },
+  { key: 'love',   label: '연애',   desc: '연애 스타일과 궁합 유형' },
+  { key: 'career', label: '직업',   desc: '직업 적성과 재물 성향' },
+];
+
 // ── AI 해석 탭 ──
 function ReadingTab({ birth }: { birth: BirthParams }) {
-  const [reading, setReading] = useState<ReadingResponse | null>(null);
+  const [readingType, setReadingType] = useState<ReadingType>('full');
+  const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function load() {
+  const current = readings[readingType];
+
+  async function load(type: ReadingType) {
+    if (readings[type]) return; // 이미 있으면 스킵
     setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...birth, tier: 'free', type: 'full' }),
+        body: JSON.stringify({ ...birth, tier: 'free', type }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
       }
-      setReading(await res.json() as ReadingResponse);
+      const data = await res.json() as ReadingResponse;
+      setReadings(prev => ({ ...prev, [type]: data }));
     } catch (e) {
       setErr(e instanceof Error ? e.message : '알 수 없는 오류');
     } finally { setLoading(false); }
   }
 
-  if (!reading && !loading) return (
-    <div className="flex flex-col items-center gap-4 py-8">
-      <p className="text-sm text-white/50 text-center">AI가 이 사주를 종합 해석해드립니다.<br/>DE440 데이터 기반 · 캐시로 한 번만 생성</p>
-      <button onClick={load} className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
-        AI 해석 보기
-      </button>
-      {err && <p className="text-xs text-red-400">{err}</p>}
-    </div>
-  );
-
-  if (loading) return (
-    <div className="flex flex-col items-center gap-3 py-10">
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-        className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/70" />
-      <p className="text-xs text-white/40">해석 생성 중...</p>
-    </div>
-  );
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-      {reading!.cautions.length > 0 && (
-        <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
-          ⚠ {reading!.cautions.join(' · ')}
-        </p>
-      )}
-      {reading!.sections.map((s, i) => (
-        <div key={i} className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-2">
-          <p className="text-[10px] text-white/40 uppercase tracking-widest">{s.title}</p>
-          <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
-        </div>
-      ))}
-      {reading!.cached && (
-        <p className="text-[10px] text-white/25 text-center">캐시됨</p>
-      )}
-    </motion.div>
+    <div className="space-y-4">
+      {/* 타입 선택 */}
+      <div className="flex gap-2">
+        {READING_TYPES.map(({ key, label, desc }) => (
+          <button key={key} onClick={() => setReadingType(key)}
+            className={`flex-1 rounded-xl border py-2.5 px-1 text-center transition-all ${
+              readingType === key
+                ? 'border-white/20 bg-white/10 text-white'
+                : 'border-white/8 bg-transparent text-white/40 hover:text-white/70'
+            }`}>
+            <p className="text-xs font-medium">{label}</p>
+            <p className="text-[9px] mt-0.5 opacity-60">{desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* 콘텐츠 영역 */}
+      <AnimatePresence mode="wait">
+        <motion.div key={readingType} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+          {!current && !loading && (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <p className="text-xs text-white/40 text-center">
+                {READING_TYPES.find(t => t.key === readingType)?.desc}
+              </p>
+              <button onClick={() => load(readingType)}
+                className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
+                AI 해석 보기
+              </button>
+              {err && <p className="text-xs text-red-400">{err}</p>}
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/70" />
+              <p className="text-xs text-white/40">해석 생성 중...</p>
+            </div>
+          )}
+
+          {current && (
+            <div className="space-y-3">
+              {current.cautions.length > 0 && (
+                <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
+                  ⚠ {current.cautions.join(' · ')}
+                </p>
+              )}
+              {current.sections.map((s, i) => (
+                <div key={i} className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-2">
+                  <p className="text-[10px] text-white/40 tracking-widest">{s.title}</p>
+                  <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
+                </div>
+              ))}
+              {current.cached && <p className="text-[10px] text-white/20 text-center">캐시됨</p>}
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -183,6 +266,9 @@ function ResultView({ result }: { result: SajuUIResult }) {
         <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
         <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
       </div>
+
+      {/* 세운 */}
+      <SeyunRow dm={fp.day.stem} />
 
       {/* 경계 주의 */}
       {fp.trace.boundaryCaution && (

@@ -5,13 +5,20 @@
  * LLM이 generic 출력을 뱉지 않도록 notableSignals에 차트 고유 팩트를 3-8개 뽑음.
  */
 
-import type { FourPillars } from './engine';
+import type { FourPillars, Pillar } from './engine';
 import {
-  ELEMENTS, STEM_DATA, BRANCH_DATA,
+  STEMS, BRANCHES, ELEMENTS, STEM_DATA, BRANCH_DATA,
   type Element, type Stem, type Branch, type Sipshin,
 } from './constants';
 import { getSipshin, getBranchSipshin } from './sipshin';
 import { DAY_MASTER_PROFILE, SIPSHIN_DESC } from './interpret';
+
+// ── 세운(년운) 계산 헬퍼 ──
+function makeSeyunPillar(year: number): Pillar {
+  const mod = (n: number, m: number) => ((n % m) + m) % m;
+  const gz = mod(year - 4, 60);
+  return { stem: STEMS[gz % 10], branch: BRANCHES[gz % 12], gz };
+}
 
 // ── 버전 (캐시 키 일부) ──
 const FACTSHEET_VERSION = '1.0.0';
@@ -56,6 +63,16 @@ export interface SajuFactSheet {
   bodyStrength: 'strong' | 'weak' | 'neutral';
   /** 대운 시작 나이 */
   daeunStartAge: number;
+  /** 현재 + 내년 세운 (년운) */
+  seyun: Array<{
+    year:          number;
+    stem:          Stem;
+    branch:        Branch;
+    stemElement:   Element;
+    branchElement: Element;
+    sipshinStem:   Sipshin;
+    sipshinBranch: Sipshin;
+  }>;
   /** 이 차트에서 가장 두드러진 팩트 3-8개 — LLM anchoring용 */
   notableSignals: string[];
   /** LLM이 단정 해석을 피해야 하는 주의사항 */
@@ -128,6 +145,21 @@ export function buildFactSheet(
     : support <= Math.floor(elementTotal * 0.25) ? 'weak'
     : 'neutral';
 
+  // ── 세운 (올해 + 내년) ──
+  const currentYear = new Date().getFullYear();
+  const seyun = [currentYear, currentYear + 1].map(y => {
+    const p = makeSeyunPillar(y);
+    return {
+      year:          y,
+      stem:          p.stem,
+      branch:        p.branch,
+      stemElement:   STEM_DATA[p.stem].element,
+      branchElement: BRANCH_DATA[p.branch].element,
+      sipshinStem:   getSipshin(dm, p.stem),
+      sipshinBranch: getBranchSipshin(dm, p.branch),
+    };
+  });
+
   // ── notableSignals ──
   const notableSignals: string[] = [];
 
@@ -191,6 +223,7 @@ export function buildFactSheet(
     tenGodCounts,
     bodyStrength,
     daeunStartAge: daeunAge,
+    seyun,
     notableSignals,
     cautions,
   };

@@ -65,7 +65,7 @@ function buildPrompt(
   fs: SajuFactSheet,
   opts: { tier: 'free' | 'paid'; type: 'full' | 'career' | 'love' },
 ): { system: string; user: string } {
-  const { dayMaster: dm, elements, elementTotal, tenGodCounts, bodyStrength, notableSignals, cautions, daeunStartAge } = fs;
+  const { dayMaster: dm, elements, elementTotal, tenGodCounts, bodyStrength, notableSignals, cautions, daeunStartAge, seyun } = fs;
 
   const elementLines = Object.entries(elements)
     .map(([el, cnt]) => `  ${el}: ${cnt}/${elementTotal} (${Math.round(cnt/elementTotal*100)}%)`)
@@ -80,38 +80,48 @@ function buildPrompt(
   const pillarLines = fs.pillars
     .map(p => {
       const ss = p.sipshinStem ? `(${p.sipshinStem})` : '(일간)';
-      const sb = `(${p.sipshinBranch})`;
-      return `  ${p.palace}주: ${p.stem}${ss} ${p.branch}${sb}`;
+      return `  ${p.palace}주: ${p.stem}${ss} ${p.branch}(${p.sipshinBranch})`;
     })
     .join('\n');
 
-  const sectionCount = opts.tier === 'free' ? 4 : 6;
-  const tokenBudget  = opts.tier === 'free' ? 2000 : 4000;
+  const seyunLines = seyun
+    .map(s => `  ${s.year}년: ${s.stem}${s.branch} — 천간 ${s.sipshinStem} · 지지 ${s.sipshinBranch}`)
+    .join('\n');
 
-  const freeSections = `
-1. 일간 핵심 (${dm.stem} 일간의 본질과 이 차트만의 특징)
-2. 오행 균형 (과다·부재 원소와 실생활 영향)
-3. 십신 패턴 (가장 두드러진 십신 2~3개와 그 의미)
-4. 한 줄 조언 (지금 이 사람에게 가장 필요한 것)`.trim();
-
-  const paidExtra = opts.tier === 'paid' ? `
-5. 관계 성향 (인간관계·연애에서 나타나는 패턴)
-6. 대운 흐름 (${daeunStartAge}세 대운 시작 기준, 현재 운의 방향성)` : '';
+  const tokenBudget = opts.tier === 'paid' ? 5000 : 3000;
 
   const cautionNote = cautions.length > 0
-    ? `\n\n[절대 지켜야 할 주의사항]\n${cautions.map(c=>`- ${c}`).join('\n')}`
+    ? `\n[주의사항 — 이 항목은 단정 해석 금지]\n${cautions.map(c=>`- ${c}`).join('\n')}`
     : '';
 
-  const system = `너는 한국 전통 사주명리 전문가야. 다음 7가지 규칙을 반드시 지켜:
+  const system = `너는 한국 전통 사주명리 전문가야. 친구한테 사주 봐주듯이 써줘.
 
-1. notableSignals에 나온 사실만 해석의 근거로 써라. 없는 사실 절대 지어내지 마.
-2. "~할 것이다", "~하게 된다" 같은 단정적 운명 예언 금지. "~하는 경향이 있다", "~을 경계할 만하다" 식으로.
-3. 한국어 반말 · 친구한테 말하듯. 딱딱한 존댓말이나 점집 말투 금지.
-4. 각 섹션은 3~5문장. 길게 늘이지 말 것.
-5. cautions에 명시된 항목은 단정 해석 금지 — 불확실함 명시.
-6. 출처 없는 신살·격국 언급 금지. factsheet에 없는 건 꺼내지 마.
-7. 종교적·미신적 어투 금지.
-${cautionNote}`;
+규칙:
+1. notableSignals에 나온 사실만 근거로 써. 없는 사실 지어내지 마.
+2. "~할 것이다" 단정 금지. "~하는 경향", "~를 경계할 만하다" 식으로.
+3. 반말, 친근하게. 점집 말투 금지.
+4. 각 섹션 4~6문장. 너무 짧거나 너무 길지 않게.
+5. 구체적으로 써. "좋다" "나쁘다" 같은 뭉뚱그린 표현 말고, 어떤 상황에서 어떻게 나타나는지.
+6. 신살·격국은 factsheet에 없으면 언급 금지.${cautionNote}`;
+
+  // 타입별 섹션 정의
+  const sections: string = opts.type === 'love'
+    ? `1. 연애 스타일 — 이 사람이 연애에서 어떻게 행동하는지, 어떤 패턴이 반복되는지
+2. 끌리는 상대 유형 — 십신·오행 기반, 어떤 에너지의 사람에게 끌리고 잘 맞는지
+3. 관계에서 발목 잡히는 것 — 연애할 때 반복되는 문제 패턴
+4. 지금 연애운 (${seyun[0]?.year}년 세운 기준) — 올해 연애 흐름과 타이밍`
+    : opts.type === 'career'
+    ? `1. 직업 적성 — 어떤 일에서 강점이 나오는지, 맞는 환경과 안 맞는 환경
+2. 돈과의 관계 — 재물을 어떻게 버는지, 어떻게 쓰는지, 주의할 점
+3. 직장 vs 사업 — 이 차트에서 어느 쪽이 더 맞는지와 이유
+4. 올해 직업·재물운 (${seyun[0]?.year}년 세운 기준) — 올해 커리어 흐름`
+    : /* full */
+    `1. 나는 어떤 사람 — ${dm.stem} 일간의 본질 + 이 차트만의 특징 (오행·십신 조합 기반)
+2. 연애 스타일 — 어떻게 사랑하고, 어떤 패턴이 반복되는지
+3. 직업·재물 성향 — 어떤 일에서 빛나고, 돈과의 관계
+4. ${seyun[0]?.year}년 흐름 — 올해 세운(${seyun[0]?.stem}${seyun[0]?.branch}) 기준 전반적인 운의 방향
+5. ${seyun[1]?.year}년 예고 — 내년 세운(${seyun[1]?.stem}${seyun[1]?.branch}) 기준 미리 알아둘 것
+6. 지금 가장 필요한 것 — 이 사람한테 솔직하게 해주고 싶은 한 마디`;
 
   const user = `[차트 데이터]
 일간: ${dm.stem}(${dm.hanja}) · ${dm.element} · ${dm.yang ? '양' : '음'}
@@ -127,15 +137,16 @@ ${elementLines}
 [십신 분포]
 ${tenGodLines}
 
-[이 차트의 두드러진 특징 (notableSignals)]
+[세운]
+${seyunLines}
+
+[이 차트의 두드러진 특징]
 ${notableSignals.map(s=>`- ${s}`).join('\n')}
 
-위 데이터를 바탕으로 아래 ${sectionCount}개 섹션을 작성해줘. (총 ${tokenBudget}토큰 이내)
-각 섹션은 JSON 형태로: [{"title":"...", "body":"..."}, ...]
+아래 섹션별로 작성해줘. (총 ${tokenBudget}토큰 이내)
+JSON 배열만 출력: [{"title":"...", "body":"..."}, ...]
 
-${freeSections}${paidExtra}
-
-JSON 배열만 출력, 다른 텍스트 없이.`;
+${sections}`;
 
   return { system, user };
 }
