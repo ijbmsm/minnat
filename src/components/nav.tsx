@@ -105,7 +105,15 @@ export function Nav() {
               );
             })}
 
-            {/* 로그인 상태 — 임시 비노출 */}
+            {/* 사주 */}
+            <Link
+              href="/saju"
+              className={`ml-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                pathname === '/saju' ? 'bg-white/10 text-white' : 'text-white/75 hover:text-white'
+              }`}
+            >
+              ✦ 사주
+            </Link>
           </div>
 
           {/* 모바일 햄버거 */}
@@ -167,7 +175,21 @@ export function Nav() {
                 );
               })}
 
-              {/* 모바일 로그인/로그아웃 — 임시 비노출 */}
+              {/* 모바일 사주 */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: NAV_ITEMS.length * 0.05, duration: 0.3 }}
+                className="mt-2 w-full"
+              >
+                <Link
+                  href="/saju"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-xl border border-white/10 px-5 py-3.5 text-center text-lg text-white/70 transition-colors hover:text-white"
+                >
+                  ✦ 사주
+                </Link>
+              </motion.div>
             </div>
           </motion.div>
         )}
