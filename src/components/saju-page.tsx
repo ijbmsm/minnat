@@ -144,6 +144,37 @@ function SeyunRow({ dm }: { dm: Stem }) {
   );
 }
 
+// ── 궁 설명 ──
+const PALACE_DESC: Record<string, { sub: string; meaning: string }> = {
+  년: { sub: '뿌리',  meaning: '타고난 바탕 · 조상 · 어린 시절' },
+  월: { sub: '환경',  meaning: '성장 환경 · 부모 · 사회적 모습' },
+  일: { sub: '나',    meaning: '나 자신 · 배우자 · 핵심 자아' },
+  시: { sub: '활동',  meaning: '활동 방식 · 자녀 · 노년 · 꿈' },
+};
+
+// ── 십신 배지 (클릭하면 설명 펼침) ──
+function SipshinBadge({ name }: { name: string | null | undefined }) {
+  const [open, setOpen] = useState(false);
+  if (!name) return <span className="h-4" />;
+  const desc = SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC];
+  return (
+    <button onClick={() => setOpen(o => !o)} className="group text-center">
+      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] transition-all
+        ${open ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white/80'}`}>
+        {name}
+      </span>
+      <AnimatePresence>
+        {open && desc && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden">
+            <p className="mt-1 text-[9px] text-white/40 leading-tight w-16 text-center mx-auto">{desc.short}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </button>
+  );
+}
+
 // ── PillarCell ──
 function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
   label: string; pillar: Pillar;
@@ -151,16 +182,20 @@ function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
 }) {
   const stemEl   = STEM_DATA[pillar.stem];
   const branchEl = BRANCH_DATA[pillar.branch];
+  const palace   = PALACE_DESC[label];
   return (
-    <div className={`flex flex-col items-center gap-1 rounded-2xl border px-4 py-4 ${isDay ? 'border-white/20 bg-white/[0.07]' : 'border-white/8 bg-white/[0.03]'}`}>
-      <span className="text-[10px] text-white/40 tracking-widest uppercase">{label}</span>
-      <span className="text-[10px] text-white/50 h-3">{sipshinStem || ''}</span>
-      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[stemEl.element] }}>{pillar.stem}</span>
-      <span className="text-[10px] text-white/30">{stemEl.hanja}</span>
-      <div className="my-1 h-px w-full bg-white/8" />
-      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[branchEl.element] }}>{pillar.branch}</span>
-      <span className="text-[10px] text-white/30">{branchEl.hanja} {branchEl.animal}</span>
-      <span className="text-[10px] text-white/50 h-3">{sipshinBranch || ''}</span>
+    <div className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${isDay ? 'border-white/20 bg-white/[0.07]' : 'border-white/8 bg-white/[0.03]'}`}>
+      <div className="text-center">
+        <span className={`text-xs font-semibold ${isDay ? 'text-white' : 'text-white/50'}`}>{label}주</span>
+        {palace && <p className="text-[9px] text-white/25 leading-tight">{palace.sub}</p>}
+      </div>
+      <SipshinBadge name={sipshinStem} />
+      <span className="text-3xl font-bold leading-none" style={{ color: ELEMENT_COLOR[stemEl.element] }}>{pillar.stem}</span>
+      <span className="text-[9px] text-white/30">{stemEl.image}</span>
+      <div className="my-0.5 h-px w-full bg-white/8" />
+      <span className="text-3xl font-bold leading-none" style={{ color: ELEMENT_COLOR[branchEl.element] }}>{pillar.branch}</span>
+      <span className="text-[9px] text-white/30">{branchEl.animal}</span>
+      <SipshinBadge name={sipshinBranch} />
     </div>
   );
 }
@@ -270,25 +305,69 @@ function ReadingTab({ birth }: { birth: BirthParams }) {
   );
 }
 
+// ── 사주 아이덴티티 카드 ──
+function SajuIdentityCard({ dayMaster }: { dayMaster: SajuUIResult['dayMaster'] }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-5">
+      <p className="text-[10px] text-white/30 tracking-widest mb-3">일간 — 나의 핵심 에너지</p>
+      <div className="flex items-center gap-4">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-6xl font-bold leading-none" style={{ color: ELEMENT_COLOR[dayMaster.element] }}>
+            {dayMaster.stem}
+          </span>
+          <div>
+            <p className="text-lg font-semibold text-white/80">{dayMaster.hanja}</p>
+            <p className="text-xs text-white/40">{dayMaster.image}</p>
+          </div>
+        </div>
+        <div className="flex-1">
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {dayMaster.profile.keyword.map(k => (
+              <span key={k} className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs text-white/70">{k}</span>
+            ))}
+          </div>
+          <p className="text-xs text-white/50 leading-relaxed">{dayMaster.profile.core}</p>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-white/30 italic border-t border-white/5 pt-3">{dayMaster.profile.vibe}</p>
+    </div>
+  );
+}
+
+// ── 오행 설명 데이터 ──
+const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
+  목: { meaning: '성장·방향·추진', represents: '의지, 리더십, 계획력' },
+  화: { meaning: '열정·표현·빛',   represents: '감정, 활기, 표현력' },
+  토: { meaning: '안정·중심·포용', represents: '신뢰, 인내, 현실감각' },
+  금: { meaning: '결단·원칙·완성', represents: '결단력, 완벽주의, 자존심' },
+  수: { meaning: '지혜·유연·흐름', represents: '직관, 생각, 적응력' },
+};
+
 // ── 결과 뷰 ──
 function ResultView({ result }: { result: SajuUIResult }) {
   const { pillars: fp, dayMaster, elements, sipshinMap } = result;
-  const [tab, setTab] = useState<'profile' | 'elements' | 'daeun' | 'compat' | 'reading'>('profile');
+  const [tab, setTab] = useState<'pillars' | 'elements' | 'daeun' | 'compat' | 'reading'>('pillars');
   const total = elements.reduce((s,e)=>s+e.count,0);
 
   return (
-    <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }} className="mt-10 space-y-6">
+    <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }} className="mt-6 space-y-4">
+
+      {/* 아이덴티티 카드 */}
+      <SajuIdentityCard dayMaster={dayMaster} />
 
       {/* 4주 표: 시|일|월|년 */}
-      <div className="grid grid-cols-4 gap-2">
-        {fp.hour ? (
-          <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
-        ) : (
-          <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-4 text-white/20 text-xs">시간<br/>미상</div>
-        )}
-        <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
-        <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
-        <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
+      <div>
+        <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {fp.hour ? (
+            <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
+          )}
+          <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
+          <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
+          <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
+        </div>
       </div>
 
       {/* 세운 */}
@@ -297,27 +376,15 @@ function ResultView({ result }: { result: SajuUIResult }) {
       {/* 경계 주의 */}
       {fp.trace.boundaryCaution && (
         <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
-          ⚠ 절기 경계 ±3분 이내 출생 — 월주가 달라질 수 있습니다. KASI 발표 절기와 교차 확인을 권장합니다.
+          ⚠ 절기 경계 ±3분 이내 출생 — 월주가 달라질 수 있습니다.
         </p>
       )}
 
-      {/* 일간 강조 */}
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-5 py-4">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-2xl font-bold" style={{ color: ELEMENT_COLOR[dayMaster.element] }}>
-            {dayMaster.stem}{dayMaster.hanja}
-          </span>
-          <span className="text-sm text-white/50">{dayMaster.image}</span>
-        </div>
-        <p className="text-sm text-white/80 leading-relaxed">{dayMaster.profile.core}</p>
-        <p className="mt-2 text-xs text-white/40 italic">{dayMaster.profile.vibe}</p>
-      </div>
-
       {/* 탭 */}
       <div className="flex rounded-xl border border-white/8 p-0.5">
-        {([['profile','성격'],['elements','오행'],['daeun','대운'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
+        {([['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
           <button key={key} onClick={()=>setTab(key as typeof tab)}
-            className={`flex-1 rounded-lg py-2 text-xs transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
+            className={`flex-1 rounded-lg py-2 text-[11px] transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
             {label}
           </button>
         ))}
@@ -326,22 +393,25 @@ function ResultView({ result }: { result: SajuUIResult }) {
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
 
-          {tab==='profile' && (
+          {tab==='pillars' && (
             <div className="space-y-3">
+              {/* 강점/주의 */}
               <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-3">
-                <div><span className="text-[10px] text-white/40 uppercase tracking-widest">강점</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.strength}</p></div>
-                <div><span className="text-[10px] text-white/40 uppercase tracking-widest">주의</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.weakness}</p></div>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {dayMaster.profile.keyword.map(k=>(
-                    <span key={k} className="rounded-full border border-white/10 px-2.5 py-0.5 text-xs text-white/60">{k}</span>
-                  ))}
+                <div>
+                  <span className="text-[10px] text-white/40 tracking-widest">강점</span>
+                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.strength}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/40 tracking-widest">주의점</span>
+                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.weakness}</p>
                 </div>
               </div>
+
+              {/* 십신 구성 — 설명 포함 */}
               <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-                <p className="text-[10px] text-white/40 uppercase tracking-widest mb-3">십신 구성</p>
-                <div className="space-y-2">
+                <p className="text-[10px] text-white/40 tracking-widest mb-1">십신 구성</p>
+                <p className="text-[10px] text-white/25 mb-3">십신 = 일간(나)과 다른 글자들의 관계. 내 삶에 어떤 에너지가 많은지 보여줌.</p>
+                <div className="space-y-2.5">
                   {([
                     ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
                     ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
@@ -350,40 +420,47 @@ function ResultView({ result }: { result: SajuUIResult }) {
                     ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
                   ] as [string,string|null][]).map(([lbl,name])=> name && (
                     <div key={lbl} className="flex items-start gap-3">
-                      <span className="w-8 shrink-0 text-[10px] text-white/30">{lbl}</span>
-                      <span className="text-xs font-medium text-white/70 w-12 shrink-0">{name}</span>
-                      <span className="text-xs text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
+                      <span className="w-8 shrink-0 text-[10px] text-white/30 mt-0.5">{lbl}</span>
+                      <div>
+                        <span className="text-xs font-semibold text-white/80">{name}</span>
+                        <span className="ml-2 text-xs text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
+                        <p className="text-[10px] text-white/30 mt-0.5 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
+
               {/* 계산 트레이스 */}
               <details className="rounded-xl border border-white/5 px-4 py-3">
-                <summary className="cursor-pointer text-[10px] text-white/30 uppercase tracking-widest">계산 트레이스</summary>
-                <div className="mt-2 space-y-1 text-[11px] text-white/40 font-mono">
+                <summary className="cursor-pointer text-[10px] text-white/25 tracking-widest">계산 상세</summary>
+                <div className="mt-2 space-y-1 text-[11px] text-white/35 font-mono">
                   <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
                   <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
                   <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
-                  <p>일주 offset: {fp.trace.dayPillarOffset}</p>
-                  <p>시각: {fp.trace.timeKnown?'입력됨':'미상'}</p>
                 </div>
               </details>
             </div>
           )}
 
           {tab==='elements' && (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <p className="text-xs text-white/40">오행 = 목·화·토·금·수 다섯 에너지. 사주 8글자에 얼마나 퍼져있는지 보여줌. 특정 오행이 많으면 그 성향이 강하고, 없으면 그 부분이 약점이 될 수 있어.</p>
               {elements.map(({el,count,color,comment})=>(
-                <div key={el}>
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-sm font-medium" style={{color}}>{el}</span>
+                <div key={el} className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base font-bold" style={{color}}>{el}</span>
+                      <span className="text-[10px] text-white/40">{ELEMENT_DESC[el]?.meaning}</span>
+                    </div>
                     <span className="text-xs text-white/40">{count}개 · {Math.round(count/total*100)}%</span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5 mb-2">
                     <motion.div initial={{width:0}} animate={{width:`${count/total*100}%`}} transition={{duration:0.8,ease:'easeOut'}}
                       className="h-full rounded-full" style={{backgroundColor:color}} />
                   </div>
-                  {comment && <p className="mt-1.5 text-xs text-white/50">{comment}</p>}
+                  <p className="text-[10px] text-white/30">{ELEMENT_DESC[el]?.represents}</p>
+                  {comment && <p className="mt-1.5 text-[11px] text-white/50 border-t border-white/5 pt-1.5">{comment}</p>}
                 </div>
               ))}
             </div>
