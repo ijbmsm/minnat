@@ -11,19 +11,41 @@ import type { Element, Stem } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 import { lunarToSolar } from "@/lib/saju/lunar";
 
-// ── 출생지 프리셋 ──
-const BIRTH_CITIES = [
-  { label: '서울', lon: 127.0 },
-  { label: '부산', lon: 129.1 },
-  { label: '대구', lon: 128.6 },
-  { label: '인천', lon: 126.7 },
-  { label: '광주', lon: 126.9 },
-  { label: '제주', lon: 126.5 },
-  { label: '도쿄', lon: 139.7 },
-  { label: 'LA',   lon: -118.2 },
-  { label: 'NY',   lon: -74.0 },
-  { label: '기타', lon: null },
-] as const;
+// ── 월운 계산용 상수 ──
+const TIGER_MONTH_STEM = [2, 4, 6, 8, 0] as const; // 오호둔
+
+// ── 출생지 데이터 ──
+const DOMESTIC_CITIES: { label: string; lon: number }[] = [
+  { label: '서울',     lon: 127.0 }, { label: '부산',   lon: 129.1 },
+  { label: '인천',     lon: 126.7 }, { label: '대구',   lon: 128.6 },
+  { label: '대전',     lon: 127.4 }, { label: '광주',   lon: 126.9 },
+  { label: '울산',     lon: 129.3 }, { label: '수원',   lon: 127.0 },
+  { label: '창원',     lon: 128.7 }, { label: '고양',   lon: 126.8 },
+  { label: '성남',     lon: 127.1 }, { label: '청주',   lon: 127.5 },
+  { label: '전주',     lon: 127.1 }, { label: '안산',   lon: 126.8 },
+  { label: '안양',     lon: 126.9 }, { label: '천안',   lon: 127.2 },
+  { label: '포항',     lon: 129.4 }, { label: '원주',   lon: 127.9 },
+  { label: '춘천',     lon: 127.7 }, { label: '강릉',   lon: 128.9 },
+  { label: '목포',     lon: 126.4 }, { label: '여수',   lon: 127.7 },
+  { label: '순천',     lon: 127.5 }, { label: '경주',   lon: 129.2 },
+  { label: '제주',     lon: 126.5 }, { label: '서귀포', lon: 126.6 },
+  { label: '구미',     lon: 128.3 }, { label: '진주',   lon: 128.1 },
+  { label: '거제',     lon: 128.6 }, { label: '통영',   lon: 128.4 },
+  { label: '속초',     lon: 128.6 }, { label: '의정부', lon: 127.0 },
+];
+
+const OVERSEAS_CITIES: { label: string; lon: number }[] = [
+  { label: '도쿄',       lon: 139.7 }, { label: '오사카',   lon: 135.5 },
+  { label: '베이징',     lon: 116.4 }, { label: '상하이',   lon: 121.5 },
+  { label: '홍콩',       lon: 114.2 }, { label: '싱가포르', lon: 103.8 },
+  { label: '방콕',       lon: 100.5 }, { label: '하노이',   lon: 105.8 },
+  { label: '시드니',     lon: 151.2 }, { label: '멜버른',   lon: 144.9 },
+  { label: 'LA',         lon: -118.2 }, { label: 'NY',      lon: -74.0 },
+  { label: '시카고',     lon: -87.6 }, { label: '시애틀',  lon: -122.3 },
+  { label: '밴쿠버',     lon: -123.1 }, { label: '토론토',  lon: -79.4 },
+  { label: '런던',       lon: -0.1  }, { label: '파리',    lon: 2.3   },
+  { label: '프랑크푸르트', lon: 8.7  }, { label: '두바이',  lon: 55.3  },
+];
 
 // ── seolgi.json 로더 (클라이언트 캐시) ──
 let seolgiCache: SeolgiIndex | null = null;
@@ -346,7 +368,7 @@ const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
 // ── 결과 뷰 ──
 function ResultView({ result }: { result: SajuUIResult }) {
   const { pillars: fp, dayMaster, elements, sipshinMap } = result;
-  const [tab, setTab] = useState<'pillars' | 'elements' | 'daeun' | 'compat' | 'reading'>('pillars');
+  const [tab, setTab] = useState<'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat' | 'reading'>('pillars');
   const total = elements.reduce((s,e)=>s+e.count,0);
 
   return (
@@ -381,10 +403,10 @@ function ResultView({ result }: { result: SajuUIResult }) {
       )}
 
       {/* 탭 */}
-      <div className="flex rounded-xl border border-white/8 p-0.5">
-        {([['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
+      <div className="flex overflow-x-auto rounded-xl border border-white/8 p-0.5 gap-0.5 scrollbar-none">
+        {([['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['monthly','올해'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
           <button key={key} onClick={()=>setTab(key as typeof tab)}
-            className={`flex-1 rounded-lg py-2 text-[11px] transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
+            className={`shrink-0 flex-1 min-w-[52px] rounded-lg py-2 text-[11px] transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
             {label}
           </button>
         ))}
@@ -394,24 +416,24 @@ function ResultView({ result }: { result: SajuUIResult }) {
         <motion.div key={tab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
 
           {tab==='pillars' && (
-            <div className="space-y-3">
-              {/* 강점/주의 */}
-              <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-3">
-                <div>
-                  <span className="text-[10px] text-white/40 tracking-widest">강점</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.strength}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-white/40 tracking-widest">주의점</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.weakness}</p>
-                </div>
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+              {/* 강점 */}
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold text-white/50 mb-2">강점</p>
+                <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.strength}</p>
               </div>
-
-              {/* 십신 구성 — 설명 포함 */}
-              <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
-                <p className="text-[10px] text-white/40 tracking-widest mb-1">십신 구성</p>
-                <p className="text-[10px] text-white/25 mb-3">십신 = 일간(나)과 다른 글자들의 관계. 내 삶에 어떤 에너지가 많은지 보여줌.</p>
-                <div className="space-y-2.5">
+              <div className="border-t border-white/6" />
+              {/* 주의점 */}
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold text-white/50 mb-2">주의점</p>
+                <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.weakness}</p>
+              </div>
+              <div className="border-t border-white/6" />
+              {/* 십신 구성 */}
+              <div className="px-5 py-5">
+                <p className="text-sm font-semibold text-white/50 mb-1">십신 구성</p>
+                <p className="text-xs text-white/30 mb-4">십신 = 나(일간)와 다른 글자들의 관계. 내 삶에서 어떤 에너지가 어디에 있는지 보여줘.</p>
+                <div className="space-y-4">
                   {([
                     ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
                     ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
@@ -420,21 +442,21 @@ function ResultView({ result }: { result: SajuUIResult }) {
                     ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
                   ] as [string,string|null][]).map(([lbl,name])=> name && (
                     <div key={lbl} className="flex items-start gap-3">
-                      <span className="w-8 shrink-0 text-[10px] text-white/30 mt-0.5">{lbl}</span>
+                      <span className="w-9 shrink-0 text-xs text-white/30 pt-0.5">{lbl}</span>
                       <div>
-                        <span className="text-xs font-semibold text-white/80">{name}</span>
-                        <span className="ml-2 text-xs text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
-                        <p className="text-[10px] text-white/30 mt-0.5 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
+                        <span className="text-sm font-semibold text-white/85">{name}</span>
+                        <span className="ml-2 text-sm text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
+                        <p className="text-xs text-white/40 mt-1 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* 계산 트레이스 */}
-              <details className="rounded-xl border border-white/5 px-4 py-3">
-                <summary className="cursor-pointer text-[10px] text-white/25 tracking-widest">계산 상세</summary>
-                <div className="mt-2 space-y-1 text-[11px] text-white/35 font-mono">
+              <div className="border-t border-white/6" />
+              {/* 계산 상세 */}
+              <details className="px-5 py-4">
+                <summary className="cursor-pointer text-xs text-white/25">계산 상세 보기</summary>
+                <div className="mt-3 space-y-1 text-xs text-white/35 font-mono">
                   <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
                   <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
                   <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
@@ -444,41 +466,49 @@ function ResultView({ result }: { result: SajuUIResult }) {
           )}
 
           {tab==='elements' && (
-            <div className="space-y-4">
-              <p className="text-xs text-white/40">오행 = 목·화·토·금·수 다섯 에너지. 사주 8글자에 얼마나 퍼져있는지 보여줌. 특정 오행이 많으면 그 성향이 강하고, 없으면 그 부분이 약점이 될 수 있어.</p>
-              {elements.map(({el,count,color,comment})=>(
-                <div key={el} className="rounded-xl border border-white/8 bg-white/[0.02] p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base font-bold" style={{color}}>{el}</span>
-                      <span className="text-[10px] text-white/40">{ELEMENT_DESC[el]?.meaning}</span>
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/6">
+                <p className="text-sm font-semibold text-white/80">오행 분포</p>
+                <p className="text-xs text-white/40 mt-1">목·화·토·금·수 다섯 에너지가 내 사주 8글자에 어떻게 퍼져있는지. 많은 오행 = 그 성향이 강함, 없는 오행 = 약점 또는 보완 포인트.</p>
+              </div>
+              <div className="divide-y divide-white/5">
+                {elements.map(({el,count,color,comment})=>(
+                  <div key={el} className="px-5 py-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold" style={{color}}>{el}</span>
+                        <span className="text-sm text-white/50">{ELEMENT_DESC[el]?.meaning}</span>
+                      </div>
+                      <span className="text-sm text-white/40">{count}개 · {Math.round(count/total*100)}%</span>
                     </div>
-                    <span className="text-xs text-white/40">{count}개 · {Math.round(count/total*100)}%</span>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5 mb-2">
+                      <motion.div initial={{width:0}} animate={{width:`${count/total*100}%`}} transition={{duration:0.8,ease:'easeOut'}}
+                        className="h-full rounded-full" style={{backgroundColor:color}} />
+                    </div>
+                    <p className="text-xs text-white/40">{ELEMENT_DESC[el]?.represents}</p>
+                    {comment && <p className="mt-2 text-sm text-white/60">{comment}</p>}
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5 mb-2">
-                    <motion.div initial={{width:0}} animate={{width:`${count/total*100}%`}} transition={{duration:0.8,ease:'easeOut'}}
-                      className="h-full rounded-full" style={{backgroundColor:color}} />
-                  </div>
-                  <p className="text-[10px] text-white/30">{ELEMENT_DESC[el]?.represents}</p>
-                  {comment && <p className="mt-1.5 text-[11px] text-white/50 border-t border-white/5 pt-1.5">{comment}</p>}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
           {tab==='daeun' && (
-            <div>
-              <p className="mb-3 text-xs text-white/40">10년 단위 대운</p>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/6">
+                <p className="text-sm font-semibold text-white/80">대운 흐름</p>
+                <p className="text-xs text-white/40 mt-1">10년 단위로 바뀌는 큰 운의 흐름. 어떤 에너지가 언제 들어오는지 보여줘.</p>
+              </div>
+              <div className="flex gap-2 overflow-x-auto px-5 py-4">
                 {fp.daeun.map(d=>{
                   const se = STEM_DATA[d.pillar.stem];
                   const be = BRANCH_DATA[d.pillar.branch];
                   return (
-                    <div key={d.startAge} className="flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 min-w-[64px]">
-                      <span className="text-[10px] text-white/40">{d.startAge}세~</span>
-                      <span className="text-lg font-bold" style={{color:ELEMENT_COLOR[se.element]}}>{d.pillar.stem}</span>
-                      <span className="text-lg font-bold" style={{color:ELEMENT_COLOR[be.element]}}>{d.pillar.branch}</span>
-                      <span className="text-[10px] text-white/30">{d.startYear}</span>
+                    <div key={d.startAge} className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 min-w-[72px]">
+                      <span className="text-xs text-white/40">{d.startAge}세~</span>
+                      <span className="text-xl font-bold" style={{color:ELEMENT_COLOR[se.element]}}>{d.pillar.stem}</span>
+                      <span className="text-xl font-bold" style={{color:ELEMENT_COLOR[be.element]}}>{d.pillar.branch}</span>
+                      <span className="text-xs text-white/30">{d.startYear}</span>
                     </div>
                   );
                 })}
@@ -486,12 +516,91 @@ function ResultView({ result }: { result: SajuUIResult }) {
             </div>
           )}
 
-          {tab==='compat' && <CompatTab myElement={dayMaster.element} />}
-          {tab==='reading' && <ReadingTab birth={result.birth} />}
+          {tab==='monthly'  && <MonthlyTab dm={fp.day.stem} />}
+          {tab==='compat'   && <CompatTab myElement={dayMaster.element} />}
+          {tab==='reading'  && <ReadingTab birth={result.birth} />}
 
         </motion.div>
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+// ── 월운 한 줄 설명 ──
+const MONTH_SIPSHIN_FLAVOR: Record<string, string> = {
+  비견: '독립심이 올라오는 달. 내 페이스대로 밀고 나가기 좋아.',
+  겁재: '경쟁·긴장감 있는 달. 협상이나 계약은 꼼꼼히.',
+  식신: '아이디어·표현력 살아나는 달. 창의적 시도하기 딱 좋아.',
+  상관: '뭔가 튀어나오고 싶은 달. 표현은 자유롭게, 마찰은 조심.',
+  편재: '돈·기회 움직이는 달. 적극적으로 나서면 성과 있어.',
+  정재: '착실하게 쌓이는 달. 저축·정리 정돈에 집중해.',
+  편관: '압박감 있는 달. 버티면 인정받고, 도망치면 반복돼.',
+  정관: '사회적으로 인정받기 좋은 달. 공식적인 자리·평가 긍정적.',
+  편인: '내면으로 들어가는 달. 배움·혼자만의 시간이 에너지 줘.',
+  정인: '지지받고 안정되는 달. 배우거나 준비하는 것들이 쌓여.',
+};
+
+// ── 올해 월운 탭 ──
+function MonthlyTab({ dm }: { dm: Stem }) {
+  const today    = new Date();
+  const curYear  = today.getFullYear();
+  const curMonth = today.getMonth() + 1;
+
+  // 올해 연간 천간 인덱스
+  const yearGz      = mod(curYear - 4, 60);
+  const yearStemIdx = yearGz % 10;
+  const tigerStem   = TIGER_MONTH_STEM[yearStemIdx % 5];
+
+  const months = Array.from({ length: 13 - curMonth }, (_, i) => {
+    const m          = curMonth + i;
+    const branchIdx  = m % 12;
+    const monthOrder = mod(branchIdx - 2, 12);
+    const stemIdx    = mod(tigerStem + monthOrder, 10);
+    const stem       = STEMS_ARR[stemIdx];
+    const branch     = BRANCHES_ARR[branchIdx];
+    const ss         = getSipshin(dm, stem);
+    const sb         = getBranchSipshin(dm, branch);
+    // 대표 십신: 천간 우선
+    const key        = ss;
+    return { m, stem, branch, ss, sb, flavor: MONTH_SIPSHIN_FLAVOR[key] ?? '' };
+  });
+
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+      <div className="px-5 py-4 border-b border-white/6">
+        <p className="text-sm font-semibold text-white/80">{curYear}년 남은 월운</p>
+        <p className="text-xs text-white/40 mt-0.5">일간과 각 달의 월령 관계로 보는 흐름. 절기 기준이라 양력 월 초와 1~7일 차이 있을 수 있어.</p>
+      </div>
+      <div className="divide-y divide-white/5">
+        {months.map(({ m, stem, branch, ss, sb, flavor }) => {
+          const se = STEM_DATA[stem];
+          const be = BRANCH_DATA[branch];
+          const isCurrent = m === curMonth;
+          return (
+            <div key={m} className={`px-5 py-4 ${isCurrent ? 'bg-white/[0.04]' : ''}`}>
+              <div className="flex items-start gap-4">
+                <div className="w-10 shrink-0 text-center">
+                  <p className={`text-sm font-semibold ${isCurrent ? 'text-white' : 'text-white/50'}`}>{m}월</p>
+                  {isCurrent && <p className="text-[9px] text-white/30">이번달</p>}
+                </div>
+                <div className="flex items-center gap-2 w-20 shrink-0">
+                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[se.element] }}>{stem}</span>
+                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[be.element] }}>{branch}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium text-white/70">{ss}</span>
+                    <span className="text-[10px] text-white/30">·</span>
+                    <span className="text-xs text-white/40">{sb}</span>
+                  </div>
+                  <p className="text-xs text-white/50 leading-relaxed">{flavor}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -595,10 +704,12 @@ export function SajuPage() {
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
   function getLongitude(): number {
-    const preset = BIRTH_CITIES.find(c => c.label === form.city);
-    if (preset && preset.lon !== null) return preset.lon;
-    const custom = parseFloat(form.customLon);
-    return isNaN(custom) ? 127.0 : custom;
+    if (form.city === '__custom__') {
+      const custom = parseFloat(form.customLon);
+      return isNaN(custom) ? 127.0 : custom;
+    }
+    const all = [...DOMESTIC_CITIES, ...OVERSEAS_CITIES];
+    return all.find(c => c.label === form.city)?.lon ?? 127.0;
   }
 
   async function submit(e: React.FormEvent) {
@@ -643,7 +754,7 @@ export function SajuPage() {
 
   if (result) {
     return (
-      <main className="mx-auto max-w-lg px-4 pt-24 pb-20 space-y-4">
+      <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-4">
         <BirthSummary birth={result.birth} onReset={() => setResult(null)} />
         <ResultView result={result} />
       </main>
@@ -651,7 +762,7 @@ export function SajuPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg px-4 pt-24 pb-20">
+    <main className="mx-auto max-w-2xl px-4 pt-24 pb-20">
       <div className="mb-8">
         <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/60 uppercase">사주팔자</span>
         <h1 className="text-3xl font-bold tracking-tight">내 사주 보기</h1>
@@ -727,18 +838,24 @@ export function SajuPage() {
         {/* 출생지 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">출생지</label>
-          <div className="flex flex-wrap gap-1.5">
-            {BIRTH_CITIES.map(c => (
-              <button key={c.label} type="button" onClick={() => set('city', c.label)}
-                className={`rounded-lg px-3 py-1.5 text-xs transition-all ${form.city === c.label ? 'bg-white/15 text-white border border-white/20' : 'bg-white/5 text-white/50 border border-white/8 hover:text-white'}`}>
-                {c.label}
-              </button>
+          {/* 국내 select */}
+          <select value={form.city} onChange={e => set('city', e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 mb-2">
+            <option value="" className="bg-zinc-900">국내 도시 선택</option>
+            {DOMESTIC_CITIES.map(c => (
+              <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
             ))}
-          </div>
-          {form.city === '기타' && (
-            <input type="number" placeholder="경도 (예: 126.5 = 제주, -118.2 = LA)" value={form.customLon}
-              onChange={e => set('customLon', e.target.value)} step="0.1" min="-180" max="180"
-              className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+            <option value="__overseas__" className="bg-zinc-900">── 해외 ──</option>
+            {OVERSEAS_CITIES.map(c => (
+              <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
+            ))}
+            <option value="__custom__" className="bg-zinc-900">직접 입력 (경도)</option>
+          </select>
+          {form.city === '__custom__' && (
+            <input type="number" placeholder="경도 입력 (예: 127.0 = 서울, -118.2 = LA)"
+              value={form.customLon} onChange={e => set('customLon', e.target.value)}
+              step="0.1" min="-180" max="180"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
           )}
         </div>
 
