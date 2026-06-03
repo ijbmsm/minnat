@@ -433,6 +433,39 @@ function CompatTab({ myElement }: { myElement: Element }) {
   );
 }
 
+// ── 입력 요약 바 (결과 화면 상단) ──
+function BirthSummary({ birth, onReset }: { birth: BirthParams; onReset: () => void }) {
+  const hourLabel = birth.hour === null ? '시간 모름' : `${birth.hour}시`;
+  const sexLabel  = birth.sex === 'male' ? '남' : '여';
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+      className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+    >
+      <div className="flex items-center gap-4">
+        <div className="text-center">
+          <p className="text-[9px] text-white/30 mb-0.5">성별</p>
+          <p className="text-sm font-medium text-white">{sexLabel}</p>
+        </div>
+        <div className="h-6 w-px bg-white/8" />
+        <div className="text-center">
+          <p className="text-[9px] text-white/30 mb-0.5">생년월일</p>
+          <p className="text-sm font-medium text-white">{birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')}</p>
+        </div>
+        <div className="h-6 w-px bg-white/8" />
+        <div className="text-center">
+          <p className="text-[9px] text-white/30 mb-0.5">출생시</p>
+          <p className="text-sm font-medium text-white">{hourLabel}</p>
+        </div>
+      </div>
+      <button onClick={onReset}
+        className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
+        다시입력
+      </button>
+    </motion.div>
+  );
+}
+
 // ── 메인 페이지 ──
 export function SajuPage() {
   const [form, setForm] = useState({ year:'', month:'', day:'', hour:'', unknownHour:false, sex:'male' as 'male'|'female' });
@@ -461,6 +494,16 @@ export function SajuPage() {
   }
 
   const set = (k: string, v: string|boolean) => setForm(f=>({...f,[k]:v}));
+
+  // 결과 있으면 폼 숨기고 요약 + 결과만
+  if (result) {
+    return (
+      <main className="mx-auto max-w-lg px-4 pt-24 pb-20 space-y-4">
+        <BirthSummary birth={result.birth} onReset={() => setResult(null)} />
+        <ResultView result={result} />
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-24 pb-20">
@@ -515,8 +558,6 @@ export function SajuPage() {
           {loading ? '계산 중...' : '사주 보기'}
         </button>
       </form>
-
-      {result && <ResultView result={result} />}
     </main>
   );
 }
