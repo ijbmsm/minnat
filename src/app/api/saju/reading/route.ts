@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { Redis } from '@upstash/redis';
 import { z } from 'zod';
 import { calcSajuServer } from '@/lib/saju/server';
 import { buildFactSheet, type SajuFactSheet } from '@/lib/saju/factsheet';
@@ -41,8 +42,15 @@ export interface ReadingResponse {
   cautions:  string[];
 }
 
-// ── 인메모리 캐시 (프로세스 내 — Vercel Fluid Compute에서 인스턴스 재사용 시 유효) ──
-const memCache = new Map<string, string>();
+// ── Redis 캐시 (Upstash — 영구, serverless 친화적) ──
+// 환경변수 없으면 null (로컬 개발 시 캐시 미사용)
+const redis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({
+        url:   process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      })
+    : null;
 
 // ── Anthropic 클라이언트 ──
 let _anthropic: Anthropic | null = null;
@@ -197,15 +205,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const cacheKey = fs.meta.cacheKey;
 
   // 캐시 확인
-  const cached = memCache.get(cacheKey);
-  if (cached) {
-    try {
-      const sections = parsesections(cached);
-      const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions };
-      return NextResponse.json(response);
-    } catch {
-      // 캐시 손상 → 재생성
-      memCache.delete(cacheKey);
+  if (redis) {
+    const hit = await redis.get<string>(cacheKey);
+    if (hit) {
+      try {
+        const sections = parsesections(hit);
+        const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions };
+        return NextResponse.json(response);
+      } catch {
+        // 캐시 손상 → 재생성
+        await redis.del(cacheKey);
+      }
     }
   }
 
@@ -225,8 +235,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'AI 응답 파싱 실패', raw }, { status: 502 });
   }
 
-  // 캐시 저장
-  memCache.set(cacheKey, raw);
+  // 캐시 저장 (영구)
+  if (redis) await redis.set(cacheKey, raw);
 
   const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions };
   return NextResponse.json(response);
