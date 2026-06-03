@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
 import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/lib/saju/engine";
@@ -8,6 +8,7 @@ import { STEM_DATA, BRANCH_DATA, ELEMENT_COLOR, SIPSHIN_DESC, getCompat } from "
 import { getSipshin, getBranchSipshin } from "@/lib/saju/sipshin";
 import { DAY_MASTER_PROFILE, ELEMENT_COMMENT } from "@/lib/saju/interpret";
 import type { Element, Stem } from "@/lib/saju/constants";
+import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 
 // ── seolgi.json 로더 (클라이언트 캐시) ──
 let seolgiCache: SeolgiIndex | null = null;
@@ -21,6 +22,11 @@ async function loadSeolgi(): Promise<SeolgiIndex> {
 }
 
 // ── 계산 결과 → UI용 데이터 변환 ──
+interface BirthParams {
+  year: number; month: number; day: number;
+  hour: number | null; sex: 'male' | 'female';
+}
+
 interface SajuUIResult {
   pillars:   FourPillars;
   dayMaster: {
@@ -29,9 +35,10 @@ interface SajuUIResult {
   };
   elements: { el: Element; count: number; color: string; comment: string | null }[];
   sipshinMap: Record<string, string | null>;
+  birth: BirthParams;
 }
 
-function buildUIResult(fp: FourPillars): SajuUIResult {
+function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   const dm = fp.day.stem;
   const dmData = STEM_DATA[dm];
 
@@ -69,6 +76,7 @@ function buildUIResult(fp: FourPillars): SajuUIResult {
     dayMaster: { stem: dm, hanja: dmData.hanja, element: dmData.element, image: dmData.image, profile: DAY_MASTER_PROFILE[dm] },
     elements,
     sipshinMap,
+    birth,
   };
 }
 
@@ -93,10 +101,72 @@ function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
   );
 }
 
+// ── AI 해석 탭 ──
+function ReadingTab({ birth }: { birth: BirthParams }) {
+  const [reading, setReading] = useState<ReadingResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true); setErr(null);
+    try {
+      const res = await fetch('/api/saju/reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...birth, tier: 'free', type: 'full' }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      setReading(await res.json() as ReadingResponse);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '알 수 없는 오류');
+    } finally { setLoading(false); }
+  }
+
+  if (!reading && !loading) return (
+    <div className="flex flex-col items-center gap-4 py-8">
+      <p className="text-sm text-white/50 text-center">AI가 이 사주를 종합 해석해드립니다.<br/>DE440 데이터 기반 · 캐시로 한 번만 생성</p>
+      <button onClick={load} className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
+        AI 해석 보기
+      </button>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+    </div>
+  );
+
+  if (loading) return (
+    <div className="flex flex-col items-center gap-3 py-10">
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+        className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/70" />
+      <p className="text-xs text-white/40">해석 생성 중...</p>
+    </div>
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+      {reading!.cautions.length > 0 && (
+        <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
+          ⚠ {reading!.cautions.join(' · ')}
+        </p>
+      )}
+      {reading!.sections.map((s, i) => (
+        <div key={i} className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-2">
+          <p className="text-[10px] text-white/40 uppercase tracking-widest">{s.title}</p>
+          <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
+        </div>
+      ))}
+      {reading!.cached && (
+        <p className="text-[10px] text-white/25 text-center">캐시됨</p>
+      )}
+    </motion.div>
+  );
+}
+
 // ── 결과 뷰 ──
 function ResultView({ result }: { result: SajuUIResult }) {
   const { pillars: fp, dayMaster, elements, sipshinMap } = result;
-  const [tab, setTab] = useState<'profile' | 'elements' | 'daeun' | 'compat'>('profile');
+  const [tab, setTab] = useState<'profile' | 'elements' | 'daeun' | 'compat' | 'reading'>('profile');
   const total = elements.reduce((s,e)=>s+e.count,0);
 
   return (
@@ -135,7 +205,7 @@ function ResultView({ result }: { result: SajuUIResult }) {
 
       {/* 탭 */}
       <div className="flex rounded-xl border border-white/8 p-0.5">
-        {([['profile','성격'],['elements','오행'],['daeun','대운'],['compat','궁합']] as const).map(([key,label])=>(
+        {([['profile','성격'],['elements','오행'],['daeun','대운'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
           <button key={key} onClick={()=>setTab(key as typeof tab)}
             className={`flex-1 rounded-lg py-2 text-xs transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
             {label}
@@ -230,6 +300,7 @@ function ResultView({ result }: { result: SajuUIResult }) {
           )}
 
           {tab==='compat' && <CompatTab myElement={dayMaster.element} />}
+          {tab==='reading' && <ReadingTab birth={result.birth} />}
 
         </motion.div>
       </AnimatePresence>
@@ -297,7 +368,7 @@ export function SajuPage() {
     try {
       const index = await loadSeolgi();
       const fp = computeFourPillars(index, fromKST(y,m,d,h), form.sex);
-      setResult(buildUIResult(fp));
+      setResult(buildUIResult(fp, { year:y, month:m, day:d, hour:h, sex:form.sex }));
     } catch(err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally { setLoading(false); }
