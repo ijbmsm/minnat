@@ -1,83 +1,125 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { buildSajuResult, STEM_DATA, BRANCH_DATA, ELEMENT_COLOR, SIPSHIN_DESC, getCompat, type SajuResult } from "@/lib/saju";
+import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
+import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/lib/saju/engine";
+import { STEM_DATA, BRANCH_DATA, ELEMENT_COLOR, SIPSHIN_DESC, getCompat } from "@/lib/saju";
+import { getSipshin, getBranchSipshin } from "@/lib/saju/sipshin";
+import { DAY_MASTER_PROFILE, ELEMENT_COMMENT } from "@/lib/saju/interpret";
+import type { Element, Stem } from "@/lib/saju/constants";
 
-// ── 입력 폼 ──
-interface FormState {
-  year: string; month: string; day: string; hour: string;
-  unknownHour: boolean;
-  sex: 'male' | 'female';
+// ── seolgi.json 로더 (클라이언트 캐시) ──
+let seolgiCache: SeolgiIndex | null = null;
+
+async function loadSeolgi(): Promise<SeolgiIndex> {
+  if (seolgiCache) return seolgiCache;
+  const res = await fetch("/seolgi.json");
+  const rows: SeolgiRow[] = await res.json();
+  seolgiCache = buildSeolgiIndex(rows);
+  return seolgiCache;
 }
 
-const INIT: FormState = { year: '', month: '', day: '', hour: '', unknownHour: false, sex: 'male' };
+// ── 계산 결과 → UI용 데이터 변환 ──
+interface SajuUIResult {
+  pillars:   FourPillars;
+  dayMaster: {
+    stem: Stem; hanja: string; element: Element; image: string;
+    profile: typeof DAY_MASTER_PROFILE[keyof typeof DAY_MASTER_PROFILE];
+  };
+  elements: { el: Element; count: number; color: string; comment: string | null }[];
+  sipshinMap: Record<string, string | null>;
+}
 
-function PillarCell({ label, stem, branch, sipshinStem, sipshinBranch, isDay }: {
-  label: string;
-  stem: string;
-  branch: string;
-  sipshinStem?: string;
-  sipshinBranch?: string;
-  isDay?: boolean;
+function buildUIResult(fp: FourPillars): SajuUIResult {
+  const dm = fp.day.stem;
+  const dmData = STEM_DATA[dm];
+
+  // 오행 카운트 (8자 기준)
+  const active = [fp.year, fp.month, fp.day, ...(fp.hour ? [fp.hour] : [])];
+  const elemCount: Record<Element, number> = { 목:0, 화:0, 토:0, 금:0, 수:0 };
+  for (const p of active) {
+    elemCount[STEM_DATA[p.stem].element]++;
+    elemCount[BRANCH_DATA[p.branch].element]++;
+  }
+  const total = Object.values(elemCount).reduce((s,v)=>s+v,0);
+
+  const elements = (['목','화','토','금','수'] as Element[]).map(el => {
+    const count = elemCount[el];
+    const ratio = count / total;
+    let comment: string | null = null;
+    if (ratio >= 0.5)  comment = ELEMENT_COMMENT[el].excess;
+    else if (count===0) comment = ELEMENT_COMMENT[el].lack;
+    return { el, count, color: ELEMENT_COLOR[el], comment };
+  });
+
+  const sipshinMap: Record<string, string | null> = {
+    yearStem:          getSipshin(dm, fp.year.stem),
+    yearBranch:        getBranchSipshin(dm, fp.year.branch),
+    monthStem:         getSipshin(dm, fp.month.stem),
+    monthBranch:       getBranchSipshin(dm, fp.month.branch),
+    dayStem:           '본인',
+    dayBranch:         getBranchSipshin(dm, fp.day.branch),
+    hourStem:          fp.hour ? getSipshin(dm, fp.hour.stem) : null,
+    hourBranch:        fp.hour ? getBranchSipshin(dm, fp.hour.branch) : null,
+  };
+
+  return {
+    pillars: fp,
+    dayMaster: { stem: dm, hanja: dmData.hanja, element: dmData.element, image: dmData.image, profile: DAY_MASTER_PROFILE[dm] },
+    elements,
+    sipshinMap,
+  };
+}
+
+// ── PillarCell ──
+function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
+  label: string; pillar: Pillar;
+  sipshinStem?: string | null; sipshinBranch?: string | null; isDay?: boolean;
 }) {
-  const stemEl  = STEM_DATA[stem as keyof typeof STEM_DATA];
-  const branchEl = BRANCH_DATA[branch as keyof typeof BRANCH_DATA];
+  const stemEl   = STEM_DATA[pillar.stem];
+  const branchEl = BRANCH_DATA[pillar.branch];
   return (
-    <div className={`flex flex-col items-center gap-1 rounded-2xl border px-5 py-4 ${isDay ? 'border-white/20 bg-white/[0.07]' : 'border-white/8 bg-white/[0.03]'}`}>
+    <div className={`flex flex-col items-center gap-1 rounded-2xl border px-4 py-4 ${isDay ? 'border-white/20 bg-white/[0.07]' : 'border-white/8 bg-white/[0.03]'}`}>
       <span className="text-[10px] text-white/40 tracking-widest uppercase">{label}</span>
-      {/* 십신 (천간) */}
-      <span className="text-[10px] text-white/50 h-3">{sipshinStem ?? ''}</span>
-      {/* 천간 */}
-      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[stemEl.element] }}>
-        {stem}
-      </span>
-      <span className="text-[10px] text-white/30">{stemEl.hanja} {stemEl.element}</span>
+      <span className="text-[10px] text-white/50 h-3">{sipshinStem || ''}</span>
+      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[stemEl.element] }}>{pillar.stem}</span>
+      <span className="text-[10px] text-white/30">{stemEl.hanja}</span>
       <div className="my-1 h-px w-full bg-white/8" />
-      {/* 지지 */}
-      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[branchEl.element] }}>
-        {branch}
-      </span>
+      <span className="text-3xl font-bold" style={{ color: ELEMENT_COLOR[branchEl.element] }}>{pillar.branch}</span>
       <span className="text-[10px] text-white/30">{branchEl.hanja} {branchEl.animal}</span>
-      {/* 십신 (지지) */}
-      <span className="text-[10px] text-white/50 h-3">{sipshinBranch ?? ''}</span>
+      <span className="text-[10px] text-white/50 h-3">{sipshinBranch || ''}</span>
     </div>
   );
 }
 
-function ResultView({ result }: { result: SajuResult }) {
-  const { pillars, dayMaster, elements, sipshinMap } = result;
+// ── 결과 뷰 ──
+function ResultView({ result }: { result: SajuUIResult }) {
+  const { pillars: fp, dayMaster, elements, sipshinMap } = result;
   const [tab, setTab] = useState<'profile' | 'elements' | 'daeun' | 'compat'>('profile');
-
-  const total = elements.reduce((s, e) => s + e.count, 0);
+  const total = elements.reduce((s,e)=>s+e.count,0);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="mt-10 space-y-6"
-    >
-      {/* 사주 4주 표 */}
+    <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }} className="mt-10 space-y-6">
+
+      {/* 4주 표: 시|일|월|년 */}
       <div className="grid grid-cols-4 gap-2">
-        {pillars.hour ? (
-          <PillarCell label="시" stem={pillars.hour.stem} branch={pillars.hour.branch}
-            sipshinStem={sipshinMap.hourStemSipshin ?? undefined}
-            sipshinBranch={sipshinMap.hourBranchSipshin ?? undefined} />
+        {fp.hour ? (
+          <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 px-5 py-4 text-white/20 text-xs">
-            시간<br />모름
-          </div>
+          <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-4 text-white/20 text-xs">시간<br/>미상</div>
         )}
-        <PillarCell label="일" stem={pillars.day.stem} branch={pillars.day.branch}
-          sipshinBranch={sipshinMap.dayBranchSipshin} isDay />
-        <PillarCell label="월" stem={pillars.month.stem} branch={pillars.month.branch}
-          sipshinStem={sipshinMap.monthStemSipshin}
-          sipshinBranch={sipshinMap.monthBranchSipshin} />
-        <PillarCell label="년" stem={pillars.year.stem} branch={pillars.year.branch}
-          sipshinStem={sipshinMap.yearStemSipshin}
-          sipshinBranch={sipshinMap.yearBranchSipshin} />
+        <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
+        <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
+        <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
       </div>
+
+      {/* 경계 주의 */}
+      {fp.trace.boundaryCaution && (
+        <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
+          ⚠ 절기 경계 ±3분 이내 출생 — 월주가 달라질 수 있습니다. KASI 발표 절기와 교차 확인을 권장합니다.
+        </p>
+      )}
 
       {/* 일간 강조 */}
       <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-5 py-4">
@@ -93,82 +135,73 @@ function ResultView({ result }: { result: SajuResult }) {
 
       {/* 탭 */}
       <div className="flex rounded-xl border border-white/8 p-0.5">
-        {([
-          { key: 'profile' as const, label: '성격 분석' },
-          { key: 'elements' as const, label: '오행' },
-          { key: 'daeun' as const, label: '대운' },
-          { key: 'compat' as const, label: '궁합' },
-        ]).map(({ key, label }) => (
-          <button key={key} onClick={() => setTab(key)}
-            className={`flex-1 rounded-lg py-2 text-xs transition-all ${tab === key ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white'}`}>
+        {([['profile','성격'],['elements','오행'],['daeun','대운'],['compat','궁합']] as const).map(([key,label])=>(
+          <button key={key} onClick={()=>setTab(key as typeof tab)}
+            className={`flex-1 rounded-lg py-2 text-xs transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
             {label}
           </button>
         ))}
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div key={tab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
 
-          {/* 성격 분석 */}
-          {tab === 'profile' && (
+          {tab==='profile' && (
             <div className="space-y-3">
               <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-3">
-                <div>
-                  <span className="text-[10px] text-white/40 uppercase tracking-widest">강점</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.strength}</p>
-                </div>
-                <div>
-                  <span className="text-[10px] text-white/40 uppercase tracking-widest">주의</span>
-                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.weakness}</p>
-                </div>
+                <div><span className="text-[10px] text-white/40 uppercase tracking-widest">강점</span>
+                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.strength}</p></div>
+                <div><span className="text-[10px] text-white/40 uppercase tracking-widest">주의</span>
+                  <p className="mt-1 text-sm text-white/80">{dayMaster.profile.weakness}</p></div>
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {dayMaster.profile.keyword.map(k => (
+                  {dayMaster.profile.keyword.map(k=>(
                     <span key={k} className="rounded-full border border-white/10 px-2.5 py-0.5 text-xs text-white/60">{k}</span>
                   ))}
                 </div>
               </div>
-
-              {/* 십신 요약 */}
               <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
                 <p className="text-[10px] text-white/40 uppercase tracking-widest mb-3">십신 구성</p>
                 <div className="space-y-2">
                   {([
-                    { name: sipshinMap.yearStemSipshin,    label: '년간' },
-                    { name: sipshinMap.yearBranchSipshin,  label: '년지' },
-                    { name: sipshinMap.monthStemSipshin,   label: '월간' },
-                    { name: sipshinMap.monthBranchSipshin, label: '월지' },
-                    { name: sipshinMap.dayBranchSipshin,   label: '일지' },
-                    ...(sipshinMap.hourStemSipshin   ? [{ name: sipshinMap.hourStemSipshin,   label: '시간' }] : []),
-                    ...(sipshinMap.hourBranchSipshin ? [{ name: sipshinMap.hourBranchSipshin, label: '시지' }] : []),
-                  ] as Array<{ name: string; label: string }>).map(({ name, label }) => (
-                    <div key={label} className="flex items-start gap-3">
-                      <span className="w-8 shrink-0 text-[10px] text-white/30">{label}</span>
+                    ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
+                    ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
+                    ['일지', sipshinMap.dayBranch],
+                    ...(sipshinMap.hourStem   ? [['시간', sipshinMap.hourStem]]   : []),
+                    ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
+                  ] as [string,string|null][]).map(([lbl,name])=> name && (
+                    <div key={lbl} className="flex items-start gap-3">
+                      <span className="w-8 shrink-0 text-[10px] text-white/30">{lbl}</span>
                       <span className="text-xs font-medium text-white/70 w-12 shrink-0">{name}</span>
                       <span className="text-xs text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
                     </div>
                   ))}
                 </div>
               </div>
+              {/* 계산 트레이스 */}
+              <details className="rounded-xl border border-white/5 px-4 py-3">
+                <summary className="cursor-pointer text-[10px] text-white/30 uppercase tracking-widest">계산 트레이스</summary>
+                <div className="mt-2 space-y-1 text-[11px] text-white/40 font-mono">
+                  <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
+                  <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
+                  <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
+                  <p>일주 offset: {fp.trace.dayPillarOffset}</p>
+                  <p>시각: {fp.trace.timeKnown?'입력됨':'미상'}</p>
+                </div>
+              </details>
             </div>
           )}
 
-          {/* 오행 */}
-          {tab === 'elements' && (
+          {tab==='elements' && (
             <div className="space-y-3">
-              {elements.map(({ el, count, color, comment }) => (
+              {elements.map(({el,count,color,comment})=>(
                 <div key={el}>
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-sm font-medium" style={{ color }}>{el}</span>
-                    <span className="text-xs text-white/40">{count}개 / {Math.round(count / total * 100)}%</span>
+                    <span className="text-sm font-medium" style={{color}}>{el}</span>
+                    <span className="text-xs text-white/40">{count}개 · {Math.round(count/total*100)}%</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-white/5">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${count / total * 100}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
+                    <motion.div initial={{width:0}} animate={{width:`${count/total*100}%`}} transition={{duration:0.8,ease:'easeOut'}}
+                      className="h-full rounded-full" style={{backgroundColor:color}} />
                   </div>
                   {comment && <p className="mt-1.5 text-xs text-white/50">{comment}</p>}
                 </div>
@@ -176,20 +209,19 @@ function ResultView({ result }: { result: SajuResult }) {
             </div>
           )}
 
-          {/* 대운 */}
-          {tab === 'daeun' && (
+          {tab==='daeun' && (
             <div>
-              <p className="mb-3 text-xs text-white/40">10년 단위 대운 흐름</p>
+              <p className="mb-3 text-xs text-white/40">10년 단위 대운</p>
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {pillars.daeun.map((d) => {
-                  const stemEl   = STEM_DATA[d.pillar.stem];
-                  const branchEl = BRANCH_DATA[d.pillar.branch];
+                {fp.daeun.map(d=>{
+                  const se = STEM_DATA[d.pillar.stem];
+                  const be = BRANCH_DATA[d.pillar.branch];
                   return (
-                    <div key={d.startAge}
-                      className="flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 min-w-[60px]">
+                    <div key={d.startAge} className="flex shrink-0 flex-col items-center gap-1 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-3 min-w-[64px]">
                       <span className="text-[10px] text-white/40">{d.startAge}세~</span>
-                      <span className="text-lg font-bold" style={{ color: ELEMENT_COLOR[stemEl.element] }}>{d.pillar.stem}</span>
-                      <span className="text-lg font-bold" style={{ color: ELEMENT_COLOR[branchEl.element] }}>{d.pillar.branch}</span>
+                      <span className="text-lg font-bold" style={{color:ELEMENT_COLOR[se.element]}}>{d.pillar.stem}</span>
+                      <span className="text-lg font-bold" style={{color:ELEMENT_COLOR[be.element]}}>{d.pillar.branch}</span>
+                      <span className="text-[10px] text-white/30">{d.startYear}</span>
                     </div>
                   );
                 })}
@@ -197,8 +229,7 @@ function ResultView({ result }: { result: SajuResult }) {
             </div>
           )}
 
-          {/* 궁합 */}
-          {tab === 'compat' && <CompatTab myElement={dayMaster.element} />}
+          {tab==='compat' && <CompatTab myElement={dayMaster.element} />}
 
         </motion.div>
       </AnimatePresence>
@@ -206,146 +237,115 @@ function ResultView({ result }: { result: SajuResult }) {
   );
 }
 
-function CompatTab({ myElement }: { myElement: string }) {
-  const [otherYear, setOtherYear] = useState('');
-  const [otherMonth, setOtherMonth] = useState('');
-  const [otherDay, setOtherDay] = useState('');
-  const [compatResult, setCompatResult] = useState<ReturnType<typeof getCompat> | null>(null);
-  const [otherDm, setOtherDm] = useState<string | null>(null);
+// ── 궁합 탭 ──
+function CompatTab({ myElement }: { myElement: Element }) {
+  const [form, setForm] = useState({ year:'', month:'', day:'' });
+  const [res, setRes] = useState<{ compat: ReturnType<typeof getCompat>; dm: string } | null>(null);
 
-  function check() {
-    const y = parseInt(otherYear), m = parseInt(otherMonth), d = parseInt(otherDay);
-    if (!y || !m || !d) return;
-    try {
-      const r = buildSajuResult(y, m, d, null, 'male');
-      const compat = getCompat(
-        myElement as Parameters<typeof getCompat>[0],
-        r.dayMaster.element,
-      );
-      setCompatResult(compat);
-      setOtherDm(`${r.dayMaster.stem}(${r.dayMaster.hanja}) · ${r.dayMaster.element}`)
-    } catch { /* ignore */ }
+  async function check() {
+    const y=parseInt(form.year), m=parseInt(form.month), d=parseInt(form.day);
+    if (!y||!m||!d) return;
+    const index = await loadSeolgi();
+    const fp = computeFourPillars(index, fromKST(y,m,d,null), 'male');
+    const otherEl = STEM_DATA[fp.day.stem].element;
+    setRes({ compat: getCompat(myElement, otherEl), dm: `${fp.day.stem}(${STEM_DATA[fp.day.stem].hanja}) · ${otherEl}` });
   }
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-white/40">상대방 생년월일을 입력하면 일간 오행 기준 궁합을 봅니다.</p>
+      <p className="text-xs text-white/40">상대방 생년월일로 일간 오행 기준 궁합을 봅니다.</p>
       <div className="flex gap-2">
-        <input type="number" placeholder="년도" value={otherYear} onChange={e => setOtherYear(e.target.value)}
-          className="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30" />
-        <input type="number" placeholder="월" value={otherMonth} onChange={e => setOtherMonth(e.target.value)}
-          className="w-14 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30" />
-        <input type="number" placeholder="일" value={otherDay} onChange={e => setOtherDay(e.target.value)}
-          className="w-14 rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30" />
-        <button onClick={check}
-          className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/15 transition-colors">
-          보기
-        </button>
+        {[['년도','year','w-20'],['월','month','w-14'],['일','day','w-14']].map(([ph,k,w])=>(
+          <input key={k} type="number" placeholder={ph} value={form[k as keyof typeof form]}
+            onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
+            className={`${w} rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30`} />
+        ))}
+        <button onClick={check} className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/15 transition-colors">보기</button>
       </div>
-
-      {compatResult && otherDm && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+      {res && (
+        <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">{compatResult.emoji}</span>
-            <div>
-              <span className="text-sm font-bold text-white">{compatResult.level}</span>
-              <span className="ml-2 text-xs text-white/40">{otherDm}</span>
-            </div>
+            <span className="text-2xl">{res.compat.emoji}</span>
+            <div><span className="text-sm font-bold text-white">{res.compat.level}</span>
+              <span className="ml-2 text-xs text-white/40">{res.dm}</span></div>
           </div>
-          <p className="text-sm text-white/70">{compatResult.comment}</p>
+          <p className="text-sm text-white/70">{res.compat.comment}</p>
         </motion.div>
       )}
     </div>
   );
 }
 
+// ── 메인 페이지 ──
 export function SajuPage() {
-  const [form, setForm] = useState<FormState>(INIT);
-  const [result, setResult] = useState<SajuResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ year:'', month:'', day:'', hour:'', unknownHour:false, sex:'male' as 'male'|'female' });
+  const [result, setResult] = useState<SajuUIResult | null>(null);
+  const [error, setError] = useState<string|null>(null);
+  const [loading, setLoading] = useState(false);
 
-  function set(key: keyof FormState, val: string | boolean) {
-    setForm(f => ({ ...f, [key]: val }));
-  }
-
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    const y = parseInt(form.year);
-    const m = parseInt(form.month);
-    const d = parseInt(form.day);
+    setError(null); setLoading(true);
+    const y=parseInt(form.year), m=parseInt(form.month), d=parseInt(form.day);
     const h = form.unknownHour ? null : parseInt(form.hour);
-    if (!y || !m || !d || y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) {
-      setError('날짜를 올바르게 입력해주세요.');
-      return;
+    if (!y||!m||!d||y<1880||y>2100||m<1||m>12||d<1||d>31) {
+      setError('날짜를 올바르게 입력해주세요. (1880~2100)'); setLoading(false); return;
     }
-    if (!form.unknownHour && (isNaN(h!) || h! < 0 || h! > 23)) {
-      setError('시간을 0~23시로 입력하거나 "시간 모름"을 체크하세요.');
-      return;
+    if (!form.unknownHour && (isNaN(h!)||h!<0||h!>23)) {
+      setError('시간은 0~23시로 입력하거나 "시간 모름"을 체크하세요.'); setLoading(false); return;
     }
     try {
-      setResult(buildSajuResult(y, m, d, h, form.sex));
-    } catch {
-      setError('계산 중 오류가 발생했습니다.');
-    }
+      const index = await loadSeolgi();
+      const fp = computeFourPillars(index, fromKST(y,m,d,h), form.sex);
+      setResult(buildUIResult(fp));
+    } catch(err) {
+      setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+    } finally { setLoading(false); }
   }
+
+  const set = (k: string, v: string|boolean) => setForm(f=>({...f,[k]:v}));
 
   return (
     <main className="mx-auto max-w-lg px-4 pt-24 pb-20">
-      {/* 헤더 */}
       <div className="mb-8">
-        <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/60 uppercase">
-          사주팔자
-        </span>
+        <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/60 uppercase">사주팔자</span>
         <h1 className="text-3xl font-bold tracking-tight">내 사주 보기</h1>
-        <p className="mt-1 text-sm text-white/50">생년월일시 기반 · 절기 정확도 적용</p>
+        <p className="mt-1 text-sm text-white/50">DE440 천문 데이터 · 절기 초 단위 정밀도</p>
       </div>
 
-      {/* 입력 폼 */}
       <form onSubmit={submit} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-4">
-        {/* 성별 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">성별</label>
           <div className="flex gap-2">
-            {(['male', 'female'] as const).map(s => (
-              <button key={s} type="button"
-                onClick={() => set('sex', s)}
-                className={`flex-1 rounded-lg py-2 text-sm transition-all ${form.sex === s ? 'bg-white/15 text-white' : 'bg-white/5 text-white/50 hover:text-white'}`}>
-                {s === 'male' ? '남자' : '여자'}
+            {(['male','female'] as const).map(s=>(
+              <button key={s} type="button" onClick={()=>set('sex',s)}
+                className={`flex-1 rounded-lg py-2 text-sm transition-all ${form.sex===s?'bg-white/15 text-white':'bg-white/5 text-white/50 hover:text-white'}`}>
+                {s==='male'?'남자':'여자'}
               </button>
             ))}
           </div>
         </div>
 
-        {/* 생년월일 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">생년월일</label>
           <div className="flex gap-2">
-            <input type="number" placeholder="년도 (예: 1995)" value={form.year}
-              onChange={e => set('year', e.target.value)}
+            <input type="number" placeholder="년도 (예: 1995)" value={form.year} onChange={e=>set('year',e.target.value)}
               className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
-            <input type="number" placeholder="월" value={form.month}
-              onChange={e => set('month', e.target.value)}
+            <input type="number" placeholder="월" value={form.month} onChange={e=>set('month',e.target.value)}
               className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
-            <input type="number" placeholder="일" value={form.day}
-              onChange={e => set('day', e.target.value)}
+            <input type="number" placeholder="일" value={form.day} onChange={e=>set('day',e.target.value)}
               className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
           </div>
         </div>
 
-        {/* 출생 시간 */}
         <div>
           <label className="text-xs text-white/50 mb-2 block">출생 시간 (0~23시)</label>
           <div className="flex items-center gap-3">
-            <input type="number" placeholder="시 (예: 14)" value={form.hour}
-              disabled={form.unknownHour}
-              onChange={e => set('hour', e.target.value)}
+            <input type="number" placeholder="시 (예: 14)" value={form.hour} disabled={form.unknownHour}
+              onChange={e=>set('hour',e.target.value)}
               className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 disabled:opacity-30" />
             <label className="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer">
-              <input type="checkbox" checked={form.unknownHour}
-                onChange={e => set('unknownHour', e.target.checked)}
-                className="rounded" />
+              <input type="checkbox" checked={form.unknownHour} onChange={e=>set('unknownHour',e.target.checked)} className="rounded" />
               시간 모름
             </label>
           </div>
@@ -353,13 +353,12 @@ export function SajuPage() {
 
         {error && <p className="text-xs text-red-400">{error}</p>}
 
-        <button type="submit"
-          className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium text-white hover:bg-white/15 transition-colors">
-          사주 보기
+        <button type="submit" disabled={loading}
+          className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium text-white hover:bg-white/15 transition-colors disabled:opacity-50">
+          {loading ? '계산 중...' : '사주 보기'}
         </button>
       </form>
 
-      {/* 결과 */}
       {result && <ResultView result={result} />}
     </main>
   );
