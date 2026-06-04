@@ -559,11 +559,12 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
             </p>
           )}
           {reading.sections.map((s: ReadingSection, i: number) => (
-            <Panel key={i} style={{ padding: 20 }}>
-              <p style={{ fontSize: 10, color: INK.ink45, letterSpacing: 3, fontFamily: MONO,
+            <div key={i} style={{ padding: 20, borderRadius: 8,
+              background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
+              <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO,
                 textTransform: 'uppercase', marginBottom: 8 }}>{s.title}</p>
-              <p style={{ fontSize: 14, color: INK.ink70, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
-            </Panel>
+              <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
+            </div>
           ))}
         </motion.div>
       )}
