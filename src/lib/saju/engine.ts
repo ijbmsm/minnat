@@ -270,7 +270,13 @@ export function fromKST(
   const { hour, minute, dayOffset } = apparentMinutesToTime(apparentMin);
 
   // 날짜 보정 (진태양시가 자정을 넘는 경우)
-  const adjustedDate = new Date(Date.UTC(kstYear, kstMonth - 1, kstDay + dayOffset));
+  // UTC 날짜 기준으로 dayOffset 적용해야 함:
+  // KST 00:00~08:59 출생자는 UTC 전날이므로 kstDay 기준으로 더하면 하루 늦어짐
+  const adjustedDate = new Date(Date.UTC(
+    birthUTC.getUTCFullYear(),
+    birthUTC.getUTCMonth(),
+    birthUTC.getUTCDate() + dayOffset,
+  ));
 
   return {
     birthUTC,
