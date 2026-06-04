@@ -11,7 +11,7 @@ import { DAY_MASTER_PROFILE, ELEMENT_COMMENT } from "@/lib/saju/interpret";
 import type { Element, Stem, Branch } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 import { lunarToSolar } from "@/lib/saju/lunar";
-import { analyzeAdvanced, findRoots, type AdvancedAnalysis } from "@/lib/saju/advanced";
+import { analyzeAdvanced, findRoots, JIJANGGAN, type AdvancedAnalysis } from "@/lib/saju/advanced";
 
 // ── 월운 계산용 상수 ──
 const TIGER_MONTH_STEM = [2, 4, 6, 8, 0] as const; // 오호둔
@@ -440,6 +440,86 @@ const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
   수: { meaning: '지혜·유연·흐름', represents: '직관, 생각, 적응력' },
 };
 
+// ── 12운성 ──
+const UNSUNG_NAMES = ['장생','목욕','관대','건록','제왕','쇠','병','사','묘','절','태','양'] as const;
+type Unsung = typeof UNSUNG_NAMES[number];
+const BRANCHES_12 = ['자','축','인','묘','진','사','오','미','신','유','술','해'] as const;
+const UNSUNG_YANG_START: Record<Element, number> = { 목:11, 화:2, 토:2, 금:5, 수:8 };
+const UNSUNG_YIN_START:  Record<Element, number> = { 목:6,  화:9, 토:9, 금:0, 수:3 };
+const UNSUNG_TIER: Record<Unsung, 'good'|'mid'|'bad'> = {
+  장생:'good', 건록:'good', 제왕:'good',
+  관대:'mid',  목욕:'mid',  양:'mid',  태:'mid',
+  쇠:'bad',   병:'bad',   사:'bad',  묘:'bad', 절:'bad',
+};
+
+function getUnsung(stem: Stem, branch: Branch): Unsung {
+  const { yang, element } = STEM_DATA[stem];
+  const brIdx = BRANCHES_12.indexOf(branch as typeof BRANCHES_12[number]);
+  const start = yang ? UNSUNG_YANG_START[element] : UNSUNG_YIN_START[element];
+  const offset = yang ? (brIdx - start + 12) % 12 : (start - brIdx + 12) % 12;
+  return UNSUNG_NAMES[offset];
+}
+
+// ── 공망 ──
+function getGongmang(dayGz: number): Branch[] {
+  const g = Math.floor(dayGz / 10);
+  const pairs: Branch[][] = [['술','해'],['신','유'],['오','미'],['진','사'],['인','묘'],['자','축']];
+  return pairs[g % 6];
+}
+
+// ── 신살 ──
+interface Sinsal { name: string; desc: string; branches: Branch[] }
+
+function calcSinsal(fp: FourPillars): Sinsal[] {
+  const result: Sinsal[] = [];
+  const all = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+  const yb  = fp.year.branch;
+  const dm  = fp.day.stem;
+
+  // 역마살 (연지 기준)
+  const yeokmaMap: Partial<Record<Branch, Branch>> = {
+    인:'신', 오:'신', 술:'신', 신:'인', 자:'인', 진:'인',
+    사:'해', 유:'해', 축:'해', 해:'사', 묘:'사', 미:'사',
+  };
+  const ym = yeokmaMap[yb];
+  if (ym) { const f = all.filter(b=>b===ym); if(f.length) result.push({ name:'역마살', desc:'이동·변화·활동성', branches:f }); }
+
+  // 도화살 (연지 기준)
+  const dohwaMap: Partial<Record<Branch, Branch>> = {
+    인:'묘', 오:'묘', 술:'묘', 사:'오', 유:'오', 축:'오',
+    신:'유', 자:'유', 진:'유', 해:'자', 묘:'자', 미:'자',
+  };
+  const dh = dohwaMap[yb];
+  if (dh) { const f = all.filter(b=>b===dh); if(f.length) result.push({ name:'도화살', desc:'매력·인기·예술성', branches:f }); }
+
+  // 천을귀인 (일간 기준)
+  const guiMap: Partial<Record<Stem, Branch[]>> = {
+    갑:['축','미'], 무:['축','미'], 경:['축','미'],
+    을:['자','신'], 기:['자','신'],
+    병:['해','유'], 정:['해','유'],
+    신:['인','오'],
+    임:['묘','사'], 계:['묘','사'],
+  };
+  const gt = (guiMap[dm] ?? []) as Branch[];
+  const gf = all.filter(b=>gt.includes(b));
+  if (gf.length) result.push({ name:'천을귀인', desc:'귀인 도움·위기 극복', branches:gf });
+
+  // 양인살 (일간 기준, 양간만)
+  const yanginMap: Partial<Record<Stem, Branch>> = { 갑:'묘', 병:'오', 무:'오', 경:'유', 임:'자' };
+  const yi = yanginMap[dm];
+  if (yi) { const f = all.filter(b=>b===yi); if(f.length) result.push({ name:'양인살', desc:'강한 의지·공격성·고집', branches:f }); }
+
+  // 화개살 (연지 기준)
+  const hwagaeMap: Partial<Record<Branch, Branch>> = {
+    인:'술', 오:'술', 술:'술', 사:'축', 유:'축', 축:'축',
+    신:'진', 자:'진', 진:'진', 해:'미', 묘:'미', 미:'미',
+  };
+  const hw = hwagaeMap[yb];
+  if (hw) { const f = all.filter(b=>b===hw); if(f.length) result.push({ name:'화개살', desc:'예술·종교·고독·집중력', branches:f }); }
+
+  return result;
+}
+
 // ── 타입별 탭 설정 ──
 type TabKey = 'reading' | 'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat';
 const TYPE_TABS: Record<ReadingType, [TabKey, string][]> = {
@@ -469,6 +549,20 @@ function AdvancedPanel({ advanced, fp }: { advanced: AdvancedAnalysis; fp: FourP
   const selfRatio  = Math.round((strengths.ratios[dmEl] ?? 0) * 100);
 
   const hasHapChung = hapChung.stemCombines.length + hapChung.branchHaps.length + hapChung.branchChungs.length > 0;
+
+  // 12운성
+  const pillarsWithBranch = [
+    { label: '년', stem: fp.year.stem,  branch: fp.year.branch  },
+    { label: '월', stem: fp.month.stem, branch: fp.month.branch },
+    { label: '일', stem: fp.day.stem,   branch: fp.day.branch   },
+    ...(fp.hour ? [{ label: '시', stem: fp.hour.stem, branch: fp.hour.branch }] : []),
+  ];
+
+  // 공망
+  const gongmang = getGongmang(fp.day.gz);
+
+  // 신살
+  const sinsal = calcSinsal(fp);
 
   return (
     <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden divide-y divide-white/5 text-sm">
@@ -595,8 +689,89 @@ function AdvancedPanel({ advanced, fp }: { advanced: AdvancedAnalysis; fp: FourP
           })}
         </div>
         <p className="mt-3 text-[10px] text-white/15 leading-relaxed">
-          정(正) = 정기근 · 중 = 중기근 · 여 = 여기근. 뿌리가 많을수록 해당 오행의 힘이 안정적으로 발휘됨.
+          정 = 정기근 · 중 = 중기근 · 여 = 여기근. 뿌리 많을수록 해당 오행 안정.
         </p>
+      </div>
+
+      {/* 12운성 */}
+      <div className="px-4 py-4">
+        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">12운성 (일간 기준)</p>
+        <div className="grid grid-cols-4 gap-1.5">
+          {pillarsWithBranch.map(({ label, stem, branch }) => {
+            const u = getUnsung(stem, branch);
+            const tier = UNSUNG_TIER[u];
+            const color = tier === 'good' ? 'text-emerald-400/80 border-emerald-400/20 bg-emerald-400/[0.06]'
+                        : tier === 'mid'  ? 'text-white/50 border-white/10 bg-white/[0.03]'
+                        :                   'text-white/25 border-white/6 bg-white/[0.02]';
+            return (
+              <div key={label} className={`rounded-lg border px-2 py-2 text-center ${color}`}>
+                <p className="text-[9px] text-white/25 mb-0.5">{label}지</p>
+                <p className="text-xs font-semibold">{u}</p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[10px] text-white/15">장생·건록·제왕 = 힘이 활발히 발휘되는 상태</p>
+      </div>
+
+      {/* 공망 */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <p className="text-[10px] text-white/30 tracking-widest">공망 (空亡)</p>
+        <div className="flex items-center gap-2">
+          {gongmang.map(b => {
+            const inChart = branches.includes(b);
+            return (
+              <span key={b} className={`rounded px-2 py-0.5 text-xs border ${inChart ? 'border-amber-400/25 bg-amber-400/[0.07] text-amber-400/70' : 'border-white/8 text-white/25'}`}>
+                {b}{inChart && <span className="ml-0.5 text-[10px]">↑</span>}
+              </span>
+            );
+          })}
+          {branches.some(b => gongmang.includes(b))
+            ? <span className="text-[11px] text-amber-400/50">차트 내 공망 포함</span>
+            : <span className="text-[11px] text-white/20">차트 내 공망 없음</span>
+          }
+        </div>
+      </div>
+
+      {/* 신살 */}
+      {sinsal.length > 0 && (
+        <div className="px-4 py-4">
+          <p className="text-[10px] text-white/30 tracking-widest mb-2.5">신살 (神煞)</p>
+          <div className="flex flex-wrap gap-2">
+            {sinsal.map(s => (
+              <div key={s.name} className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs">
+                <span className="font-semibold text-white/70">{s.name}</span>
+                <span className="text-white/25 ml-0.5">({s.branches.join('')})</span>
+                <p className="text-white/30 mt-0.5">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 지장간 */}
+      <div className="px-4 py-4">
+        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">지장간 (地藏干)</p>
+        <div className="space-y-1.5">
+          {pillarsWithBranch.map(({ label, branch }) => {
+            const hidden = JIJANGGAN[branch as Branch] ?? [];
+            return (
+              <div key={label} className="flex items-center gap-2">
+                <span className="w-5 text-[10px] text-white/25 shrink-0">{label}지</span>
+                <span className="text-sm font-bold shrink-0" style={{ color: ELEMENT_COLOR[BRANCH_DATA[branch as Branch].element] }}>{branch}</span>
+                <div className="flex gap-1 flex-wrap">
+                  {hidden.map(hs => (
+                    <span key={hs.stem + hs.pos} className="flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-white/[0.03] border border-white/6 text-[11px]">
+                      <span style={{ color: ELEMENT_COLOR[STEM_DATA[hs.stem].element] }}>{hs.stem}</span>
+                      <span className="text-white/20">{POS_LABEL[hs.pos as keyof typeof POS_LABEL][0]}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[10px] text-white/15">정=본기(정기) · 중=중기 · 여=여기. 지지 안에 숨어있는 천간 에너지.</p>
       </div>
 
     </div>
