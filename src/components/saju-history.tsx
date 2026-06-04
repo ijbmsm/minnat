@@ -29,7 +29,7 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 }
 
-export function SajuHistory() {
+export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
   const router = useRouter();
   const [items, setItems] = useState<SajuHistoryItem[] | null>(null);
 
@@ -83,7 +83,7 @@ export function SajuHistory() {
     <div className="w-full max-w-[500px] mt-8">
       <p className="text-[10px] text-white/25 tracking-widest mb-3 px-1">최근 열람</p>
       <div className="space-y-2">
-        {items.slice(0, 5).map(item => (
+        {items.slice(0, maxItems).map(item => (
           <button
             key={item.id}
             onClick={() => open(item)}

@@ -82,6 +82,12 @@ export function Nav() {
               <div className="h-7 w-16 rounded-lg bg-white/5 animate-pulse" />
             ) : user ? (
               <>
+                <Link href="/mypage"
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    pathname === '/mypage' ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
+                  }`}>
+                  마이페이지
+                </Link>
                 <div className="h-2 w-2 rounded-full ring-2 ring-white/10" style={{ backgroundColor: CAMP_COLOR[user.camp] }} />
                 <button onClick={handleLogout} className="rounded-lg px-3 py-1.5 text-sm text-white/45 hover:text-white transition-colors">
                   로그아웃
@@ -137,15 +143,24 @@ export function Nav() {
               <div className="mt-auto">
                 <div className="h-px bg-white/8 mb-4" />
                 {user === undefined ? null : user ? (
-                  <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full" style={{ backgroundColor: CAMP_COLOR[user.camp] }} />
-                      <span className="text-sm text-white/40">로그인됨</span>
+                  <div className="flex flex-col gap-2">
+                    <Link href="/mypage" onClick={() => setOpen(false)}
+                      className={`flex items-center justify-between rounded-2xl px-5 py-4 text-lg font-medium transition-colors ${
+                        pathname === '/mypage' ? "bg-white/10 text-white" : "text-white/70 hover:text-white"
+                      }`}>
+                      <span>마이페이지</span>
+                      <span className="text-sm text-white/30">열람 내역 · 내 정보</span>
+                    </Link>
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: CAMP_COLOR[user.camp] }} />
+                        <span className="text-sm text-white/40">로그인됨</span>
+                      </div>
+                      <button onClick={() => { handleLogout(); setOpen(false); }}
+                        className="rounded-lg px-4 py-2 text-sm text-white/50 hover:text-white transition-colors">
+                        로그아웃
+                      </button>
                     </div>
-                    <button onClick={() => { handleLogout(); setOpen(false); }}
-                      className="rounded-lg px-4 py-2 text-sm text-white/50 hover:text-white transition-colors">
-                      로그아웃
-                    </button>
                   </div>
                 ) : (
                   <Link href="/auth/login" onClick={() => setOpen(false)}

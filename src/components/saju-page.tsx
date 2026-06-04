@@ -1552,7 +1552,29 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
     let pending: { year:number; month:number; day:number; hour:number|null; minute:number; sex:'male'|'female'; longitudeE:number; dayBoundaryRule:'midnight'|'zi_hour'; applyHapHwa:boolean; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
-      if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
+      if (saved) {
+        setForm(f => ({ ...f, ...JSON.parse(saved) }));
+      } else {
+        // 세션 폼 없으면 저장된 프로필로 pre-fill
+        fetch('/api/user/profile')
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d?.birth_year) {
+              setForm(f => ({
+                ...f,
+                year:        String(d.birth_year),
+                month:       String(d.birth_month),
+                day:         String(d.birth_day),
+                hour:        d.birth_hour != null ? String(d.birth_hour) : '',
+                unknownHour: d.birth_hour == null,
+                sex:         d.birth_sex ?? 'male',
+                name:        d.birth_name ?? '',
+                city:        Math.abs((d.birth_longitude ?? 127.0) - 127.0) > 0.5 ? '__custom__' : '서울',
+                customLon:   String(d.birth_longitude ?? 127.0),
+              }));
+            }
+          }).catch(() => {});
+      }
       const raw = sessionStorage.getItem('saju:pending-compute');
       if (raw) {
         sessionStorage.removeItem('saju:pending-compute');
@@ -1612,6 +1634,19 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
     const longitudeE = getLongitude();
     try { sessionStorage.setItem('saju:form', JSON.stringify(form)); } catch { /* ignore */ }
+
+    // 출생 정보 프로필에 자동 저장 (fire-and-forget)
+    fetch('/api/user/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        birth_year: y, birth_month: m, birth_day: d,
+        birth_hour: h, birth_minute: min,
+        birth_sex: form.sex,
+        birth_name: form.name.trim() || null,
+        birth_longitude: longitudeE,
+      }),
+    }).catch(() => {});
 
     try {
       const index = await loadSeolgi();
