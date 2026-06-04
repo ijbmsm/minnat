@@ -14,7 +14,7 @@ const CAMP_COLOR: Record<DisplayCamp, string> = {
 };
 
 const isSajuPath     = (p: string) => p.startsWith("/saju");
-const isPoliticsPath = (p: string) => p === "/" || p.startsWith("/politics") || p.startsWith("/issues") || p.startsWith("/explore") || p.startsWith("/politicians") || p.startsWith("/report");
+const isPoliticsPath = (p: string) => p.startsWith("/politics") || p.startsWith("/issues") || p.startsWith("/explore") || p.startsWith("/politicians") || p.startsWith("/report");
 
 export function Nav() {
   const pathname = usePathname();
@@ -51,26 +51,29 @@ export function Nav() {
       <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-[#0a0a0c]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
 
-          {/* 로고 */}
-          <Link href="/" className="text-xl font-bold tracking-tight text-white hover:opacity-80 transition-opacity"
-            style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}>
-            술자리
-          </Link>
+          {/* 로고 + 섹션 버튼 (좌측 그룹) */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-xl font-bold tracking-tight text-white hover:opacity-80 transition-opacity"
+              style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}>
+              술자리
+            </Link>
 
-          {/* 데스크탑: 정치 / 사주 */}
-          <div className="hidden md:flex items-center gap-1">
-            <Link href="/politics"
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                onPolitics ? "bg-white/10 text-white" : "text-white/55 hover:text-white"
-              }`}>
-              정치
-            </Link>
-            <Link href="/saju"
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                onSaju ? "bg-white/10 text-white" : "text-white/55 hover:text-white"
-              }`}>
-              사주
-            </Link>
+            {/* 데스크탑: 정치 / 사주 */}
+            <div className="hidden md:flex items-center gap-0.5 ml-1">
+              <div className="h-3.5 w-px bg-white/15 mr-2" />
+              <Link href="/politics"
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  onPolitics ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
+                }`}>
+                정치
+              </Link>
+              <Link href="/saju"
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  onSaju ? "bg-white/10 text-white" : "text-white/50 hover:text-white"
+                }`}>
+                사주
+              </Link>
+            </div>
           </div>
 
           {/* 로그인 / 유저 */}
