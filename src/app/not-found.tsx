@@ -15,7 +15,7 @@ export default function NotFound() {
         <h1 className="mb-2 text-6xl font-bold tabular-nums text-white/75">404</h1>
         <p className="mb-6 text-sm text-white/75">페이지를 찾을 수 없습니다.</p>
         <Link
-          href="/"
+          href="/politics"
           className="rounded-lg border border-white/10 px-5 py-2 text-sm text-white/75 transition-colors hover:border-white/20 hover:text-white"
         >
           스코어보드로 돌아가기

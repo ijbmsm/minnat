@@ -50,11 +50,11 @@ export default function ReportPage() {
       <Nav />
       <main className="mx-auto max-w-2xl px-6 pt-24 pb-20 md:px-8">
         <Link
-          href="/"
+          href="/politics"
           className="mb-6 inline-flex items-center gap-2 text-sm text-white/75 transition-colors hover:text-white"
         >
           <span>&larr;</span>
-          <span>홈</span>
+          <span>스코어보드</span>
         </Link>
 
         <div className="mb-10">

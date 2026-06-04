@@ -13,8 +13,8 @@ const CAMP_COLOR: Record<DisplayCamp, string> = {
   free: "#71717a",
 };
 
-const isSajuPath  = (p: string) => p.startsWith("/saju");
-const isPoliticsPath = (p: string) => !isSajuPath(p) && !p.startsWith("/auth") && !p.startsWith("/board") && !p.startsWith("/about") && !p.startsWith("/api");
+const isSajuPath     = (p: string) => p.startsWith("/saju");
+const isPoliticsPath = (p: string) => p === "/" || p.startsWith("/politics") || p.startsWith("/issues") || p.startsWith("/explore") || p.startsWith("/politicians") || p.startsWith("/report");
 
 export function Nav() {
   const pathname = usePathname();
@@ -59,7 +59,7 @@ export function Nav() {
 
           {/* 데스크탑: 정치 / 사주 */}
           <div className="hidden md:flex items-center gap-1">
-            <Link href="/"
+            <Link href="/politics"
               className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
                 onPolitics ? "bg-white/10 text-white" : "text-white/55 hover:text-white"
               }`}>
@@ -110,7 +110,7 @@ export function Nav() {
 
               {/* 정치 섹션 */}
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-                <Link href="/" onClick={() => setOpen(false)}
+                <Link href="/politics" onClick={() => setOpen(false)}
                   className={`flex items-center justify-between rounded-2xl px-5 py-4 text-lg font-medium transition-colors ${
                     onPolitics ? "bg-white/10 text-white" : "text-white/70 hover:text-white"
                   }`}>
