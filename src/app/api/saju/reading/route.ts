@@ -187,32 +187,84 @@ function loveFocusSignals(fs: SajuFactSheet, sex: 'male' | 'female'): string[] {
 
 function careerFocusSignals(fs: SajuFactSheet): string[] {
   const signals: string[] = [];
+
+  // 격국 — 직업 방향의 뼈대
   signals.push(`격국: ${fs.advanced.geokGuk.name}${fs.advanced.geokGuk.projected ? ' (투간 확인)' : ' (추정)'}`);
-  signals.push(`용신: ${fs.advanced.yongSin.yongsin} · 기신: ${fs.advanced.yongSin.gisin}`);
+
+  // 용신/기신 — 직업 방향 + 소진 환경
+  if (fs.advanced.yongSin.yongsin) {
+    signals.push(`용신: ${fs.advanced.yongSin.yongsin}(${fs.advanced.yongSin.label})${fs.advanced.yongSin.present ? '' : ' — 원국 부재, 대운에서 보충 필요'}`);
+    signals.push(`기신: ${fs.advanced.yongSin.gisin} — 이 오행 중심 환경에서 소진 위험`);
+  } else {
+    signals.push(`용신: ${fs.advanced.yongSin.label} (${fs.advanced.yongSin.reason})`);
+  }
+
+  // 신강약 — 직장 vs 사업 핵심 지표
   const bs = fs.bodyStrength;
-  signals.push(`신강약: ${bs === 'strong' ? '신강 → 독립·사업 지향' : bs === 'weak' ? '신약 → 조직·협업 유리' : '중화 → 유연 적용'}`);
-  const gwan = (fs.tenGodCounts['정관'] ?? 0) + (fs.tenGodCounts['편관'] ?? 0);
-  const sik  = (fs.tenGodCounts['식신'] ?? 0) + (fs.tenGodCounts['상관'] ?? 0);
-  const jae  = (fs.tenGodCounts['정재'] ?? 0) + (fs.tenGodCounts['편재'] ?? 0);
-  signals.push(`관성(조직) ${gwan} / 식상(기술·창작) ${sik} / 재성(영업·사업) ${jae}`);
+  signals.push(`신강약: ${bs === 'strong' ? '신강 — 독립·리더·사업 구조에 강함' : bs === 'weak' ? '신약 — 조직·협업·전문직 구조에 강함' : '중화 — 직장·사업 모두 유연 적응'}`);
+
+  // 십신 분포 — 직업군 매핑 핵심
+  const gwan   = (fs.tenGodCounts['정관'] ?? 0) + (fs.tenGodCounts['편관'] ?? 0);
+  const sik    = (fs.tenGodCounts['식신'] ?? 0) + (fs.tenGodCounts['상관'] ?? 0);
+  const jaeJong = fs.tenGodCounts['정재'] ?? 0;
+  const jaePyeon = fs.tenGodCounts['편재'] ?? 0;
+  const inseong = (fs.tenGodCounts['정인'] ?? 0) + (fs.tenGodCounts['편인'] ?? 0);
+  const bigyeop = (fs.tenGodCounts['비견'] ?? 0) + (fs.tenGodCounts['겁재'] ?? 0);
+
+  signals.push(`관성 ${gwan}(조직·관리·공직) / 식상 ${sik}(기술·표현·창업) / 재성 ${jaeJong + jaePyeon}(영업·사업·투자) / 인성 ${inseong}(학문·교육·전문직) / 비겁 ${bigyeop}(독립·동업)`);
+
+  // 재성 세분화 — 정재(안정·월급) vs 편재(사업·투자·큰돈)
+  if (jaeJong + jaePyeon > 0) {
+    signals.push(`재성 세분: 정재(안정·월급) ${jaeJong}개 / 편재(사업·투자·변동수입) ${jaePyeon}개`);
+  } else {
+    signals.push('재성 없음 — 돈보다 명예·성취 중심, 재물은 간접 경로');
+  }
+
+  // 월주(직업궁) — 직업 환경의 성격
   const wolPillar = fs.pillars.find(p => p.palace === '월');
   if (wolPillar) {
-    signals.push(`직업궁(월주): 천간 ${wolPillar.sipshinStem ?? '일간'} · 지지 ${wolPillar.sipshinBranch}`);
+    signals.push(`직업궁(월주): ${wolPillar.stem}(${wolPillar.sipshinStem ?? '일간'}) ${wolPillar.branch}(${wolPillar.sipshinBranch})`);
   }
+
+  // 신살 — 직업 관련
   for (const s of fs.sinsal) {
     if (['역마살', '화개살', '양인살'].includes(s.name)) {
       signals.push(`${s.name}(${s.branches.join('')}): ${s.desc}`);
     }
   }
-  // 오행 과다/부재 (일부)
-  signals.push(...fs.notableSignals.filter(s => s.includes('세력') || s.includes('격국')).slice(0, 3));
+
+  // 대운 직업운 타이밍 — 관성·재성·식상 들어오는 대운
+  const careerStars: Sipshin[] = ['정관', '편관', '정재', '편재', '식신', '상관'];
+  const daeunTiming: string[] = [];
+  for (const d of fs.daeun) {
+    const matchStem   = careerStars.includes(d.sipshinStem);
+    const matchBranch = careerStars.includes(d.sipshinBranch);
+    if (matchStem || matchBranch) {
+      const star = matchStem ? d.sipshinStem : d.sipshinBranch;
+      daeunTiming.push(`${d.startAge}세(${d.startYear}년~): ${d.stem}${d.branch} — ${star}`);
+    }
+  }
+  if (daeunTiming.length) {
+    signals.push(`직업運 대운 타이밍: ${daeunTiming.join(' / ')}`);
+  }
+
+  // 세운 관성/재성 활성화
+  for (const s of fs.seyun) {
+    const matchStem   = careerStars.includes(s.sipshinStem);
+    const matchBranch = careerStars.includes(s.sipshinBranch);
+    if (matchStem || matchBranch) {
+      const star = matchStem ? s.sipshinStem : s.sipshinBranch;
+      signals.push(`${s.year}년 세운(${s.stem}${s.branch}): ${star} 활성화`);
+    }
+  }
+
   return signals;
 }
 
 const TOKEN_BUDGET: Record<ReadingType, { free: number; paid: number }> = {
   full:   { free: 3000, paid: 5000 },
   love:   { free: 3500, paid: 5500 },
-  career: { free: 2500, paid: 4000 },
+  career: { free: 3500, paid: 5500 },
   today:  { free: 1500, paid: 2500 },
 };
 
@@ -272,7 +324,7 @@ function buildPrompt(
   const PERSONA: Record<ReadingType, string> = {
     full:   '사주 전반을 균형 있게 봐주는 친구. 성격·연애·직업·운 흐름 전부 짚어줘.',
     love:   '연애 전문가 친구. 배우자성·기신·도화·식상 중심으로 읽어줘. 각 섹션은 구체적 인물상·연도·행동법을 포함해야 해 — "좋은 사람 만날 거야" 같은 뭉뚱그린 말은 절대 금지.',
-    career: '직업·재물 전문가 친구. 격국·용신·관식재 비중·역마 중심으로 읽어줘.',
+    career: '직업·재물 전문가 친구. 격국·십신 분포·신강약·대운 타이밍 중심으로 읽어줘. 각 섹션은 구체적 직업명·연도·결정 기준을 포함해야 해. 퇴사·창업 같은 재정적 결정은 "사주가 정해주는 게 아니라 참고 한 축"이라는 건설적 프레임을 유지해 — 단정 금지.',
     today:  '오늘 하루 에너지 전문가. 일진×원국 작용을 짧고 명확하게.',
   };
 
@@ -297,10 +349,11 @@ ${name ? `참고 이름: ${name} (이름 직접 사용 금지).` : ''}
 4. 피해야 할 유형 — 끌리지만 나를 망치는 상대 (기신 오행·십신 기반, 구체적 성향·직업·말투)
 5. 나의 치명적 매력 + 어필법 — 도화·홍염·식상으로 보는 나의 이성 무기와 실제로 어필되는 행동법`
     ) : type === 'career' ? (
-`1. 어울리는 일의 방향 — 격국·십신·용신 기반, 어떤 종류의 일에서 빛나는지
-2. 직장 vs 독립 — 신강약·관식재 비중 기반, 조직과 사업 중 어느 쪽 구조인지
-3. 재물 성향 — 돈을 어떻게 버는 스타일인지, 어디서 새기 쉬운지
-4. 지금 직업·재물 흐름 (${seyun[0]?.year}년 세운 기준) — 올해 커리어 타이밍`
+`1. 구체적 직업·분야 추천 — 격국·십신 분포·용신 오행으로 직업군 3개 이상 명시 (예: 기획·마케팅, 전문직(의·법·회계), 교육·연구 등). "창의적입니다" 같은 뭉뚱그린 말 절대 금지.
+2. 직장인 vs 사업가 — 신강약·재성·관성·비겁으로 창업 적합도 판정. 창업/이직 결정은 "이런 점을 점검하면 유리/불리"처럼 건설적으로, 단정 금지.
+3. 재물운 — 정재(안정·월급)·편재(사업·투자·큰돈) 비중으로 돈 버는 방식, 식상생재(기술→수입) 여부, 재물運 들어오는 대운 나이대 명시
+4. 이직·승진·창업 타이밍 — 관성·재성·식상 대운/세운 기준 유리한 시기 (구체적 나이·연도). 반대로 움직임을 조심하면 좋은 시기도.
+5. 맞는 환경 / 피해야 할 일 — 용신 오행 기반 빛나는 환경, 기신 오행 기반 소진되는 직무·조직 유형 (구체적 직업명·상황)`
     ) : type === 'today' ? (
 `오늘 일진: ${tp ? `${tp.stem}${tp.branch} (천간 ${tp.sipshinStem} · 지지 ${tp.sipshinBranch})` : '(정보 없음 — 오늘 날짜 기준 추론)'}
 1. 오늘 하루 전반 — 일진이 이 차트에 어떻게 작용하는지, 에너지 방향

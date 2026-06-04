@@ -1407,7 +1407,7 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
   onShare: () => void;
 }) {
   const m = useIsMobile();
-  const isLeanType = defaultType === 'love' || defaultType === 'today';
+  const isLeanType = defaultType === 'love' || defaultType === 'today' || defaultType === 'career';
   const [tab, setTab] = useState<TabId>(isLeanType ? 'ai' : 'manse');
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const { birth, dayMaster } = result;
@@ -1465,8 +1465,9 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
             borderRadius: 10, border: `1px solid ${INK.cardLine}`,
             background: 'rgba(232,223,200,0.02)',
             overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
-            {(defaultType === 'today' ? TABS.filter(t => t.id === 'ai') :
-              defaultType === 'love'  ? TABS.filter(t => t.id === 'ai' || t.id === 'gunghap') :
+            {(defaultType === 'today'  ? TABS.filter(t => t.id === 'ai') :
+              defaultType === 'love'   ? TABS.filter(t => t.id === 'ai' || t.id === 'gunghap') :
+              defaultType === 'career' ? TABS.filter(t => t.id === 'ai') :
               TABS).map(t => {
               const on = tab === t.id;
               return (
