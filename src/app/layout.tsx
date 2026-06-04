@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { OrganizationJsonLd, WebsiteJsonLd } from "@/components/json-ld";
+import { PoliticsSubNav } from "@/components/politics-subnav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,6 +65,7 @@ export default function RootLayout({
       <body className="min-h-full bg-[#0a0a0c] text-white">
         <OrganizationJsonLd />
         <WebsiteJsonLd />
+        <PoliticsSubNav />
         {children}
       </body>
     </html>

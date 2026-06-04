@@ -317,8 +317,8 @@ const READING_TYPES: { key: ReadingType; label: string; desc: string }[] = [
 ];
 
 // ── AI 해석 탭 ──
-function ReadingTab({ birth }: { birth: BirthParams }) {
-  const [readingType, setReadingType] = useState<ReadingType>('full');
+function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
+  const [readingType, setReadingType] = useState<ReadingType>(initialType);
   const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -453,7 +453,7 @@ const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
 };
 
 // ── 결과 뷰 ──
-function ResultView({ result }: { result: SajuUIResult }) {
+function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; defaultType?: ReadingType }) {
   const { pillars: fp, dayMaster, elements, sipshinMap } = result;
   const [tab, setTab] = useState<'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat' | 'reading'>('pillars');
   const total = elements.reduce((s,e)=>s+e.count,0);
@@ -605,7 +605,7 @@ function ResultView({ result }: { result: SajuUIResult }) {
 
           {tab==='monthly'  && <MonthlyTab dm={fp.day.stem} />}
           {tab==='compat'   && <CompatTab myElement={dayMaster.element} />}
-          {tab==='reading'  && <ReadingTab birth={result.birth} />}
+          {tab==='reading'  && <ReadingTab birth={result.birth} initialType={defaultType} />}
 
         </motion.div>
       </AnimatePresence>
@@ -800,6 +800,34 @@ function BirthSummary({ birth, dayMaster, onReset }: {
   );
 }
 
+// ── 타입 카드 데이터 ──
+const TYPE_CARDS: { type: ReadingType; icon: string; title: string; tagline: string; detail: string; color: string }[] = [
+  {
+    type: 'full',
+    icon: '✦',
+    title: '종합 사주',
+    tagline: '성격 · 연애 · 직업 · 세운',
+    detail: '나는 어떤 사람인지, 올해·내년 흐름까지 한번에 보여줘',
+    color: 'rgba(255,255,255,0.08)',
+  },
+  {
+    type: 'love',
+    icon: '♡',
+    title: '연애운',
+    tagline: '연애 스타일 · 관계 패턴',
+    detail: '내 연애 습관과 반복되는 패턴, 잘 맞는 상대 에너지',
+    color: 'rgba(251,113,133,0.12)',
+  },
+  {
+    type: 'career',
+    icon: '◈',
+    title: '직업 · 재물',
+    tagline: '적성 · 돈과의 관계',
+    detail: '어떤 일에서 빛나고, 직장 vs 사업 중 뭐가 맞는지',
+    color: 'rgba(251,191,36,0.1)',
+  },
+];
+
 // ── 메인 페이지 ──
 export function SajuPage() {
   const [form, setForm] = useState({
@@ -812,6 +840,7 @@ export function SajuPage() {
     city: '서울',
     customLon: '',
   });
+  const [selectedType, setSelectedType] = useState<ReadingType>('full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -871,19 +900,57 @@ export function SajuPage() {
     return (
       <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-4">
         <BirthSummary birth={result.birth} dayMaster={result.dayMaster} onReset={() => setResult(null)} />
-        <ResultView result={result} />
+        <ResultView result={result} defaultType={selectedType} />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-24 pb-20">
-      <div className="mb-8">
-        <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.2em] text-white/60 uppercase">사주팔자</span>
-        <h1 className="text-3xl font-bold tracking-tight">내 사주 보기</h1>
-        <p className="mt-1 text-sm text-white/50">DE440 천문 데이터 · 절기 초 단위 정밀도</p>
+    <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-8">
+
+      {/* ── 히어로 ── */}
+      <div className="pt-4 text-center">
+        <p className="text-[10px] tracking-[0.3em] text-white/30 uppercase mb-3">사주팔자</p>
+        <h1 className="text-4xl font-bold tracking-tight leading-tight mb-2">내 사주 보기</h1>
+        <p className="text-sm text-white/40">DE440 천문 데이터 · 절기 초 단위 정밀도 · AI 해석</p>
       </div>
 
+      {/* ── 타입 선택 카드 ── */}
+      <div>
+        <p className="text-xs text-white/35 mb-3 text-center">어떤 걸 알고 싶어?</p>
+        <div className="grid grid-cols-3 gap-2.5">
+          {TYPE_CARDS.map(({ type, icon, title, tagline, detail, color }) => {
+            const active = selectedType === type;
+            return (
+              <motion.button
+                key={type}
+                type="button"
+                onClick={() => setSelectedType(type)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`relative flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all ${
+                  active
+                    ? 'border-white/25 bg-white/[0.06]'
+                    : 'border-white/7 bg-white/[0.02] hover:border-white/15'
+                }`}
+                style={{ background: active ? color : undefined }}
+              >
+                {active && (
+                  <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-white/60" />
+                )}
+                <span className={`text-2xl leading-none ${active ? 'opacity-100' : 'opacity-40'}`}>{icon}</span>
+                <div>
+                  <p className={`text-sm font-semibold leading-tight mb-1 ${active ? 'text-white' : 'text-white/60'}`}>{title}</p>
+                  <p className={`text-[10px] leading-tight ${active ? 'text-white/50' : 'text-white/25'}`}>{tagline}</p>
+                </div>
+                <p className={`text-[10px] leading-relaxed mt-auto hidden sm:block ${active ? 'text-white/40' : 'text-white/20'}`}>{detail}</p>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 입력 폼 ── */}
       <form onSubmit={submit} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-5">
 
         {/* 이름 */}

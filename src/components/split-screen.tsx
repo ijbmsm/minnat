@@ -20,7 +20,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
       <FluidBackground score={score} />
 
       {/* 콘텐츠 */}
-      <div className="relative z-10 flex h-full flex-col items-center px-4 pt-14">
+      <div className="relative z-10 flex h-full flex-col items-center px-4 pt-24">
 
         {/* 상단 spacer — 스크롤 힌트와 균형 */}
         <div className="flex-1" />
