@@ -53,7 +53,7 @@ export default function LandingPage() {
               <div className="pointer-events-none absolute inset-0 bg-white/[0.015] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               {/* 섹션 레이블 */}
-              <p className="relative text-[9px] tracking-[0.3em] text-white/25 uppercase">{label}</p>
+              <p className="relative text-sm font-medium tracking-[0.15em] text-white/40">{label}</p>
 
               {/* 메인 카피 */}
               <div className="relative mt-auto">
