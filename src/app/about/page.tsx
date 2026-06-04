@@ -2,8 +2,8 @@ import { Nav } from "@/components/nav";
 import { SCORED_CATEGORIES, ARCHIVE_CATEGORIES, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
 
 export const metadata = {
-  title: "방법론 — 민낯",
-  description: "민낯의 점수 산출 방법론, 데이터 수집 기준, 신뢰도 게이트를 전체 공개합니다.",
+  title: "방법론 — 술자리",
+  description: "술자리의 점수 산출 방법론, 데이터 수집 기준, 신뢰도 게이트를 전체 공개합니다.",
 };
 
 export default function AboutPage() {
@@ -13,7 +13,7 @@ export default function AboutPage() {
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20">
         <h1 className="mb-2 text-3xl font-bold">방법론</h1>
         <p className="mb-12 text-sm text-white/75">
-          민낯의 모든 룰은 공개합니다. 시비 들어오면 룰로 답합니다.
+          술자리의 모든 룰은 공개합니다. 시비 들어오면 룰로 답합니다.
         </p>
 
         {/* 핵심 철학 */}

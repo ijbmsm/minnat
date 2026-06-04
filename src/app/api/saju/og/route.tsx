@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         {/* 상단 브랜딩 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '56px' }}>
           <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '26px', letterSpacing: '0.15em' }}>
-            민낯 사주
+            술자리 · 사주
           </span>
           <span style={{
             color: color,
@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
             </span>
           )}
           <span style={{ fontSize: '24px', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.05em' }}>
-            minnat.vercel.app
+            minnat.kr
           </span>
         </div>
       </div>

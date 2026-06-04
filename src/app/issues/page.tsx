@@ -4,7 +4,7 @@ import { getEvents } from "@/lib/data";
 import { Nav } from "@/components/nav";
 
 export const metadata = {
-  title: "이슈 타임라인 — 민낯",
+  title: "이슈 타임라인 — 술자리",
   description: "공식 처분 기반 정치 사건 타임라인",
 };
 

@@ -59,7 +59,7 @@ export default async function Page({ params }: Props) {
       />
       <BreadcrumbJsonLd
         items={[
-          { name: "민낯", url: "https://minnat.kr" },
+          { name: "술자리", url: "https://minnat.kr" },
           { name: "이슈", url: "https://minnat.kr/issues" },
           { name: issue.title, url: `https://minnat.kr/issues/${id}` },
         ]}

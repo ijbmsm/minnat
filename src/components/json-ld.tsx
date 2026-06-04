@@ -2,7 +2,7 @@ export function OrganizationJsonLd() {
   const data = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "민낯",
+    name: "술자리",
     url: "https://minnat.kr",
     description: "팩트 기반 대한민국 정치 스코어보드. 공신력 있는 출처만으로 진영별 점수를 투명하게 공개합니다.",
     foundingDate: "2026",
@@ -21,7 +21,7 @@ export function WebsiteJsonLd() {
   const data = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "민낯",
+    name: "술자리",
     url: "https://minnat.kr",
     description: "팩트로 보는 대한민국 정치 스코어보드",
     inLanguage: "ko-KR",
@@ -75,7 +75,7 @@ export function ArticleJsonLd({
     url,
     publisher: {
       "@type": "Organization",
-      name: "민낯",
+      name: "술자리",
       url: "https://minnat.kr",
     },
     inLanguage: "ko-KR",

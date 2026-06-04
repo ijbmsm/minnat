@@ -15,10 +15,10 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const pres = await getPresidentById(id);
-  if (!pres) return { title: "대통령을 찾을 수 없습니다 — 민낯" };
+  if (!pres) return { title: "대통령을 찾을 수 없습니다 — 술자리" };
   const pol = pres.politician;
   return {
-    title: `${pol?.name} — 역대 대통령 — 민낯`,
+    title: `${pol?.name} — 역대 대통령 — 술자리`,
     description: `${pres.term_number}대 대통령 ${pol?.name}의 사법 기록, 관련인물 기록, 사면, 경제 성적표`,
   };
 }

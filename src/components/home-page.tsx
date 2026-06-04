@@ -253,7 +253,7 @@ export function HomePage({ events }: HomePageProps) {
         </section>
 
         <footer className="border-t border-white/[0.04] py-16 text-center">
-          <p className="text-xs tracking-widest text-white/75">민낯 — 사회·제도의 반응을 측정합니다</p>
+          <p className="text-xs tracking-widest text-white/75">술자리 — 사회·제도의 반응을 측정합니다</p>
           <p className="mt-2 text-[11px] text-white/75">모든 점수의 근거는 투명하게 공개됩니다</p>
         </footer>
       </main>

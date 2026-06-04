@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Politician, TermEndReason } from "@/types";
 
 export const metadata = {
-  title: "정치인 — 민낯",
+  title: "정치인 — 술자리",
   description: "현직·전직 정치인별 이슈 기록",
 };
 

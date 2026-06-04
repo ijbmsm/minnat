@@ -30,7 +30,7 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       <h1 className="mb-2 text-center text-2xl font-bold">로그인</h1>
       <p className="mb-8 text-center text-sm text-white/75">
-        민낯 게시판에 참여하려면 로그인이 필요합니다
+        술자리 게시판에 참여하려면 로그인이 필요합니다
       </p>
 
       {hasError && (

@@ -33,7 +33,7 @@ export function SplitScreen({ score, view, onViewChange }: SplitScreenProps) {
           className="mb-12 text-center text-5xl font-bold tracking-tight text-white sm:text-6xl md:text-7xl"
           style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "1px currentColor", textShadow: "0 0 40px rgba(0,0,0,0.5)" }}
         >
-          민낯
+          술자리
         </motion.h1>
 
         {/* 퍼센티지 */}

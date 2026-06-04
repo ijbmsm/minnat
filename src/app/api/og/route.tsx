@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             marginBottom: 16,
           }}
         >
-          민낯
+          술자리
         </div>
         <div
           style={{

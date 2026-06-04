@@ -16,24 +16,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://minnat.kr"),
   title: {
-    default: "민낯 — 팩트로 보는 대한민국 정치",
-    template: "%s — 민낯",
+    default: "술자리 — 정치 · 사주",
+    template: "%s — 술자리",
   },
   description:
-    "색안경 벗고, 팩트로 보는 정치 스코어보드. 공신력 있는 출처만으로 진영별 점수를 투명하게 공개합니다.",
-  keywords: ["정치", "팩트체크", "스코어보드", "대한민국", "국회", "더불어민주당", "국민의힘", "형사처분", "공약이행률"],
+    "술자리에서 나누는 두 가지 주제 — 정치 팩트체크 스코어보드와 사주팔자 AI 해석.",
+  keywords: ["정치", "팩트체크", "스코어보드", "사주", "사주팔자", "대한민국", "국회", "더불어민주당", "국민의힘"],
   openGraph: {
-    title: "민낯 — 팩트로 보는 대한민국 정치",
-    description: "색안경 벗고, 팩트로 보는 정치 스코어보드",
-    siteName: "민낯",
+    title: "술자리 — 정치 · 사주",
+    description: "술자리에서 나누는 두 가지 주제 — 정치 팩트와 사주팔자",
+    siteName: "술자리",
     locale: "ko_KR",
     type: "website",
     url: "https://minnat.kr",
   },
   twitter: {
     card: "summary",
-    title: "민낯 — 팩트로 보는 대한민국 정치",
-    description: "색안경 벗고, 팩트로 보는 정치 스코어보드",
+    title: "술자리 — 정치 · 사주",
+    description: "술자리에서 나누는 두 가지 주제 — 정치 팩트와 사주팔자",
   },
   alternates: {
     canonical: "https://minnat.kr",

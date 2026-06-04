@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { TermEndReason } from "@/types";
 
 export const metadata = {
-  title: "역대 대통령 — 민낯",
+  title: "역대 대통령 — 술자리",
   description: "역대 대통령의 사법 기록, 관련인물 기록, 사면, 경제 성적표를 팩트 기반으로 정리합니다",
 };
 

@@ -16,9 +16,9 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const politician = await getPoliticianById(id);
-  if (!politician) return { title: "정치인을 찾을 수 없습니다 — 민낯" };
+  if (!politician) return { title: "정치인을 찾을 수 없습니다 — 술자리" };
   return {
-    title: `${politician.name} 행보 — 민낯`,
+    title: `${politician.name} 행보 — 술자리`,
     description: `${politician.name}의 관련 이슈 기록`,
   };
 }
