@@ -1382,7 +1382,7 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
   onShare: () => void;
 }) {
   const m = useIsMobile();
-  const [tab, setTab] = useState<TabId>('manse');
+  const [tab, setTab] = useState<TabId>(defaultType === 'love' ? 'ai' : 'manse');
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const { birth, dayMaster } = result;
 
@@ -1439,7 +1439,7 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
             borderRadius: 10, border: `1px solid ${INK.cardLine}`,
             background: 'rgba(232,223,200,0.02)',
             overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
-            {TABS.map(t => {
+            {(defaultType === 'love' ? TABS.filter(t => t.id === 'ai' || t.id === 'gunghap') : TABS).map(t => {
               const on = tab === t.id;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)}
@@ -1489,7 +1489,7 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
 const TYPE_META: Record<ReadingType, { title: string; sub: string }> = {
   full:   { title: '종합 풀이',  sub: '성격부터 올해 세운까지' },
   today:  { title: '오늘의 사주', sub: '오늘 일진으로 보는 하루' },
-  love:   { title: '연애운',     sub: '내 연애 패턴과 스타일' },
+  love:   { title: '연애운',     sub: '내 인연은 누구? 언제 만날까?' },
   career: { title: '직업·재물운', sub: '어울리는 일과 재물 성향' },
 };
 

@@ -15,7 +15,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { z } from 'zod';
 import { calcSajuServer } from '@/lib/saju/server';
 import { buildFactSheet, type SajuFactSheet } from '@/lib/saju/factsheet';
-import { STEM_DATA, BRANCH_DATA } from '@/lib/saju/constants';
+import { STEM_DATA, BRANCH_DATA, type Sipshin } from '@/lib/saju/constants';
 import { getSipshin, getBranchSipshin } from '@/lib/saju/sipshin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -90,42 +90,98 @@ function getAnthropic(): Anthropic {
 
 type ReadingType = 'full' | 'today' | 'love' | 'career';
 
+// 홍염살: 일간 기준 지지 (이성 매력·관능)
+const HONGYEOM_MAP: Partial<Record<string, string>> = {
+  갑:'오', 을:'신', 병:'인', 무:'인', 정:'미', 기:'미',
+  경:'술', 신:'오', 임:'자', 계:'신',
+};
+
 function loveFocusSignals(fs: SajuFactSheet, sex: 'male' | 'female'): string[] {
   const signals: string[] = [];
   // 배우자성: 여=정관/편관, 남=정재/편재
-  const spouseStars = sex === 'female'
-    ? (['정관', '편관'] as const)
-    : (['정재', '편재'] as const);
-  for (const s of spouseStars) {
-    const cnt = fs.tenGodCounts[s] ?? 0;
-    if (cnt > 0) signals.push(`배우자성 ${s}: ${cnt}회`);
-  }
-  if (spouseStars.every(s => (fs.tenGodCounts[s] ?? 0) === 0)) {
-    signals.push(`배우자성(${spouseStars.join('/')}) 없음 — 만남 늦거나 혼자의 삶 선호 경향`);
-  }
-  // 배우자궁(일지)
-  const dayPillar = fs.pillars.find(p => p.palace === '일');
-  if (dayPillar) {
-    signals.push(`배우자궁(일지) 십신: ${dayPillar.sipshinBranch} · ${dayPillar.branchElement}`);
-  }
-  // 도화·홍염
-  for (const s of fs.sinsal) {
-    if (s.name === '도화살') signals.push(`도화살(${s.branches.join('')}): 매력·인기 강함`);
-  }
-  // 일지 충
-  for (const [a, b] of fs.advanced.hapChung.branchChungs) {
-    if (dayPillar && (a === dayPillar.branch || b === dayPillar.branch)) {
-      signals.push(`일지 충(${a}${b}): 배우자궁 불안정, 연애 변동 있음`);
+  const spouseStars: readonly Sipshin[] = sex === 'female'
+    ? ['정관', '편관']
+    : ['정재', '편재'];
+
+  // 배우자성 위치 · 오행 — 어느 기둥 어느 위치에 있는지
+  let hasSpouse = false;
+  for (const p of fs.pillars) {
+    if (p.sipshinStem && spouseStars.includes(p.sipshinStem as typeof spouseStars[number])) {
+      signals.push(`배우자성 ${p.sipshinStem}(${p.stemElement}) — ${p.palace}주 천간`);
+      hasSpouse = true;
+    }
+    if (spouseStars.includes(p.sipshinBranch as typeof spouseStars[number])) {
+      signals.push(`배우자성 ${p.sipshinBranch}(${p.branchElement}) — ${p.palace}주 지지`);
+      hasSpouse = true;
     }
   }
-  // 식상(표현·매력)
+  if (!hasSpouse) {
+    signals.push(`배우자성(${spouseStars.join('/')}) 없음 — 만남 늦거나 독립적 삶 선호 경향`);
+  }
+
+  // 배우자궁(일지) — 인연의 성격
+  const dayPillar = fs.pillars.find(p => p.palace === '일');
+  if (dayPillar) {
+    signals.push(`배우자궁(일지): ${dayPillar.branch}(${dayPillar.sipshinBranch}·${dayPillar.branchElement})`);
+  }
+
+  // 일지 충 — 배우자궁 불안정
+  for (const [a, b] of fs.advanced.hapChung.branchChungs) {
+    if (dayPillar && (a === dayPillar.branch || b === dayPillar.branch)) {
+      signals.push(`일지 충(${a}${b}충): 배우자궁 불안정 — 연애 변동·이별 반복 경향`);
+    }
+  }
+
+  // 기신 — 피해야 할 상대 오행
+  if (fs.advanced.yongSin.gisin) {
+    signals.push(`기신: ${fs.advanced.yongSin.gisin} — 이 오행 강한 상대가 갈등 유발원`);
+  }
+
+  // 도화살
+  for (const s of fs.sinsal) {
+    if (s.name === '도화살') signals.push(`도화살(${s.branches.join('')}): 이성 접촉 많음·매력 발산`);
+  }
+
+  // 홍염살 (일간 기준 지지 체크)
+  const hyBranch = HONGYEOM_MAP[fs.dayMaster.stem];
+  if (hyBranch && fs.pillars.some(p => p.branch === hyBranch)) {
+    signals.push(`홍염살(${hyBranch}): 강한 이성 매력·관능적 분위기`);
+  }
+
+  // 식상 — 매력·어필 무기
   const sikSang = (fs.tenGodCounts['식신'] ?? 0) + (fs.tenGodCounts['상관'] ?? 0);
-  if (sikSang >= 2) signals.push(`식상(식신+상관) ${sikSang}회 — 매력·표현력 강함`);
-  // 신강약 + 통합 신호 일부
-  signals.push(...fs.notableSignals.filter(s =>
-    s.startsWith('신강') || s.startsWith('신약') || s.startsWith('중화') ||
-    s.includes('합') || s.includes('충')
-  ).slice(0, 3));
+  if (sikSang >= 2) signals.push(`식상(식신+상관) ${sikSang}개 — 매력·표현력·개성 강함`);
+  else if (sikSang === 1) signals.push(`식상 1개 — 표현력 보통`);
+  else signals.push('식상 없음 — 감정 표현 서툰 경향');
+
+  // 신강약 (연애 관계 주도권과 직결)
+  signals.push(`신강약: ${fs.bodyStrength === 'strong' ? '신강 — 주도적·독립적 연애' : fs.bodyStrength === 'weak' ? '신약 — 의존적·수용적 연애' : '중화 — 유연한 연애 스타일'}`);
+
+  // 대운 배우자성 타이밍 — 인연이 들어오는 운
+  const daeunTiming: string[] = [];
+  for (const d of fs.daeun) {
+    const matchStem   = spouseStars.includes(d.sipshinStem   as typeof spouseStars[number]);
+    const matchBranch = spouseStars.includes(d.sipshinBranch as typeof spouseStars[number]);
+    if (matchStem || matchBranch) {
+      const star = matchStem ? d.sipshinStem : d.sipshinBranch;
+      daeunTiming.push(`${d.startAge}세(${d.startYear}년~): ${d.stem}${d.branch} — ${star} 대운 진입`);
+    }
+  }
+  if (daeunTiming.length) {
+    signals.push(`인연 대운 타이밍: ${daeunTiming.join(' / ')}`);
+  } else {
+    signals.push('대운에서 배우자성 직접 진입 없음 — 세운·일운으로 만남 시기 탐색 필요');
+  }
+
+  // 세운 배우자성 활성화
+  for (const s of fs.seyun) {
+    const matchStem   = spouseStars.includes(s.sipshinStem   as typeof spouseStars[number]);
+    const matchBranch = spouseStars.includes(s.sipshinBranch as typeof spouseStars[number]);
+    if (matchStem || matchBranch) {
+      signals.push(`${s.year}년 세운(${s.stem}${s.branch}): 배우자성 활성화 — 인연 만남 가능 시기`);
+    }
+  }
+
   return signals;
 }
 
@@ -155,7 +211,7 @@ function careerFocusSignals(fs: SajuFactSheet): string[] {
 
 const TOKEN_BUDGET: Record<ReadingType, { free: number; paid: number }> = {
   full:   { free: 3000, paid: 5000 },
-  love:   { free: 2500, paid: 4000 },
+  love:   { free: 3500, paid: 5500 },
   career: { free: 2500, paid: 4000 },
   today:  { free: 1500, paid: 2500 },
 };
@@ -215,7 +271,7 @@ function buildPrompt(
   // 타입별 페르소나
   const PERSONA: Record<ReadingType, string> = {
     full:   '사주 전반을 균형 있게 봐주는 친구. 성격·연애·직업·운 흐름 전부 짚어줘.',
-    love:   '연애 전문가 친구. 배우자궁·배우자성·도화 중심으로 읽어줘.',
+    love:   '연애 전문가 친구. 배우자성·기신·도화·식상 중심으로 읽어줘. 각 섹션은 구체적 인물상·연도·행동법을 포함해야 해 — "좋은 사람 만날 거야" 같은 뭉뚱그린 말은 절대 금지.',
     career: '직업·재물 전문가 친구. 격국·용신·관식재 비중·역마 중심으로 읽어줘.',
     today:  '오늘 하루 에너지 전문가. 일진×원국 작용을 짧고 명확하게.',
   };
@@ -235,10 +291,11 @@ ${name ? `참고 이름: ${name} (이름 직접 사용 금지).` : ''}
   const tp = opts.todayPillar;
   const sections: string =
     type === 'love' ? (
-`1. 연애 방식 — 연애에서 어떻게 행동하는지, 어떤 패턴이 반복되는지
-2. 끌리는 상대 유형 — 배우자성·오행 기반, 어떤 에너지에 끌리고 잘 맞는지
-3. 관계에서 발목 잡히는 것 — 반복되는 문제 패턴과 원인
-4. 지금 연애운 (${seyun[0]?.year}년 세운 기준) — 올해 연애 흐름과 타이밍`
+`1. 내 연애 방식의 민낯 — 연애에서 반복되는 행동 패턴과 진짜 원인 (배우자궁·일간 기반)
+2. 내 인연의 모습 + 만남 시기 — 배우자성 오행·십신·위치로 보는 상대의 성향·직업군·분위기, 그리고 대운/세운 기준 만남이 열리는 시기 (구체적 나이대·연도)
+3. 결혼運 · 흔들리는 시기 — 평생 연애 타임라인: 인연이 들어오는 대운, 반대로 일지충·배우자성 손상으로 갈등이 생기기 쉬운 시기 (연도 명시, 위기는 "이 시기엔 조급함 주의" 프레임으로)
+4. 피해야 할 유형 — 끌리지만 나를 망치는 상대 (기신 오행·십신 기반, 구체적 성향·직업·말투)
+5. 나의 치명적 매력 + 어필법 — 도화·홍염·식상으로 보는 나의 이성 무기와 실제로 어필되는 행동법`
     ) : type === 'career' ? (
 `1. 어울리는 일의 방향 — 격국·십신·용신 기반, 어떤 종류의 일에서 빛나는지
 2. 직장 vs 독립 — 신강약·관식재 비중 기반, 조직과 사업 중 어느 쪽 구조인지

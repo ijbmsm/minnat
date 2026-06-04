@@ -165,6 +165,15 @@ export interface SajuFactSheet {
   bodyStrength: 'strong' | 'weak' | 'neutral';
   /** 대운 시작 나이 */
   daeunStartAge: number;
+  /** 대운 배열 — 십신 포함 (연애운 타이밍 등 렌즈별 분석용) */
+  daeun: Array<{
+    startAge:     number;
+    startYear:    number;
+    stem:         Stem;
+    branch:       Branch;
+    sipshinStem:  Sipshin;
+    sipshinBranch: Sipshin;
+  }>;
   /** 현재 + 내년 세운 (년운) */
   seyun: Array<{
     year:          number;
@@ -392,6 +401,14 @@ export function buildFactSheet(
     tenGodCounts,
     bodyStrength,
     daeunStartAge: daeunAge,
+    daeun: fp.daeun.map(d => ({
+      startAge:      d.startAge,
+      startYear:     d.startYear,
+      stem:          d.pillar.stem,
+      branch:        d.pillar.branch,
+      sipshinStem:   getSipshin(dm, d.pillar.stem),
+      sipshinBranch: getBranchSipshin(dm, d.pillar.branch),
+    })),
     seyun,
     advanced: adv,
     name:    opts.name    || undefined,
