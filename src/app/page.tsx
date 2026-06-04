@@ -38,8 +38,8 @@ export default function LandingPage() {
 
             <div className="relative">
               <p className="text-[9px] tracking-[0.3em] text-white/25 uppercase mb-5">정치</p>
-              <p className="text-[22px] font-semibold text-white leading-snug">
-                팩트로 보는<br />대한민국 정치
+              <p className="text-[26px] font-semibold text-white tracking-tight">
+                정치
               </p>
             </div>
 
@@ -66,8 +66,8 @@ export default function LandingPage() {
 
             <div className="relative">
               <p className="text-[9px] tracking-[0.3em] text-white/25 uppercase mb-5">사주</p>
-              <p className="text-[22px] font-semibold text-white leading-snug">
-                생년월일시로 보는<br />사주팔자
+              <p className="text-[26px] font-semibold text-white tracking-tight">
+                사주
               </p>
             </div>
 
