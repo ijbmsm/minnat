@@ -9,6 +9,11 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
   const hasError = searchParams.get("error") === "true";
+
+  const subtitle =
+    next.startsWith("/saju")  ? "사주팔자를 보려면 로그인이 필요합니다" :
+    next.startsWith("/board") ? "게시판에 참여하려면 로그인이 필요합니다" :
+    "술자리에 참여하려면 로그인이 필요합니다";
   const [loading, setLoading] = useState(false);
 
   async function handleKakaoLogin() {
@@ -30,7 +35,7 @@ function LoginForm() {
     <div className="w-full max-w-sm">
       <h1 className="mb-2 text-center text-2xl font-bold">로그인</h1>
       <p className="mb-8 text-center text-sm text-white/75">
-        술자리 게시판에 참여하려면 로그인이 필요합니다
+        {subtitle}
       </p>
 
       {hasError && (

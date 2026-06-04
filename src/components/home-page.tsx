@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { SplitScreen } from "./split-screen";
 import { Nav } from "./nav";
 import { calculateEventScores } from "@/lib/score";
 import type { ScoreView } from "@/lib/score";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
-import type { IssueEvent, CriminalStage } from "@/types";
+import type { IssueEvent, CriminalStage, DisplayCamp } from "@/types";
+import { createClient } from "@/lib/supabase/client";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -170,9 +171,91 @@ function SideFeed({ camp, events }: { camp: "blue" | "red"; events: IssueEvent[]
 
 // ── 메인 ──
 
+const CAMP_OPTIONS: { value: DisplayCamp; label: string; desc: string; color: string }[] = [
+  { value: "red",  label: "국민의힘",     desc: "보수",        color: CAMP_COLORS.red.primary },
+  { value: "blue", label: "민주당",       desc: "진보",        color: CAMP_COLORS.blue.primary },
+  { value: "free", label: "무관",         desc: "중립 / 기타", color: "rgba(255,255,255,0.5)" },
+];
+
+function CampSetupModal({ userId, onDone }: { userId: string; onDone: () => void }) {
+  const [selected, setSelected] = useState<DisplayCamp | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function save() {
+    if (!selected) return;
+    setLoading(true);
+    await createClient().from("user_profiles").update({ display_camp: selected }).eq("id", userId);
+    localStorage.setItem(`campSetupDone_${userId}`, "1");
+    onDone();
+  }
+
+  function dismiss() {
+    localStorage.setItem(`campSetupDone_${userId}`, "1");
+    onDone();
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm pb-safe"
+      onClick={dismiss}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+        transition={{ type: "spring", damping: 28, stiffness: 300 }}
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-md rounded-t-3xl border-t border-white/8 bg-[#0e0e12] px-6 pt-6 pb-10"
+      >
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15" />
+        <p className="mb-1 text-lg font-bold text-white">정치 성향을 알려주세요</p>
+        <p className="mb-6 text-sm text-white/40">진영별 스코어 색상에 반영됩니다. 언제든 바꿀 수 있어요.</p>
+
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {CAMP_OPTIONS.map(opt => (
+            <button key={opt.value} onClick={() => setSelected(opt.value)}
+              className={`rounded-2xl border py-4 text-center transition-all ${
+                selected === opt.value
+                  ? "border-white/20 bg-white/[0.08]"
+                  : "border-white/[0.06] bg-white/[0.02] hover:border-white/12"
+              }`}>
+              <p className="text-sm font-semibold" style={{ color: opt.color }}>{opt.label}</p>
+              <p className="mt-0.5 text-[11px] text-white/35">{opt.desc}</p>
+            </button>
+          ))}
+        </div>
+
+        <button onClick={save} disabled={!selected || loading}
+          className="w-full rounded-xl bg-white/[0.08] border border-white/[0.10] py-3 text-sm font-semibold text-white hover:bg-white/12 transition-all disabled:opacity-30">
+          {loading ? "저장 중..." : "선택 완료"}
+        </button>
+        <button onClick={dismiss} className="mt-3 w-full py-2 text-xs text-white/30 hover:text-white/60 transition-colors">
+          나중에 선택하기
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export function HomePage({ events }: HomePageProps) {
   const [view, setView] = useState<ScoreView>("recent");
+  const [campModal, setCampModal] = useState<{ userId: string } | null>(null);
   const score = calculateEventScores(events, view);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      if (localStorage.getItem(`campSetupDone_${user.id}`)) return;
+      const { data: profile } = await supabase
+        .from("user_profiles").select("display_camp").eq("id", user.id).single();
+      // 프로필 없거나 camp 미선택(free 기본값) 상태면 모달
+      if (!profile || profile.display_camp === "free") {
+        setCampModal({ userId: user.id });
+      } else {
+        localStorage.setItem(`campSetupDone_${user.id}`, "1");
+      }
+    });
+  }, []);
 
   const sorted = [...events].sort(
     (a, b) => new Date(getRefDate(b)).getTime() - new Date(getRefDate(a)).getTime()
@@ -187,6 +270,14 @@ export function HomePage({ events }: HomePageProps) {
   return (
     <>
       <Nav />
+      <AnimatePresence>
+        {campModal && (
+          <CampSetupModal
+            userId={campModal.userId}
+            onDone={() => setCampModal(null)}
+          />
+        )}
+      </AnimatePresence>
       <main>
         <SplitScreen score={score} view={view} onViewChange={setView} />
 

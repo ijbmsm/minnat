@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
 import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/lib/saju/engine";
@@ -309,24 +310,23 @@ function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => v
   );
 }
 
-type ReadingType = 'full' | 'love' | 'career';
+type ReadingType = 'full' | 'today' | 'love';
 const READING_TYPES: { key: ReadingType; label: string; desc: string }[] = [
-  { key: 'full',   label: '종합',   desc: '성격·연애·직업·세운 전체' },
-  { key: 'love',   label: '연애',   desc: '연애 스타일과 궁합 유형' },
-  { key: 'career', label: '직업',   desc: '직업 적성과 재물 성향' },
+  { key: 'full',  label: '종합',    desc: '성격·연애·직업·세운 전체' },
+  { key: 'today', label: '오늘',    desc: '오늘 일진 기반 하루 흐름' },
+  { key: 'love',  label: '연애',    desc: '연애 스타일과 궁합 유형' },
 ];
 
-// ── AI 해석 탭 ──
+// ── AI 해석 — 자동 로드 ──
 function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
-  const [readingType, setReadingType] = useState<ReadingType>(initialType);
   const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const current = readings[readingType];
+  const current = readings[initialType];
 
   async function load(type: ReadingType) {
-    if (readings[type]) return; // 이미 있으면 스킵
+    if (readings[type]) return;
     setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
@@ -351,65 +351,44 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
     } finally { setLoading(false); }
   }
 
+  // 마운트 시 자동 로드
+  useEffect(() => { load(initialType); }, [initialType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="space-y-4">
-      {/* 타입 선택 */}
-      <div className="flex gap-2">
-        {READING_TYPES.map(({ key, label, desc }) => (
-          <button key={key} onClick={() => setReadingType(key)}
-            className={`flex-1 rounded-xl border py-2.5 px-1 text-center transition-all ${
-              readingType === key
-                ? 'border-white/20 bg-white/10 text-white'
-                : 'border-white/8 bg-transparent text-white/40 hover:text-white/70'
-            }`}>
-            <p className="text-xs font-medium">{label}</p>
-            <p className="text-[9px] mt-0.5 opacity-60">{desc}</p>
+    <div className="space-y-3">
+      {loading && (
+        <div className="flex flex-col items-center gap-3 py-12">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+            className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white/60" />
+          <p className="text-xs text-white/35">해석 중...</p>
+        </div>
+      )}
+
+      {err && !loading && (
+        <div className="py-6 text-center space-y-3">
+          <p className="text-sm text-red-400/70">{err}</p>
+          <button onClick={() => load(initialType)}
+            className="rounded-xl border border-white/10 px-5 py-2 text-xs text-white/50 hover:text-white transition-colors">
+            다시 시도
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
-      {/* 콘텐츠 영역 */}
-      <AnimatePresence mode="wait">
-        <motion.div key={readingType} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
-          {!current && !loading && (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <p className="text-xs text-white/40 text-center">
-                {READING_TYPES.find(t => t.key === readingType)?.desc}
-              </p>
-              <button onClick={() => load(readingType)}
-                className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
-                AI 해석 보기
-              </button>
-              {err && <p className="text-xs text-red-400">{err}</p>}
-            </div>
+      {current && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          {current.cautions.length > 0 && (
+            <p className="text-[11px] text-yellow-400/60 rounded-xl border border-yellow-400/15 px-3 py-2">
+              ⚠ {current.cautions.join(' · ')}
+            </p>
           )}
-
-          {loading && (
-            <div className="flex flex-col items-center gap-3 py-10">
-              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/70" />
-              <p className="text-xs text-white/40">해석 생성 중...</p>
+          {current.sections.map((s, i) => (
+            <div key={i} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-2">
+              <p className="text-[10px] text-white/35 tracking-widest uppercase">{s.title}</p>
+              <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
             </div>
-          )}
-
-          {current && (
-            <div className="space-y-3">
-              {current.cautions.length > 0 && (
-                <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
-                  ⚠ {current.cautions.join(' · ')}
-                </p>
-              )}
-              {current.sections.map((s, i) => (
-                <div key={i} className="rounded-xl border border-white/8 bg-white/[0.02] p-4 space-y-2">
-                  <p className="text-[10px] text-white/40 tracking-widest">{s.title}</p>
-                  <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
-                </div>
-              ))}
-              {current.cached && <p className="text-[10px] text-white/20 text-center">캐시됨</p>}
-            </div>
-          )}
+          ))}
         </motion.div>
-      </AnimatePresence>
+      )}
     </div>
   );
 }
@@ -452,35 +431,150 @@ const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
   수: { meaning: '지혜·유연·흐름', represents: '직관, 생각, 적응력' },
 };
 
+// ── 타입별 탭 설정 ──
+type TabKey = 'reading' | 'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat';
+const TYPE_TABS: Record<ReadingType, [TabKey, string][]> = {
+  full:  [['reading','✦ AI'],['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['monthly','올해'],['compat','궁합']],
+  today: [['reading','오늘 해석'],['pillars','내 사주']],
+  love:  [['reading','연애 해석'],['compat','궁합'],['pillars','내 사주']],
+};
+
+// ── 내 사주 패널 (사주풀이 + 8자 그리드) ──
+function MySajuPanel({ fp, dayMaster, sipshinMap, showPillarGrid = true, showSeun = false }: {
+  fp: FourPillars; dayMaster: SajuUIResult['dayMaster'];
+  sipshinMap: SajuUIResult['sipshinMap']; showPillarGrid?: boolean; showSeun?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      {showPillarGrid && (
+        <div>
+          <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {fp.hour ? (
+              <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
+            )}
+            <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
+            <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
+            <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
+          </div>
+        </div>
+      )}
+      {showSeun && <SeyunRow dm={fp.day.stem} />}
+      <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
+        <div className="px-5 py-5">
+          <p className="text-sm font-semibold text-white/50 mb-2">강점</p>
+          <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.strength}</p>
+        </div>
+        <div className="border-t border-white/6" />
+        <div className="px-5 py-5">
+          <p className="text-sm font-semibold text-white/50 mb-2">주의점</p>
+          <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.weakness}</p>
+        </div>
+        <div className="border-t border-white/6" />
+        <div className="px-5 py-5">
+          <p className="text-sm font-semibold text-white/50 mb-1">십신 구성</p>
+          <p className="text-xs text-white/30 mb-4">십신 = 나(일간)와 다른 글자들의 관계. 내 삶에서 어떤 에너지가 어디에 있는지 보여줘.</p>
+          <div className="space-y-4">
+            {([
+              ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
+              ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
+              ['일지', sipshinMap.dayBranch],
+              ...(sipshinMap.hourStem   ? [['시간', sipshinMap.hourStem]]   : []),
+              ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
+            ] as [string,string|null][]).map(([lbl,name])=> name && (
+              <div key={lbl} className="flex items-start gap-3">
+                <span className="w-9 shrink-0 text-xs text-white/30 pt-0.5">{lbl}</span>
+                <div>
+                  <span className="text-sm font-semibold text-white/85">{name}</span>
+                  <span className="ml-2 text-sm text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
+                  <p className="text-xs text-white/40 mt-1 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-white/6" />
+        <details className="px-5 py-4">
+          <summary className="cursor-pointer text-xs text-white/25">계산 상세 보기</summary>
+          <div className="mt-3 space-y-1 text-xs text-white/35 font-mono">
+            <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
+            <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
+            <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
 // ── 결과 뷰 ──
 function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; defaultType?: ReadingType }) {
   const { pillars: fp, dayMaster, elements, sipshinMap } = result;
-  const [tab, setTab] = useState<'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat' | 'reading'>('pillars');
+  const tabs = TYPE_TABS[defaultType];
+  const [tab, setTab] = useState<TabKey>('reading');
   const total = elements.reduce((s,e)=>s+e.count,0);
+
+  // today 타입: 오늘 일진 클라이언트 계산
+  const [todayJin, setTodayJin] = useState<{ stem: string; branch: string; color: string } | null>(null);
+  useEffect(() => {
+    if (defaultType !== 'today') return;
+    const now = new Date();
+    loadSeolgi().then(index => {
+      const todayFp = computeFourPillars(index, fromKST(now.getFullYear(), now.getMonth()+1, now.getDate(), null), 'male');
+      const st = todayFp.day.stem;
+      const br = todayFp.day.branch;
+      setTodayJin({ stem: st, branch: br, color: ELEMENT_COLOR[STEM_DATA[st].element] });
+    }).catch(() => {});
+  }, [defaultType]);
+
+  const todayDate = new Date();
+  const todayLabel = `${todayDate.getFullYear()}년 ${todayDate.getMonth()+1}월 ${todayDate.getDate()}일`;
 
   return (
     <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }} className="mt-6 space-y-4">
 
-      {/* 아이덴티티 카드 */}
-      <SajuIdentityCard dayMaster={dayMaster} />
-
-      {/* 4주 표: 시|일|월|년 */}
-      <div>
-        <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {fp.hour ? (
-            <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
-          )}
-          <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
-          <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
-          <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
+      {/* today: 날짜 + 일진 배너 / full+love: 아이덴티티 카드 */}
+      {defaultType === 'today' ? (
+        <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] text-white/35 mb-0.5">오늘 일진</p>
+            {todayJin ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold" style={{ color: todayJin.color }}>{todayJin.stem}</span>
+                <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[(BRANCH_DATA as Record<string, { element: Element }>)[todayJin.branch]?.element ?? '목'] }}>{todayJin.branch}</span>
+                <span className="text-xs text-white/35 ml-1">일</span>
+              </div>
+            ) : (
+              <div className="h-5 w-12 rounded bg-white/5 animate-pulse" />
+            )}
+          </div>
+          <p className="text-xs text-white/35">{todayLabel}</p>
         </div>
-      </div>
+      ) : (
+        <SajuIdentityCard dayMaster={dayMaster} />
+      )}
 
-      {/* 세운 */}
-      <SeyunRow dm={fp.day.stem} />
+      {/* full 타입: 8자 그리드 + 세운 항상 위에 */}
+      {defaultType === 'full' && (
+        <>
+          <div>
+            <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {fp.hour ? (
+                <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
+              )}
+              <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
+              <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
+              <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
+            </div>
+          </div>
+          <SeyunRow dm={fp.day.stem} />
+        </>
+      )}
 
       {/* 경계 주의 */}
       {fp.trace.boundaryCaution && (
@@ -491,8 +585,8 @@ function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; de
 
       {/* 탭 */}
       <div className="flex overflow-x-auto rounded-xl border border-white/8 p-0.5 gap-0.5 scrollbar-none">
-        {([['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['monthly','올해'],['compat','궁합'],['reading','✦ AI']] as const).map(([key,label])=>(
-          <button key={key} onClick={()=>setTab(key as typeof tab)}
+        {tabs.map(([key,label])=>(
+          <button key={key} onClick={()=>setTab(key)}
             className={`shrink-0 flex-1 min-w-[52px] rounded-lg py-2 text-[11px] transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
             {label}
           </button>
@@ -502,53 +596,18 @@ function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; de
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
 
-          {tab==='pillars' && (
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-              {/* 강점 */}
-              <div className="px-5 py-5">
-                <p className="text-sm font-semibold text-white/50 mb-2">강점</p>
-                <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.strength}</p>
-              </div>
-              <div className="border-t border-white/6" />
-              {/* 주의점 */}
-              <div className="px-5 py-5">
-                <p className="text-sm font-semibold text-white/50 mb-2">주의점</p>
-                <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.weakness}</p>
-              </div>
-              <div className="border-t border-white/6" />
-              {/* 십신 구성 */}
-              <div className="px-5 py-5">
-                <p className="text-sm font-semibold text-white/50 mb-1">십신 구성</p>
-                <p className="text-xs text-white/30 mb-4">십신 = 나(일간)와 다른 글자들의 관계. 내 삶에서 어떤 에너지가 어디에 있는지 보여줘.</p>
-                <div className="space-y-4">
-                  {([
-                    ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
-                    ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
-                    ['일지', sipshinMap.dayBranch],
-                    ...(sipshinMap.hourStem   ? [['시간', sipshinMap.hourStem]]   : []),
-                    ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
-                  ] as [string,string|null][]).map(([lbl,name])=> name && (
-                    <div key={lbl} className="flex items-start gap-3">
-                      <span className="w-9 shrink-0 text-xs text-white/30 pt-0.5">{lbl}</span>
-                      <div>
-                        <span className="text-sm font-semibold text-white/85">{name}</span>
-                        <span className="ml-2 text-sm text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
-                        <p className="text-xs text-white/40 mt-1 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="border-t border-white/6" />
-              {/* 계산 상세 */}
-              <details className="px-5 py-4">
-                <summary className="cursor-pointer text-xs text-white/25">계산 상세 보기</summary>
-                <div className="mt-3 space-y-1 text-xs text-white/35 font-mono">
-                  <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
-                  <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
-                  <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
-                </div>
-              </details>
+          {tab==='reading' && <ReadingTab birth={result.birth} initialType={defaultType} />}
+
+          {/* full 타입 사주풀이 탭: 강점/약점/십신 (그리드는 위에 항상 표시) */}
+          {tab==='pillars' && defaultType === 'full' && (
+            <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} showPillarGrid={false} />
+          )}
+
+          {/* today/love 타입 내 사주 탭: 아이덴티티 카드 + 그리드 + 풀이 + 세운 */}
+          {tab==='pillars' && defaultType !== 'full' && (
+            <div className="space-y-4">
+              <SajuIdentityCard dayMaster={dayMaster} />
+              <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} showPillarGrid={true} showSeun={true} />
             </div>
           )}
 
@@ -605,7 +664,6 @@ function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; de
 
           {tab==='monthly'  && <MonthlyTab dm={fp.day.stem} />}
           {tab==='compat'   && <CompatTab myElement={dayMaster.element} />}
-          {tab==='reading'  && <ReadingTab birth={result.birth} initialType={defaultType} />}
 
         </motion.div>
       </AnimatePresence>
@@ -801,49 +859,40 @@ function BirthSummary({ birth, dayMaster, onReset }: {
 }
 
 // ── 타입 카드 데이터 ──
-const TYPE_CARDS: { type: ReadingType; icon: string; title: string; tagline: string; detail: string; color: string }[] = [
-  {
-    type: 'full',
-    icon: '✦',
-    title: '종합 사주',
-    tagline: '성격 · 연애 · 직업 · 세운',
-    detail: '나는 어떤 사람인지, 올해·내년 흐름까지 한번에 보여줘',
-    color: 'rgba(255,255,255,0.08)',
-  },
-  {
-    type: 'love',
-    icon: '♡',
-    title: '연애운',
-    tagline: '연애 스타일 · 관계 패턴',
-    detail: '내 연애 습관과 반복되는 패턴, 잘 맞는 상대 에너지',
-    color: 'rgba(251,113,133,0.12)',
-  },
-  {
-    type: 'career',
-    icon: '◈',
-    title: '직업 · 재물',
-    tagline: '적성 · 돈과의 관계',
-    detail: '어떤 일에서 빛나고, 직장 vs 사업 중 뭐가 맞는지',
-    color: 'rgba(251,191,36,0.1)',
-  },
+const TYPE_CARDS: { type: ReadingType; title: string; sub: string }[] = [
+  { type: 'full',  title: '종합 사주',  sub: '성격부터 올해 세운까지 전부' },
+  { type: 'today', title: '오늘의 사주', sub: '오늘 일진으로 보는 하루 흐름' },
+  { type: 'love',  title: '연애운',     sub: '내 연애 패턴과 잘 맞는 상대' },
 ];
 
+export type { ReadingType };
+
 // ── 메인 페이지 ──
-export function SajuPage() {
-  const [form, setForm] = useState({
-    name: '', concern: '',
-    year: '', month: '', day: '', hour: '',
-    unknownHour: false,
-    sex: 'male' as 'male' | 'female',
-    calType: 'solar' as 'solar' | 'lunar',
-    isLeapMonth: false,
-    city: '서울',
-    customLon: '',
-  });
-  const [selectedType, setSelectedType] = useState<ReadingType>('full');
+const FORM_DEFAULTS = {
+  name: '', concern: '',
+  year: '', month: '', day: '', hour: '',
+  unknownHour: false,
+  sex: 'male' as 'male' | 'female',
+  calType: 'solar' as 'solar' | 'lunar',
+  isLeapMonth: false,
+  city: '서울',
+  customLon: '',
+};
+
+export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
+  const [form, setForm] = useState(FORM_DEFAULTS);
+  const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // sessionStorage에서 마지막 입력값 복원
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('saju:form');
+      if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
+    } catch { /* ignore */ }
+  }, []);
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
@@ -882,6 +931,9 @@ export function SajuPage() {
 
     const longitudeE = getLongitude();
 
+    // 폼 상태 저장 (히스토리에서 돌아올 때 복원)
+    try { sessionStorage.setItem('saju:form', JSON.stringify(form)); } catch { /* ignore */ }
+
     try {
       const index = await loadSeolgi();
       const fp = computeFourPillars(index, fromKST(y, m, d, h, 0, longitudeE), form.sex);
@@ -906,97 +958,78 @@ export function SajuPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-8">
+    <main className="mx-auto max-w-xl px-5 pt-20 pb-24">
 
-      {/* ── 히어로 ── */}
-      <div className="pt-4 text-center">
-        <p className="text-[10px] tracking-[0.3em] text-white/30 uppercase mb-3">사주팔자</p>
-        <h1 className="text-4xl font-bold tracking-tight leading-tight mb-2">내 사주 보기</h1>
-        <p className="text-sm text-white/40">DE440 천문 데이터 · 절기 초 단위 정밀도 · AI 해석</p>
-      </div>
-
-      {/* ── 타입 선택 카드 ── */}
-      <div>
-        <p className="text-xs text-white/35 mb-3 text-center">어떤 걸 알고 싶어?</p>
-        <div className="grid grid-cols-3 gap-2.5">
-          {TYPE_CARDS.map(({ type, icon, title, tagline, detail, color }) => {
-            const active = selectedType === type;
-            return (
-              <motion.button
-                key={type}
-                type="button"
-                onClick={() => setSelectedType(type)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className={`relative flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all ${
-                  active
-                    ? 'border-white/25 bg-white/[0.06]'
-                    : 'border-white/7 bg-white/[0.02] hover:border-white/15'
-                }`}
-                style={{ background: active ? color : undefined }}
-              >
-                {active && (
-                  <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-white/60" />
-                )}
-                <span className={`text-2xl leading-none ${active ? 'opacity-100' : 'opacity-40'}`}>{icon}</span>
-                <div>
-                  <p className={`text-sm font-semibold leading-tight mb-1 ${active ? 'text-white' : 'text-white/60'}`}>{title}</p>
-                  <p className={`text-[10px] leading-tight ${active ? 'text-white/50' : 'text-white/25'}`}>{tagline}</p>
-                </div>
-                <p className={`text-[10px] leading-relaxed mt-auto hidden sm:block ${active ? 'text-white/40' : 'text-white/20'}`}>{detail}</p>
-              </motion.button>
-            );
-          })}
-        </div>
+      {/* ── 헤더 ── */}
+      <div className="pt-6 pb-10">
+        <Link href="/saju" className="inline-flex items-center gap-1.5 text-sm text-white/35 hover:text-white/60 transition-colors mb-6">
+          <span>←</span>
+          <span>사주팔자</span>
+        </Link>
+        <h1 className="text-4xl font-bold tracking-tight text-white">
+          {TYPE_CARDS.find(c => c.type === selectedType)?.title ?? '사주팔자'}
+        </h1>
+        <p className="mt-2 text-sm text-white/35">
+          {TYPE_CARDS.find(c => c.type === selectedType)?.sub}
+        </p>
       </div>
 
       {/* ── 입력 폼 ── */}
-      <form onSubmit={submit} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-5">
+      <form onSubmit={submit} className="space-y-8">
 
-        {/* 이름 */}
-        <div>
-          <label className="text-xs text-white/50 mb-2 block">이름 <span className="text-white/25">(선택)</span></label>
-          <input type="text" placeholder="홍길동" maxLength={20} value={form.name}
-            onChange={e => set('name', e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
-        </div>
+        {/* 이름 + 성별 */}
+        <div className="space-y-5">
+          <div>
+            <label className="text-sm text-white/50 mb-2.5 block">이름 <span className="text-white/25 text-xs">(선택)</span></label>
+            <input type="text" placeholder="홍길동" maxLength={20} value={form.name}
+              onChange={e => set('name', e.target.value)}
+              className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
+          </div>
 
-        {/* 성별 */}
-        <div>
-          <label className="text-xs text-white/50 mb-2 block">성별</label>
-          <div className="flex gap-2">
-            {(['male', 'female'] as const).map(s => (
-              <button key={s} type="button" onClick={() => set('sex', s)}
-                className={`flex-1 rounded-lg py-2 text-sm transition-all ${form.sex === s ? 'bg-white/15 text-white' : 'bg-white/5 text-white/50 hover:text-white'}`}>
-                {s === 'male' ? '남자' : '여자'}
-              </button>
-            ))}
+          <div>
+            <label className="text-sm text-white/50 mb-2.5 block">성별</label>
+            <div className="flex gap-2">
+              {(['male', 'female'] as const).map(s => (
+                <button key={s} type="button" onClick={() => set('sex', s)}
+                  className={`flex-1 rounded-xl h-12 text-base font-medium transition-all ${
+                    form.sex === s
+                      ? 'bg-white/[0.10] text-white border border-white/20'
+                      : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/70'
+                  }`}>
+                  {s === 'male' ? '남자' : '여자'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* 양력/음력 + 생년월일 */}
+        <div className="h-px bg-white/[0.06]" />
+
+        {/* 생년월일 */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-white/50">생년월일</label>
-            <div className="flex rounded-lg border border-white/10 p-0.5 gap-0.5">
+          <div className="flex items-center justify-between mb-2.5">
+            <label className="text-sm text-white/50">생년월일</label>
+            <div className="flex rounded-lg border border-white/8 p-0.5 gap-0.5">
               {(['solar', 'lunar'] as const).map(t => (
                 <button key={t} type="button" onClick={() => set('calType', t)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] transition-all ${form.calType === t ? 'bg-white/15 text-white' : 'text-white/40 hover:text-white'}`}>
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    form.calType === t ? 'bg-white/12 text-white' : 'text-white/35 hover:text-white/70'
+                  }`}>
                   {t === 'solar' ? '양력' : '음력'}
                 </button>
               ))}
             </div>
           </div>
           <div className="flex gap-2">
-            <input type="number" placeholder="년도 (예: 1995)" value={form.year} onChange={e => set('year', e.target.value)}
-              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+            <input type="number" placeholder="년도" value={form.year} onChange={e => set('year', e.target.value)}
+              className="flex-1 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
             <input type="number" placeholder="월" value={form.month} onChange={e => set('month', e.target.value)}
-              className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+              className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
             <input type="number" placeholder="일" value={form.day} onChange={e => set('day', e.target.value)}
-              className="w-16 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+              className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
           </div>
           {form.calType === 'lunar' && (
-            <label className="mt-2 flex items-center gap-1.5 text-xs text-white/40 cursor-pointer">
+            <label className="mt-2.5 flex items-center gap-2 text-sm text-white/35 cursor-pointer">
               <input type="checkbox" checked={form.isLeapMonth} onChange={e => set('isLeapMonth', e.target.checked)} className="rounded" />
               윤달
             </label>
@@ -1005,25 +1038,24 @@ export function SajuPage() {
 
         {/* 출생 시간 */}
         <div>
-          <label className="text-xs text-white/50 mb-2 block">출생 시간 (0~23시)</label>
+          <label className="text-sm text-white/50 mb-2.5 block">태어난 시간</label>
           <div className="flex items-center gap-3">
-            <input type="number" placeholder="시 (예: 14)" value={form.hour} disabled={form.unknownHour}
+            <input type="number" placeholder="0~23시" value={form.hour} disabled={form.unknownHour}
               onChange={e => set('hour', e.target.value)}
-              className="w-24 rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 disabled:opacity-30" />
-            <label className="flex items-center gap-1.5 text-xs text-white/50 cursor-pointer">
+              className="w-32 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
+            <label className="flex items-center gap-2 text-sm text-white/40 cursor-pointer">
               <input type="checkbox" checked={form.unknownHour} onChange={e => set('unknownHour', e.target.checked)} className="rounded" />
-              시간 모름
+              모름
             </label>
           </div>
         </div>
 
         {/* 출생지 */}
         <div>
-          <label className="text-xs text-white/50 mb-2 block">출생지</label>
-          {/* 국내 select */}
+          <label className="text-sm text-white/50 mb-2.5 block">태어난 곳</label>
           <select value={form.city} onChange={e => set('city', e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 mb-2">
-            <option value="" className="bg-zinc-900">국내 도시 선택</option>
+            className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white focus:outline-none focus:border-white/25 transition-colors">
+            <option value="" className="bg-zinc-900">도시 선택</option>
             {DOMESTIC_CITIES.map(c => (
               <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
             ))}
@@ -1034,27 +1066,39 @@ export function SajuPage() {
             <option value="__custom__" className="bg-zinc-900">직접 입력 (경도)</option>
           </select>
           {form.city === '__custom__' && (
-            <input type="number" placeholder="경도 입력 (예: 127.0 = 서울, -118.2 = LA)"
+            <input type="number" placeholder="경도 (예: 127.0 = 서울, -118.2 = LA)"
               value={form.customLon} onChange={e => set('customLon', e.target.value)}
               step="0.1" min="-180" max="180"
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30" />
+              className="mt-2 w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
           )}
         </div>
 
+        <div className="h-px bg-white/[0.06]" />
+
         {/* 현재 고민 */}
         <div>
-          <label className="text-xs text-white/50 mb-2 block">지금 가장 궁금한 것 <span className="text-white/25">(선택 · AI 맥락 반영)</span></label>
-          <textarea placeholder="예: 올해 이직해도 될까요? / 지금 만나는 사람이랑 잘 맞는지 궁금해요" value={form.concern}
-            onChange={e => set('concern', e.target.value)} maxLength={200} rows={2}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/25 focus:outline-none focus:border-white/30 resize-none" />
-          <p className="mt-1 text-[10px] text-white/25 text-right">{form.concern.length}/200</p>
+          <label className="text-sm text-white/50 mb-2.5 block">지금 가장 궁금한 것 <span className="text-white/25 text-xs">(선택)</span></label>
+          <textarea
+            placeholder={
+              selectedType === 'today' ? '오늘 중요한 일정이 있어 / 오늘 기분이 왜 이럴까?' :
+              selectedType === 'love'  ? '지금 만나는 사람이랑 잘 맞는지 궁금해 / 내가 왜 항상 이런 사람만 만날까?' :
+              '올해 이직해도 될까? / 내가 잘 할 수 있는 일이 뭔지 모르겠어'
+            }
+            value={form.concern}
+            onChange={e => set('concern', e.target.value)} maxLength={200} rows={3}
+            className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3.5 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors resize-none" />
+          <p className="mt-1.5 text-xs text-white/20 text-right">{form.concern.length}/200</p>
         </div>
 
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-400/80">{error}</p>}
 
         <button type="submit" disabled={loading}
-          className="w-full rounded-xl bg-white/10 py-3 text-sm font-medium text-white hover:bg-white/15 transition-colors disabled:opacity-50">
-          {loading ? '계산 중...' : '사주 보기'}
+          className="w-full rounded-2xl bg-white/[0.08] border border-white/[0.10] h-14 text-base font-semibold text-white hover:bg-white/[0.12] hover:border-white/[0.18] transition-all disabled:opacity-40">
+          {loading ? '읽는 중...' : (
+            selectedType === 'today' ? '오늘 사주 보기' :
+            selectedType === 'love'  ? '연애운 보기' :
+            '종합 사주 보기'
+          )}
         </button>
       </form>
     </main>

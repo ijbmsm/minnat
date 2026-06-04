@@ -12,6 +12,7 @@ import {
 } from './constants';
 import { getSipshin, getBranchSipshin } from './sipshin';
 import { DAY_MASTER_PROFILE, SIPSHIN_DESC } from './interpret';
+import { analyzeAdvanced, type AdvancedAnalysis } from './advanced';
 
 // ── 세운(년운) 계산 헬퍼 ──
 function makeSeyunPillar(year: number): Pillar {
@@ -21,7 +22,7 @@ function makeSeyunPillar(year: number): Pillar {
 }
 
 // ── 버전 (캐시 키 일부) ──
-const FACTSHEET_VERSION = '1.0.0';
+const FACTSHEET_VERSION = '2.0.0';
 
 // ── 타입 ──
 
@@ -59,7 +60,7 @@ export interface SajuFactSheet {
   elementTotal: number;
   /** 십신별 등장 횟수 (일간 천간 본인 제외) */
   tenGodCounts: Partial<Record<Sipshin, number>>;
-  /** 신강/신약/중화 (간이 판단) */
+  /** 신강/신약/중화 — advanced 정량화 기반 */
   bodyStrength: 'strong' | 'weak' | 'neutral';
   /** 대운 시작 나이 */
   daeunStartAge: number;
@@ -73,6 +74,8 @@ export interface SajuFactSheet {
     sipshinStem:   Sipshin;
     sipshinBranch: Sipshin;
   }>;
+  /** advanced 레이어 분석 결과 */
+  advanced: AdvancedAnalysis;
   /** 사용자 이름 (있으면 AI 호칭 개인화) */
   name?: string;
   /** 현재 고민 (있으면 AI 맥락 주입) */
@@ -99,12 +102,15 @@ export function makeCacheKey(
 export function buildFactSheet(
   fp: FourPillars,
   tier: 'free' | 'paid' = 'free',
-  readingType: 'full' | 'career' | 'love' = 'full',
-  opts: { name?: string; concern?: string } = {},
+  readingType: 'full' | 'today' | 'love' = 'full',
+  opts: { name?: string; concern?: string; daysFromJie?: number } = {},
 ): SajuFactSheet {
   const dm       = fp.day.stem;
   const dmData   = STEM_DATA[dm];
   const dmProfile = DAY_MASTER_PROFILE[dm];
+
+  // ── advanced 분석 ──
+  const adv = analyzeAdvanced(fp, opts.daysFromJie ?? 15);
 
   // ── 주 배열 ──
   const rawPillars: Array<[typeof fp.year, '년' | '월' | '일' | '시']> = [
@@ -141,14 +147,8 @@ export function buildFactSheet(
     tenGodCounts[p.sipshinBranch] = (tenGodCounts[p.sipshinBranch] ?? 0) + 1;
   }
 
-  // ── 신강/신약 판단 (간이) ──
-  const selfCount = (tenGodCounts['비견'] ?? 0) + (tenGodCounts['겁재'] ?? 0);
-  const inCount   = (tenGodCounts['편인'] ?? 0) + (tenGodCounts['정인'] ?? 0);
-  const support   = selfCount + inCount;
-  const bodyStrength: 'strong' | 'weak' | 'neutral' =
-    support >= Math.ceil(elementTotal * 0.5)  ? 'strong'
-    : support <= Math.floor(elementTotal * 0.25) ? 'weak'
-    : 'neutral';
+  // ── 신강/신약 — advanced 정량화 결과 사용 ──
+  const bodyStrength = adv.bodyStrength;
 
   // ── 세운 (올해 + 내년) ──
   const currentYear = new Date().getFullYear();
@@ -168,13 +168,55 @@ export function buildFactSheet(
   // ── notableSignals ──
   const notableSignals: string[] = [];
 
-  // 오행 과다·부재
+  // 격국
+  notableSignals.push(
+    `격국: ${adv.geokGuk.name}` +
+    (adv.geokGuk.projected ? ' (투간 확인)' : ' (투간 미확인, 추정)') +
+    ` [${adv.geokGuk.confidence}]`
+  );
+
+  // 용신/기신
+  notableSignals.push(
+    `용신: ${adv.yongSin.yongsin}(${adv.yongSin.label}) — 기신: ${adv.yongSin.gisin} [억부법, heuristic]`
+  );
+
+  // 신강/신약 (정량화 기반)
+  const strengthLabel = {
+    strong:  `신강 (자비 ${Math.round(adv.strengths.ratios[STEM_DATA[dm].element] * 100)}% 수준)`,
+    weak:    `신약 (자비 ${Math.round(adv.strengths.ratios[STEM_DATA[dm].element] * 100)}% 수준)`,
+    neutral: '중화',
+  }[bodyStrength];
+  notableSignals.push(strengthLabel);
+
+  // 사령신
+  notableSignals.push(
+    `사령신: ${adv.strengths.salyeong.stem}(${adv.strengths.salyeong.element}) — ${adv.strengths.salyeong.pos === 'jeongi' ? '정기' : adv.strengths.salyeong.pos === 'junggi' ? '중기' : '여기'} 당령`
+  );
+
+  // 천간합
+  for (const sc of adv.hapChung.stemCombines) {
+    notableSignals.push(
+      `천간합 ${sc.a}${sc.b} → ${sc.transformed}화 ${sc.formed ? '성립(합화)' : '불성립(합이불화, 기반)'}`
+    );
+  }
+
+  // 지지합
+  for (const bh of adv.hapChung.branchHaps) {
+    notableSignals.push(`지지 ${bh.type}: ${bh.branches.join('')} → ${bh.element}기운 강화`);
+  }
+
+  // 지지충
+  for (const [a, b] of adv.hapChung.branchChungs) {
+    notableSignals.push(`지지충: ${a}${b}충 — 해당 기둥 불안정, 변동성`);
+  }
+
+  // 오행 세력 과다·부재 (가중 기준)
   for (const el of ELEMENTS) {
-    const ratio = elements[el] / elementTotal;
-    if (ratio >= 0.375) {
-      notableSignals.push(`오행 ${el} 과다 — ${elements[el]}/${elementTotal} (${Math.round(ratio*100)}%)`);
-    } else if (elements[el] === 0) {
-      notableSignals.push(`오행 ${el} 완전 부재`);
+    const ratio = adv.strengths.ratios[el];
+    if (ratio >= 0.40) {
+      notableSignals.push(`${el} 세력 과다 (${Math.round(ratio*100)}%) — 해당 오행 성향 강하게 발현`);
+    } else if (ratio < 0.02) {
+      notableSignals.push(`${el} 세력 거의 없음 — 해당 오행 에너지 부족`);
     }
   }
 
@@ -186,10 +228,6 @@ export function buildFactSheet(
       notableSignals.push(`${tg} 2개`);
     }
   }
-
-  // 신강/신약 요약
-  const strengthLabel = { strong: '신강(일간 강)', weak: '신약(일간 약)', neutral: '중화' }[bodyStrength];
-  notableSignals.push(strengthLabel);
 
   // 대운 이른/늦음
   const daeunAge = fp.daeun[0]?.startAge ?? 0;
@@ -229,6 +267,7 @@ export function buildFactSheet(
     bodyStrength,
     daeunStartAge: daeunAge,
     seyun,
+    advanced: adv,
     name:    opts.name    || undefined,
     concern: opts.concern || undefined,
     notableSignals,

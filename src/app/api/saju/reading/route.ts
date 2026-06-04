@@ -15,6 +15,9 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { z } from 'zod';
 import { calcSajuServer } from '@/lib/saju/server';
 import { buildFactSheet, type SajuFactSheet } from '@/lib/saju/factsheet';
+import { STEM_DATA, BRANCH_DATA } from '@/lib/saju/constants';
+import { getSipshin, getBranchSipshin } from '@/lib/saju/sipshin';
+import { createClient } from '@/lib/supabase/server';
 
 // ── 요청 스키마 ──
 
@@ -25,7 +28,7 @@ const RequestSchema = z.object({
   hour:        z.number().int().min(0).max(23).nullable(),
   sex:         z.enum(['male', 'female']),
   tier:        z.enum(['free', 'paid']).default('free'),
-  type:        z.enum(['full', 'career', 'love']).default('full'),
+  type:        z.enum(['full', 'today', 'love']).default('full'),
   longitudeE:  z.number().min(-180).max(180).default(127.0),
   name:        z.string().max(20).optional(),
   concern:     z.string().max(200).optional(),
@@ -38,12 +41,20 @@ export interface ReadingSection {
   body:  string;
 }
 
+export interface TodayPillar {
+  stem:          string;
+  branch:        string;
+  sipshinStem:   string;
+  sipshinBranch: string;
+}
+
 export interface ReadingResponse {
-  cacheKey:  string;
-  cached:    boolean;
-  sections:  ReadingSection[];
-  tier:      'free' | 'paid';
-  cautions:  string[];
+  cacheKey:     string;
+  cached:       boolean;
+  sections:     ReadingSection[];
+  tier:         'free' | 'paid';
+  cautions:     string[];
+  todayPillar?: TodayPillar;
 }
 
 // ── Redis 캐시 (Upstash — 영구, serverless 친화적) ──
@@ -76,7 +87,7 @@ function getAnthropic(): Anthropic {
 
 function buildPrompt(
   fs: SajuFactSheet,
-  opts: { tier: 'free' | 'paid'; type: 'full' | 'career' | 'love' },
+  opts: { tier: 'free' | 'paid'; type: 'full' | 'today' | 'love'; todayPillar?: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } },
 ): { system: string; user: string } {
   const { dayMaster: dm, elements, elementTotal, tenGodCounts, bodyStrength, notableSignals, cautions, daeunStartAge, seyun, name, concern } = fs;
 
@@ -121,16 +132,19 @@ ${nameRef ? `상대방 ${nameRef}. 이름으로 자연스럽게 불러줘.` : ''
 6. 신살·격국은 factsheet에 없으면 언급 금지.${cautionNote}${concernRef}`;
 
   // 타입별 섹션 정의
+  const tp = opts.todayPillar;
   const sections: string = opts.type === 'love'
     ? `1. 연애 스타일 — 이 사람이 연애에서 어떻게 행동하는지, 어떤 패턴이 반복되는지
 2. 끌리는 상대 유형 — 십신·오행 기반, 어떤 에너지의 사람에게 끌리고 잘 맞는지
 3. 관계에서 발목 잡히는 것 — 연애할 때 반복되는 문제 패턴
 4. 지금 연애운 (${seyun[0]?.year}년 세운 기준) — 올해 연애 흐름과 타이밍`
-    : opts.type === 'career'
-    ? `1. 직업 적성 — 어떤 일에서 강점이 나오는지, 맞는 환경과 안 맞는 환경
-2. 돈과의 관계 — 재물을 어떻게 버는지, 어떻게 쓰는지, 주의할 점
-3. 직장 vs 사업 — 이 차트에서 어느 쪽이 더 맞는지와 이유
-4. 올해 직업·재물운 (${seyun[0]?.year}년 세운 기준) — 올해 커리어 흐름`
+    : opts.type === 'today'
+    ? `오늘 일진: ${tp ? `${tp.stem}${tp.branch} (천간 ${tp.sipshinStem} · 지지 ${tp.sipshinBranch})` : '(일진 정보 없음 — 오늘 날짜 기준으로 추론해줘)'}
+오늘 이 사람의 하루 에너지와 흐름을 아래 섹션으로 써줘:
+1. 오늘 하루 전반 — 오늘 일진이 이 차트에 어떻게 작용하는지, 전체 에너지 방향
+2. 오늘 집중할 것 — 오늘 유리한 행동 방향, 잘 흘러가는 영역
+3. 오늘 조심할 것 — 오늘 마찰이 생기기 쉬운 부분, 피하면 좋을 상황
+4. 오늘의 한 마디 — 이 사람한테 오늘 솔직하게 해주고 싶은 말 한 문장`
     : /* full */
     `1. 나는 어떤 사람 — ${dm.stem} 일간의 본질 + 이 차트만의 특징 (오행·십신 조합 기반)
 2. 연애 스타일 — 어떻게 사랑하고, 어떤 패턴이 반복되는지
@@ -139,16 +153,22 @@ ${nameRef ? `상대방 ${nameRef}. 이름으로 자연스럽게 불러줘.` : ''
 5. ${seyun[1]?.year}년 예고 — 내년 세운(${seyun[1]?.stem}${seyun[1]?.branch}) 기준 미리 알아둘 것
 6. 지금 가장 필요한 것 — 이 사람한테 솔직하게 해주고 싶은 한 마디`;
 
+  const adv = fs.advanced;
   const user = `[차트 데이터]
 일간: ${dm.stem}(${dm.hanja}) · ${dm.element} · ${dm.yang ? '양' : '음'}
 이미지: ${dm.image}
 
+[격국 · 용신]
+격국: ${adv.geokGuk.name}${adv.geokGuk.projected ? ' (투간 확인)' : ' (추정)'}
+신강약: ${bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화'}
+용신: ${adv.yongSin.yongsin}(${adv.yongSin.label}) · 기신: ${adv.yongSin.gisin}
+사령신: ${adv.strengths.salyeong.stem}(${adv.strengths.salyeong.element})
+
 [사주 8자]
 ${pillarLines}
 
-[오행 분포]
+[오행 세력 (가중치 적용)]
 ${elementLines}
-신강/신약: ${bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화'}
 
 [십신 분포]
 ${tenGodLines}
@@ -171,7 +191,7 @@ ${sections}`;
 
 async function callLLM(
   fs: SajuFactSheet,
-  opts: { tier: 'free' | 'paid'; type: 'full' | 'career' | 'love' },
+  opts: { tier: 'free' | 'paid'; type: 'full' | 'today' | 'love'; todayPillar?: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } },
 ): Promise<string> {
   const { system, user } = buildPrompt(fs, opts);
   const model   = opts.tier === 'paid' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
@@ -240,12 +260,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // 팩트시트
-  const fs = buildFactSheet(fp, tier, type, { name, concern });
+  const jieMs       = new Date(fp.trace.jieUTC).getTime();
+  const birthApprox = Date.UTC(year, month - 1, day, hour ?? 12, 0, 0);
+  const daysFromJie = Math.max(0, Math.round((birthApprox - jieMs) / 86_400_000));
+  const fs = buildFactSheet(fp, tier, type, { name, concern, daysFromJie });
+
+  // 오늘의 사주: 일진 계산 (KST 기준)
+  let todayPillar: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } | undefined;
+  let todayDateStr = '';
+  if (type === 'today') {
+    const now = new Date(Date.now() + 9 * 60 * 60 * 1000); // KST
+    const ty = now.getUTCFullYear(), tm = now.getUTCMonth() + 1, td = now.getUTCDate();
+    todayDateStr = `:${ty}${String(tm).padStart(2,'0')}${String(td).padStart(2,'0')}`;
+    try {
+      const todayFp = calcSajuServer(ty, tm, td, 12, 'male', 127.0);
+      const ts = todayFp.day.stem, tb = todayFp.day.branch;
+      todayPillar = {
+        stem: ts, branch: tb,
+        sipshinStem:   getSipshin(fp.day.stem, ts) ?? ts,
+        sipshinBranch: getBranchSipshin(fp.day.stem, tb) ?? tb,
+      };
+    } catch { /* 일진 계산 실패 시 무시 */ }
+  }
+
   // concern이 있으면 캐시 키에 포함 (고민 다르면 다른 해석)
   const concernHash = concern
     ? `:q${Buffer.from(concern).toString('base64').slice(0, 12)}`
     : '';
-  const cacheKey = fs.meta.cacheKey + concernHash;
+
+  // full/love: 세운이 연도 의존적 → 매년 새 해석 생성
+  // today: 날짜 키 이미 포함 (todayDateStr)
+  const yearSuffix = (type === 'full' || type === 'love')
+    ? `:y${new Date().getFullYear()}`
+    : '';
+
+  const cacheKey = fs.meta.cacheKey + yearSuffix + todayDateStr + concernHash;
 
   // 캐시 확인
   if (redis) {
@@ -253,7 +302,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (hit) {
       try {
         const sections = parsesections(hit);
-        const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions };
+        // 캐시 히트도 DB에 last_viewed_at 갱신 (fire-and-forget)
+        saveReading({ supabaseGetter: createClient, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp });
+        const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
         return NextResponse.json(response);
       } catch {
         // 캐시 손상 → 재생성
@@ -265,7 +316,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // LLM 호출
   let raw: string;
   try {
-    raw = await callLLM(fs, { tier, type });
+    raw = await callLLM(fs, { tier, type, todayPillar });
   } catch (err) {
     return NextResponse.json({ error: `AI 해석 실패: ${err instanceof Error ? err.message : err}` }, { status: 502 });
   }
@@ -278,9 +329,49 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'AI 응답 파싱 실패', raw }, { status: 502 });
   }
 
-  // 캐시 저장 (영구)
-  if (redis) await redis.set(cacheKey, raw);
+  // 캐시 저장 (today = 24h TTL, 나머지 영구)
+  if (redis) {
+    if (type === 'today') {
+      await redis.set(cacheKey, raw, { ex: 86400 });
+    } else {
+      await redis.set(cacheKey, raw);
+    }
+  }
 
-  const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions };
+  // DB 저장 (fire-and-forget)
+  saveReading({ supabaseGetter: createClient, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp });
+
+  const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
   return NextResponse.json(response);
+}
+
+// ── DB 저장 헬퍼 (비차단) ──
+function saveReading(args: {
+  supabaseGetter: typeof createClient;
+  year: number; month: number; day: number; hour: number | null;
+  sex: string; longitudeE: number; name?: string; concern?: string;
+  type: string; cacheKey: string;
+  fp: ReturnType<typeof calcSajuServer>;
+}) {
+  const { supabaseGetter, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp } = args;
+  supabaseGetter().then(async supabase => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('saju_readings').upsert({
+      user_id:        user.id,
+      type,
+      birth_year:     year,
+      birth_month:    month,
+      birth_day:      day,
+      birth_hour:     hour,
+      birth_sex:      sex,
+      birth_longitude: longitudeE,
+      birth_name:     name ?? null,
+      concern:        concern ?? null,
+      cache_key:      cacheKey,
+      day_stem:       fp.day.stem,
+      day_element:    STEM_DATA[fp.day.stem].element,
+      last_viewed_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,cache_key' });
+  }).catch(() => { /* non-critical */ });
 }

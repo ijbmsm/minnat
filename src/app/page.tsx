@@ -44,7 +44,7 @@ export default function LandingPage() {
             <Link
               key={href}
               href={href}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] p-7 min-h-[220px] transition-all duration-300 hover:border-white/[0.16]"
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] p-7 min-h-[220px] transition-all duration-300 hover:border-white/[0.16]"
               style={{ background: `${glow}, rgba(255,255,255,0.018)` }}
             >
               {/* 상단 광택 */}
@@ -52,11 +52,13 @@ export default function LandingPage() {
               {/* hover 내부 밝기 */}
               <div className="pointer-events-none absolute inset-0 bg-white/[0.015] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-              {/* 섹션 레이블 */}
-              <p className="relative text-xl font-semibold tracking-tight text-white/60">{label}</p>
+              {/* 타이틀 — 수직 중앙 */}
+              <div className="relative flex flex-1 items-center">
+                <p className="text-3xl font-bold tracking-tight text-white">{label}</p>
+              </div>
 
-              {/* 메인 카피 */}
-              <div className="relative mt-auto">
+              {/* 설명 — 하단 고정 */}
+              <div className="relative">
                 {lines.map((line, i) => (
                   <p
                     key={i}
