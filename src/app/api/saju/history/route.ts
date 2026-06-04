@@ -8,6 +8,7 @@ export interface SajuHistoryItem {
   birth_month:    number;
   birth_day:      number;
   birth_hour:     number | null;
+  birth_minute:   number | null;
   birth_sex:      string;
   birth_longitude: number;
   birth_name:     string | null;
@@ -26,7 +27,7 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from('saju_readings')
-    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_sex,birth_longitude,birth_name,concern,cache_key,day_stem,day_element,last_viewed_at,created_at')
+    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,cache_key,day_stem,day_element,last_viewed_at,created_at')
     .eq('user_id', user.id)
     .order('last_viewed_at', { ascending: false })
     .limit(20);

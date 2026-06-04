@@ -18,7 +18,7 @@ export function getSeolgiIndex(): SeolgiIndex {
   return _index;
 }
 
-/** 서버에서 사주 계산. KST 생년월일시 + 성별 → FourPillars */
+/** 서버에서 사주 계산. KST 생년월일시분 + 성별 → FourPillars */
 export function calcSajuServer(
   year: number,
   month: number,
@@ -26,8 +26,9 @@ export function calcSajuServer(
   hour: number | null,
   sex: 'male' | 'female',
   longitudeE = 127.0,
+  minute = 0,
 ): FourPillars {
   const index = getSeolgiIndex();
-  const birth = fromKST(year, month, day, hour, 0, longitudeE);
+  const birth = fromKST(year, month, day, hour, minute, longitudeE);
   return computeFourPillars(index, birth, sex);
 }

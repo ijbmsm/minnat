@@ -336,7 +336,8 @@ async function loadSeolgi(): Promise<SeolgiIndex> {
 // ── 타입 ──
 interface BirthParams {
   year: number; month: number; day: number;
-  hour: number | null; sex: 'male' | 'female';
+  hour: number | null; minute: number;
+  sex: 'male' | 'female';
   longitudeE: number;
   name?: string;
   concern?: string;
@@ -388,7 +389,7 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   };
 
   const jieMs   = new Date(fp.trace.jieUTC).getTime();
-  const birthMs = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, 0, 0);
+  const birthMs = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, birth.minute, 0);
   const daysFromJie = Math.max(0, Math.round((birthMs - jieMs) / 86_400_000));
   const advanced = analyzeAdvanced(fp, daysFromJie);
 
@@ -504,7 +505,7 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           year: birth.year, month: birth.month, day: birth.day,
-          hour: birth.hour, sex: birth.sex, longitudeE: birth.longitudeE,
+          hour: birth.hour, minute: birth.minute, sex: birth.sex, longitudeE: birth.longitudeE,
           name: birth.name, concern: birth.concern, tier: 'free', type: initialType,
         }),
       });
@@ -1379,7 +1380,7 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
   const ctx = useMemo(() => ({ m, openDetail: setDetail }), [m]);
 
   const sexLabel  = birth.sex === 'male' ? '남' : '여';
-  const hourLabel = birth.hour === null ? '시간 미상' : `${birth.hour}시`;
+  const hourLabel = birth.hour === null ? '시간 미상' : `${birth.hour}:${String(birth.minute).padStart(2,'0')}`;
 
   return (
     <SajuUICtx.Provider value={ctx}>
@@ -1488,7 +1489,7 @@ export type { ReadingType };
 // ── 폼 기본값 ──
 const FORM_DEFAULTS = {
   name: '', concern: '',
-  year: '', month: '', day: '', hour: '',
+  year: '', month: '', day: '', hour: '', minute: '',
   unknownHour: false,
   sex: 'male' as 'male' | 'female',
   calType: 'solar' as 'solar' | 'lunar',
@@ -1507,7 +1508,7 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
-    let pending: { year:number; month:number; day:number; hour:number|null; sex:'male'|'female'; longitudeE:number; name?:string; concern?:string } | null = null;
+    let pending: { year:number; month:number; day:number; hour:number|null; minute:number; sex:'male'|'female'; longitudeE:number; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
       if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
@@ -1522,8 +1523,8 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
       const p = pending;
       setError(null); setLoading(true);
       loadSeolgi().then(index => {
-        const fp = computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, 0, p.longitudeE), p.sex);
-        setResult(buildUIResult(fp, { year:p.year, month:p.month, day:p.day, hour:p.hour, sex:p.sex, longitudeE:p.longitudeE, name:p.name, concern:p.concern }));
+        const fp = computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, p.minute ?? 0, p.longitudeE), p.sex);
+        setResult(buildUIResult(fp, { year:p.year, month:p.month, day:p.day, hour:p.hour, minute:p.minute??0, sex:p.sex, longitudeE:p.longitudeE, name:p.name, concern:p.concern }));
       }).catch(err => {
         setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
       }).finally(() => setLoading(false));
@@ -1547,12 +1548,16 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
     let y = parseInt(form.year), m = parseInt(form.month), d = parseInt(form.day);
     const h = form.unknownHour ? null : parseInt(form.hour);
+    const min = form.unknownHour ? 0 : (parseInt(form.minute) || 0);
 
     if (!y || !m || !d || y < 1880 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) {
       setError('날짜를 올바르게 입력해주세요. (1880~2100)'); setLoading(false); return;
     }
     if (!form.unknownHour && (isNaN(h!) || h! < 0 || h! > 23)) {
-      setError('시간은 0~23시로 입력하거나 "시간 모름"을 체크하세요.'); setLoading(false); return;
+      setError('시간은 0~23 사이로 입력하거나 "모름"을 체크하세요.'); setLoading(false); return;
+    }
+    if (!form.unknownHour && (min < 0 || min > 59)) {
+      setError('분은 0~59 사이로 입력해주세요.'); setLoading(false); return;
     }
 
     if (form.calType === 'lunar') {
@@ -1569,9 +1574,9 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
     try {
       const index = await loadSeolgi();
-      const fp = computeFourPillars(index, fromKST(y, m, d, h, 0, longitudeE), form.sex);
+      const fp = computeFourPillars(index, fromKST(y, m, d, h, min, longitudeE), form.sex);
       setResult(buildUIResult(fp, {
-        year: y, month: m, day: d, hour: h, sex: form.sex,
+        year: y, month: m, day: d, hour: h, minute: min, sex: form.sex,
         longitudeE, name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
       }));
     } catch (err) {
@@ -1663,11 +1668,11 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
             </div>
           </div>
           <div className="flex gap-2">
-            <input type="number" placeholder="년도" value={form.year} onChange={e => set('year', e.target.value)}
+            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="년도" value={form.year} onChange={e => set('year', e.target.value)}
               className="flex-1 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-            <input type="number" placeholder="월" value={form.month} onChange={e => set('month', e.target.value)}
+            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="월" value={form.month} onChange={e => set('month', e.target.value)}
               className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-            <input type="number" placeholder="일" value={form.day} onChange={e => set('day', e.target.value)}
+            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="일" value={form.day} onChange={e => set('day', e.target.value)}
               className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
           </div>
           {form.calType === 'lunar' && (
@@ -1680,11 +1685,15 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
         <div>
           <label className="text-sm text-white/50 mb-2.5 block">태어난 시간</label>
-          <div className="flex items-center gap-3">
-            <input type="number" placeholder="0~23시" value={form.hour} disabled={form.unknownHour}
+          <div className="flex items-center gap-2">
+            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="시 (0~23)" value={form.hour} disabled={form.unknownHour}
               onChange={e => set('hour', e.target.value)}
-              className="w-32 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
-            <label className="flex items-center gap-2 text-sm text-white/40 cursor-pointer">
+              className="w-28 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
+            <span className="text-white/30 text-sm">:</span>
+            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="분 (0~59)" value={form.minute} disabled={form.unknownHour}
+              onChange={e => set('minute', e.target.value)}
+              className="w-28 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
+            <label className="flex items-center gap-2 text-sm text-white/40 cursor-pointer ml-1">
               <input type="checkbox" checked={form.unknownHour} onChange={e => set('unknownHour', e.target.checked)} className="rounded" />
               모름
             </label>

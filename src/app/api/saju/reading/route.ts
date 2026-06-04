@@ -26,6 +26,7 @@ const RequestSchema = z.object({
   month:       z.number().int().min(1).max(12),
   day:         z.number().int().min(1).max(31),
   hour:        z.number().int().min(0).max(23).nullable(),
+  minute:      z.number().int().min(0).max(59).default(0),
   sex:         z.enum(['male', 'female']),
   tier:        z.enum(['free', 'paid']).default('free'),
   type:        z.enum(['full', 'today', 'love', 'career']).default('full'),
@@ -351,19 +352,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 });
   }
 
-  const { year, month, day, hour, sex, tier, type, longitudeE, name, concern } = body;
+  const { year, month, day, hour, minute, sex, tier, type, longitudeE, name, concern } = body;
 
   // 사주 계산 (서버, 파일시스템)
   let fp;
   try {
-    fp = calcSajuServer(year, month, day, hour, sex, longitudeE);
+    fp = calcSajuServer(year, month, day, hour, sex, longitudeE, minute);
   } catch (err) {
     return NextResponse.json({ error: `사주 계산 오류: ${err instanceof Error ? err.message : err}` }, { status: 500 });
   }
 
   // 팩트시트
   const jieMs       = new Date(fp.trace.jieUTC).getTime();
-  const birthApprox = Date.UTC(year, month - 1, day, hour ?? 12, 0, 0);
+  const birthApprox = Date.UTC(year, month - 1, day, hour ?? 12, minute, 0);
   const daysFromJie = Math.max(0, Math.round((birthApprox - jieMs) / 86_400_000));
   const fs = buildFactSheet(fp, tier, type, { name, concern, daysFromJie });
 
@@ -405,7 +406,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const sections = parsesections(hit);
         // 캐시 히트도 DB에 last_viewed_at 갱신 (fire-and-forget)
-        saveReading({ supabaseGetter: createClient, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp });
+        saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp });
         const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
         return NextResponse.json(response);
       } catch {
@@ -441,7 +442,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // DB 저장 (fire-and-forget)
-  saveReading({ supabaseGetter: createClient, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp });
+  saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp });
 
   const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
   return NextResponse.json(response);
@@ -450,12 +451,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 // ── DB 저장 헬퍼 (비차단) ──
 function saveReading(args: {
   supabaseGetter: typeof createClient;
-  year: number; month: number; day: number; hour: number | null;
+  year: number; month: number; day: number; hour: number | null; minute: number;
   sex: string; longitudeE: number; name?: string; concern?: string;
   type: string; cacheKey: string;
   fp: ReturnType<typeof calcSajuServer>;
 }) {
-  const { supabaseGetter, year, month, day, hour, sex, longitudeE, name, concern, type, cacheKey, fp } = args;
+  const { supabaseGetter, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp } = args;
   supabaseGetter().then(async supabase => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -466,6 +467,7 @@ function saveReading(args: {
       birth_month:    month,
       birth_day:      day,
       birth_hour:     hour,
+      birth_minute:   minute,
       birth_sex:      sex,
       birth_longitude: longitudeE,
       birth_name:     name ?? null,
