@@ -1508,6 +1508,7 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
+  const [expandedInfo, setExpandedInfo] = useState<'zi_hour' | 'hapHwa' | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -1729,41 +1730,65 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
         </div>
 
         {/* 고급 설정 */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
-          <p className="text-xs text-white/30 mb-3">고급 설정 <span className="text-white/20">(선택)</span></p>
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
+          <p className="text-xs text-white/30">고급 설정 <span className="text-white/20">(선택)</span></p>
 
           {/* 야자시/조자시 */}
-          <label className={`flex items-start gap-3 cursor-pointer ${form.unknownHour ? 'opacity-30 pointer-events-none' : ''}`}>
-            <div className="relative mt-0.5 flex-shrink-0">
-              <input type="checkbox"
-                checked={form.dayBoundaryRule === 'zi_hour'}
-                disabled={form.unknownHour}
-                onChange={e => set('dayBoundaryRule', e.target.checked ? 'zi_hour' : 'midnight')}
-                className="sr-only" />
-              <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'bg-white/30' : 'bg-white/10'}`} />
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'translate-x-4' : ''}`} />
+          <div className={form.unknownHour ? 'opacity-30 pointer-events-none' : ''}>
+            <div className="flex items-center gap-3">
+              <label className="relative flex-shrink-0 cursor-pointer">
+                <input type="checkbox"
+                  checked={form.dayBoundaryRule === 'zi_hour'}
+                  disabled={form.unknownHour}
+                  onChange={e => set('dayBoundaryRule', e.target.checked ? 'zi_hour' : 'midnight')}
+                  className="sr-only" />
+                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'bg-white/30' : 'bg-white/10'}`} />
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'translate-x-4' : ''}`} />
+              </label>
+              <span className="text-sm text-white/60 flex-1">자시(子時) 전체를 다음날 일주로</span>
+              <button type="button"
+                onClick={() => setExpandedInfo(v => v === 'zi_hour' ? null : 'zi_hour')}
+                className="text-white/25 hover:text-white/50 transition-colors text-xs border border-white/[0.10] rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                ?
+              </button>
             </div>
-            <div>
-              <p className="text-sm text-white/60 leading-tight">자시 전체를 다음날 일주로</p>
-              <p className="text-xs text-white/25 mt-0.5 leading-snug">진태양시 23시 이후 출생 → 익일 일주 적용. 자시설(子時說).</p>
-            </div>
-          </label>
+            {expandedInfo === 'zi_hour' && (
+              <div className="mt-2.5 ml-12 space-y-2 text-xs text-white/40 leading-relaxed">
+                <p>사주에서 하루가 언제 바뀌는지에 대한 두 가지 관법이 있어요.</p>
+                <p><span className="text-white/55">기본 (진태양시 자정 기준)</span> — 태양이 정확히 자정을 넘는 순간 날짜가 바뀝니다. 서울 기준으로 시계 00:33 무렵이에요. 더 정밀한 방식.</p>
+                <p><span className="text-white/55">이 옵션 ON (자시설)</span> — 자시(23:00~01:00 진태양시) 전체를 다음날로 봅니다. 밤 11시 이후 출생이면 익일 일주를 적용해요. 전통 역학에서 많이 쓰는 방식.</p>
+                <p className="text-white/25">모르겠으면 그냥 꺼두세요. 자정 전후 출생이 아니면 결과가 같아요.</p>
+              </div>
+            )}
+          </div>
 
           {/* 합화 오행 변화 */}
-          <label className="flex items-start gap-3 cursor-pointer">
-            <div className="relative mt-0.5 flex-shrink-0">
-              <input type="checkbox"
-                checked={form.applyHapHwa}
-                onChange={e => set('applyHapHwa', e.target.checked)}
-                className="sr-only" />
-              <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.applyHapHwa ? 'bg-white/30' : 'bg-white/10'}`} />
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.applyHapHwa ? 'translate-x-4' : ''}`} />
+          <div>
+            <div className="flex items-center gap-3">
+              <label className="relative flex-shrink-0 cursor-pointer">
+                <input type="checkbox"
+                  checked={form.applyHapHwa}
+                  onChange={e => set('applyHapHwa', e.target.checked)}
+                  className="sr-only" />
+                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.applyHapHwa ? 'bg-white/30' : 'bg-white/10'}`} />
+                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.applyHapHwa ? 'translate-x-4' : ''}`} />
+              </label>
+              <span className="text-sm text-white/60 flex-1">합(合)에 따른 오행 변화 반영</span>
+              <button type="button"
+                onClick={() => setExpandedInfo(v => v === 'hapHwa' ? null : 'hapHwa')}
+                className="text-white/25 hover:text-white/50 transition-colors text-xs border border-white/[0.10] rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
+                ?
+              </button>
             </div>
-            <div>
-              <p className="text-sm text-white/60 leading-tight">합에 따른 오행 변화 반영</p>
-              <p className="text-xs text-white/25 mt-0.5 leading-snug">천간합화 성립 시 화신 오행으로 대체. 지지합 강화 오행 추가 반영.</p>
-            </div>
-          </label>
+            {expandedInfo === 'hapHwa' && (
+              <div className="mt-2.5 ml-12 space-y-2 text-xs text-white/40 leading-relaxed">
+                <p>사주 여덟 글자가 서로 만나 오행이 바뀌는 현상을 강도 계산에 반영해요.</p>
+                <p><span className="text-white/55">천간합화</span> — 甲·己가 만나면 둘 다 土로, 乙·庚은 金으로 바뀌는 식. 계절 기운이 맞아 합화가 성립할 때만 적용해요.</p>
+                <p><span className="text-white/55">지지합</span> — 子·丑(土), 寅·亥(木) 같은 짝이 나란히 있으면 합쳐진 오행의 힘이 강해져요.</p>
+                <p className="text-white/25">결과가 미묘하게 달라질 수 있어요. 학파마다 적용 방식이 달라 정답은 없고, 비교해보고 더 잘 맞는 쪽을 쓰세요.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="h-px bg-white/[0.06]" />
