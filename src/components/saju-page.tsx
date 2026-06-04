@@ -1119,6 +1119,113 @@ function ManseTab({ result }: { result: SajuUIResult }) {
   );
 }
 
+// ── OhaengAccordion (풀이탭 상단 접힘) ──
+function OhaengAccordion({ result }: { result: SajuUIResult }) {
+  const { m } = useContext(SajuUICtx);
+  const [open, setOpen] = useState(false);
+  const { elements } = result;
+  const total = elements.reduce((s, e) => s + e.count, 0);
+  const OH_ORDER: Element[] = ['목','화','토','금','수'];
+  const { yongSin } = result.advanced;
+  const topEl = elements.reduce((a, b) => a.count > b.count ? a : b);
+
+  return (
+    <Panel style={{ overflow: 'hidden' }}>
+      {/* 헤더 — 항상 표시 */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+          padding: m ? '14px 18px' : '16px 22px', background: 'none', border: 'none',
+          cursor: 'pointer', textAlign: 'left' }}
+      >
+        <KoLabel style={{ color: INK.ink45, margin: 0 }}>오행</KoLabel>
+        {/* 미니 바 */}
+        <div style={{ flex: 1, height: 6, borderRadius: 3, overflow: 'hidden',
+          border: `1px solid ${INK.cardLine}`, display: 'flex' }}>
+          {OH_ORDER.map(oh => {
+            const e = elements.find(el => el.el === oh);
+            const pct = total > 0 && e ? (e.count / total) * 100 : 0;
+            return <div key={oh} style={{ width: `${pct}%`, background: OH[oh]?.color, opacity: 0.85 }} />;
+          })}
+        </div>
+        {/* 도트 */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {OH_ORDER.map(oh => {
+            const e = elements.find(el => el.el === oh);
+            const pct = total > 0 && e ? Math.round((e.count / total) * 100) : 0;
+            return (
+              <div key={oh} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div style={{ width: 6, height: 6, borderRadius: '50%',
+                  background: OH[oh]?.color, opacity: pct > 0 ? 0.85 : 0.18 }} />
+              </div>
+            );
+          })}
+        </div>
+        <span style={{ fontSize: 11, color: INK.ink28, lineHeight: 1, transform: open ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.2s', display: 'inline-block' }}>▼</span>
+      </button>
+
+      {/* 펼침 영역 */}
+      {open && (
+        <div style={{ borderTop: `1px solid ${INK.hair}` }}>
+          {/* 수치 바 + 요약 */}
+          <div style={{ padding: m ? '16px 18px' : '18px 22px' }}>
+            <div style={{ display: 'flex', marginBottom: 14 }}>
+              {OH_ORDER.map(oh => {
+                const e = elements.find(el => el.el === oh);
+                const pct = total > 0 && e ? Math.round((e.count / total) * 100) : 0;
+                return (
+                  <div key={oh} style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: OH[oh]?.color,
+                        display: 'inline-block', flexShrink: 0 }} />
+                      <span style={{ fontSize: m ? 13 : 14, fontWeight: 600, color: INK.ink }}>{oh}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO, marginLeft: 11, marginTop: 2 }}>{pct}%</div>
+                  </div>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: m ? 13 : 14, lineHeight: 1.75, color: INK.ink70, margin: 0 }}>
+              <span style={{ color: OH[topEl.el]?.color, fontWeight: 600 }}>{topEl.el}</span>이{' '}
+              {total > 0 ? Math.round((topEl.count / total) * 100) : 0}%로 두드러져.{' '}
+              {yongSin.yongsin
+                ? <>용신 <span style={{ color: OH[yongSin.yongsin]?.color, fontWeight: 600 }}>{yongSin.yongsin}</span>이{' '}살아야 흐름이 풀리니 이 기운을 의식적으로 키워봐.</>
+                : <>{yongSin.label} — {yongSin.reason}</>
+              }
+            </p>
+          </div>
+          {/* 오행 상세 */}
+          {OH_ORDER.map((oh, i) => {
+            const e = elements.find(el => el.el === oh);
+            const pct = total > 0 && e ? Math.round((e.count / total) * 100) : 0;
+            return (
+              <div key={oh} style={{ display: 'flex', alignItems: 'center', gap: m ? 14 : 18,
+                padding: m ? '13px 18px' : '15px 22px',
+                borderTop: `1px solid ${INK.hair}` }}>
+                <div style={{ width: m ? 36 : 44, textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{ fontSize: m ? 22 : 26, fontWeight: 600, color: OH[oh]?.color, lineHeight: 1 }}>{oh}</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(232,223,200,0.06)', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: OH[oh]?.color, opacity: 0.85, borderRadius: 3 }} />
+                    </div>
+                    <span style={{ width: 36, textAlign: 'right', fontSize: 13, fontFamily: MONO,
+                      color: pct >= 40 ? OH[oh]?.color : INK.ink45 }}>{pct}%</span>
+                  </div>
+                  <div style={{ fontSize: m ? 12 : 13, color: INK.ink70, marginTop: 6 }}>{OH_MEAN[oh]}</div>
+                  {e?.comment && <div style={{ fontSize: 12, color: INK.ink45, marginTop: 4 }}>{e.comment}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 // ── OhaengTab ──
 const OH_MEAN: Record<string, string> = {
   목: '배움·성장·확장의 기운. 나무처럼 위로 뻗으려 해.',
@@ -1494,9 +1601,12 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
             <AnimatePresence mode="wait">
               <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                 {tab === 'ai'      && (
-                  <Panel style={{ padding: m ? 20 : 28 }}>
-                    <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'} />
-                  </Panel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <OhaengAccordion result={result} />
+                    <Panel style={{ padding: m ? 20 : 28 }}>
+                      <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'} />
+                    </Panel>
+                  </div>
                 )}
                 {tab === 'manse'   && <ManseTab result={result} />}
                 {tab === 'ohaeng'  && <OhaengTab result={result} />}
