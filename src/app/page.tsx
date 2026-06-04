@@ -19,23 +19,33 @@ export default function LandingPage() {
           >
             술자리
           </h1>
+          <p className="mt-3 text-sm text-white/30">나눌 거리가 넘치는 두 가지 주제</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4 w-full max-w-[400px]">
           {[
-            { href: "/politics", label: "정치" },
-            { href: "/saju",     label: "사주" },
-          ].map(({ href, label }) => (
+            {
+              href: "/politics",
+              label: "정치",
+              desc: "빨간쪽 까면 파란쪽도 까야지.\n팩트로, 진영 불문.",
+            },
+            {
+              href: "/saju",
+              label: "사주",
+              desc: "나는 왜 이런가.\n사주에 다 있어.",
+            },
+          ].map(({ href, label, desc }) => (
             <Link
               key={href}
               href={href}
-              className="group relative flex items-center justify-center overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] min-h-[160px] transition-all duration-300 hover:border-white/[0.14] hover:bg-white/[0.045]"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6 min-h-[180px] transition-all duration-300 hover:border-white/[0.14] hover:bg-white/[0.045]"
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <span className="relative text-2xl font-semibold text-white/80 group-hover:text-white tracking-tight transition-colors">
-                {label}
-              </span>
+              <span className="relative text-2xl font-semibold text-white tracking-tight">{label}</span>
+              <p className="relative mt-4 text-[12px] text-white/35 leading-relaxed whitespace-pre-line group-hover:text-white/50 transition-colors">
+                {desc}
+              </p>
             </Link>
           ))}
         </div>
