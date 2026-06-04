@@ -24,7 +24,56 @@ function makeSeyunPillar(year: number): Pillar {
 // ── 버전 (캐시 키 일부) ──
 const FACTSHEET_VERSION = '2.0.0';
 
+// ── 신살 테이블 ──
+const YEOKMA_MAP: Partial<Record<Branch, Branch>> = {
+  인:'신', 오:'신', 술:'신', 신:'인', 자:'인', 진:'인',
+  사:'해', 유:'해', 축:'해', 해:'사', 묘:'사', 미:'사',
+};
+const DOHWA_MAP: Partial<Record<Branch, Branch>> = {
+  인:'묘', 오:'묘', 술:'묘', 사:'오', 유:'오', 축:'오',
+  신:'유', 자:'유', 진:'유', 해:'자', 묘:'자', 미:'자',
+};
+const YANGIN_MAP: Partial<Record<Stem, Branch>> = {
+  갑:'묘', 병:'오', 무:'오', 경:'유', 임:'자',
+};
+const HWAGAE_MAP: Partial<Record<Branch, Branch>> = {
+  인:'술', 오:'술', 술:'술', 사:'축', 유:'축', 축:'축',
+  신:'진', 자:'진', 진:'진', 해:'미', 묘:'미', 미:'미',
+};
+const GUI_MAP: Partial<Record<Stem, Branch[]>> = {
+  갑:['축','미'], 무:['축','미'], 경:['축','미'],
+  을:['자','신'], 기:['자','신'],
+  병:['해','유'], 정:['해','유'],
+  신:['인','오'],
+  임:['묘','사'], 계:['묘','사'],
+};
+
+function computeSinsal(fp: FourPillars): SinsalResult[] {
+  const result: SinsalResult[] = [];
+  const all = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+  const yb = fp.year.branch;
+  const dm = fp.day.stem;
+  const ym = YEOKMA_MAP[yb];
+  if (ym) { const f = all.filter(b => b === ym); if (f.length) result.push({ name: '역마살', desc: '이동·변화·활동성', branches: f }); }
+  const dh = DOHWA_MAP[yb];
+  if (dh) { const f = all.filter(b => b === dh); if (f.length) result.push({ name: '도화살', desc: '매력·인기·예술성', branches: f }); }
+  const gt = (GUI_MAP[dm] ?? []) as Branch[];
+  const gf = all.filter(b => gt.includes(b));
+  if (gf.length) result.push({ name: '천을귀인', desc: '귀인 도움·위기 극복', branches: gf });
+  const yi = YANGIN_MAP[dm];
+  if (yi) { const f = all.filter(b => b === yi); if (f.length) result.push({ name: '양인살', desc: '강한 의지·공격성', branches: f }); }
+  const hg = HWAGAE_MAP[yb];
+  if (hg) { const f = all.filter(b => b === hg); if (f.length) result.push({ name: '화개살', desc: '예술·학문·종교 기질', branches: f }); }
+  return result;
+}
+
 // ── 타입 ──
+
+export interface SinsalResult {
+  name:     string;
+  desc:     string;
+  branches: Branch[];
+}
 
 export interface PillarFact {
   palace:        '년' | '월' | '일' | '시';
@@ -84,6 +133,8 @@ export interface SajuFactSheet {
   notableSignals: string[];
   /** LLM이 단정 해석을 피해야 하는 주의사항 */
   cautions: string[];
+  /** 신살 (역마·도화·천을귀인·양인·화개) */
+  sinsal: SinsalResult[];
 }
 
 // ── 캐시 키 ──
@@ -102,7 +153,7 @@ export function makeCacheKey(
 export function buildFactSheet(
   fp: FourPillars,
   tier: 'free' | 'paid' = 'free',
-  readingType: 'full' | 'today' | 'love' = 'full',
+  readingType: 'full' | 'today' | 'love' | 'career' = 'full',
   opts: { name?: string; concern?: string; daysFromJie?: number } = {},
 ): SajuFactSheet {
   const dm       = fp.day.stem;
@@ -237,6 +288,12 @@ export function buildFactSheet(
   // 시주 미상
   if (!fp.hour) notableSignals.push('시주 미입력 — 시간 관련 궁(직업·노년) 해석 불가');
 
+  // 신살
+  const sinsal = computeSinsal(fp);
+  for (const s of sinsal) {
+    notableSignals.push(`${s.name}(${s.branches.join('')}): ${s.desc}`);
+  }
+
   // ── 주의사항 ──
   const cautions: string[] = [];
   if (!fp.hour)               cautions.push('시주 없음: 시주 궁(직업·노년 운) 해석 제외');
@@ -272,5 +329,6 @@ export function buildFactSheet(
     concern: opts.concern || undefined,
     notableSignals,
     cautions,
+    sinsal,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
@@ -13,8 +13,282 @@ import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/rou
 import { lunarToSolar } from "@/lib/saju/lunar";
 import { analyzeAdvanced, findRoots, JIJANGGAN, type AdvancedAnalysis } from "@/lib/saju/advanced";
 
-// ── 월운 계산용 상수 ──
-const TIGER_MONTH_STEM = [2, 4, 6, 8, 0] as const; // 오호둔
+// ── 디자인 토큰 ──
+const INK = {
+  bg:       '#0c0907',
+  bgRaise:  '#14100c',
+  card:     'rgba(232,223,200,0.035)',
+  cardLine: 'rgba(232,223,200,0.10)',
+  hair:     'rgba(232,223,200,0.085)',
+  ink:      'rgba(232,223,200,0.94)',
+  ink70:    'rgba(232,223,200,0.66)',
+  ink45:    'rgba(232,223,200,0.42)',
+  ink28:    'rgba(232,223,200,0.26)',
+  gold:     '#c2a35b',
+};
+
+const OH: Record<string, { color: string; soft: string }> = {
+  목: { color: '#7e9a6f', soft: 'rgba(126,154,111,0.16)' },
+  화: { color: '#c4685a', soft: 'rgba(196,104,90,0.16)'  },
+  토: { color: '#c0974f', soft: 'rgba(192,151,79,0.16)'  },
+  금: { color: '#c9c2ad', soft: 'rgba(201,194,173,0.14)' },
+  수: { color: '#6f88a6', soft: 'rgba(111,136,166,0.16)' },
+};
+
+// CSS 변수로 폰트 참조 (layout.tsx에서 next/font/google로 로드)
+const SERIF = 'var(--font-noto-serif-kr), "Apple SD Gothic Neo", serif';
+const MONO  = 'var(--font-ibm-plex-mono), "Courier New", monospace';
+
+// ── 천간/지지 데이터 ──
+const CHEONGAN_DATA: Record<string, { han: string; oh: string; yy: string; img: string }> = {
+  갑: { han: '甲', oh: '목', yy: '양', img: '큰 나무·기둥' },
+  을: { han: '乙', oh: '목', yy: '음', img: '풀·덩굴' },
+  병: { han: '丙', oh: '화', yy: '양', img: '태양' },
+  정: { han: '丁', oh: '화', yy: '음', img: '등불·촛불' },
+  무: { han: '戊', oh: '토', yy: '양', img: '큰 산·제방' },
+  기: { han: '己', oh: '토', yy: '음', img: '논밭·평지' },
+  경: { han: '庚', oh: '금', yy: '양', img: '원석·도끼' },
+  신: { han: '辛', oh: '금', yy: '음', img: '보석·칼' },
+  임: { han: '壬', oh: '수', yy: '양', img: '큰 강·바다' },
+  계: { han: '癸', oh: '수', yy: '음', img: '이슬·빗물' },
+};
+
+const JIJI_DATA: Record<string, { han: string; oh: string; animal: string }> = {
+  자: { han: '子', oh: '수', animal: '쥐' }, 축: { han: '丑', oh: '토', animal: '소' },
+  인: { han: '寅', oh: '목', animal: '호랑이' }, 묘: { han: '卯', oh: '목', animal: '토끼' },
+  진: { han: '辰', oh: '토', animal: '용' }, 사: { han: '巳', oh: '화', animal: '뱀' },
+  오: { han: '午', oh: '화', animal: '말' }, 미: { han: '未', oh: '토', animal: '양' },
+  신: { han: '申', oh: '금', animal: '원숭이' }, 유: { han: '酉', oh: '금', animal: '닭' },
+  술: { han: '戌', oh: '토', animal: '개' }, 해: { han: '亥', oh: '수', animal: '돼지' },
+};
+
+// ── 용어 사전 ──
+const GLOSS: Record<string, { sub: string; body: string }> = {
+  격국:         { sub: '格局', body: '사주 전체의 짜임새이자 그릇. 어떤 유형의 사람인지를 보는 큰 틀.' },
+  용신:         { sub: '用神', body: '사주의 균형을 잡아주는 약(藥) 같은 오행. 이 기운이 살아야 흐름이 풀림.' },
+  '용신 / 기신': { sub: '用神 / 忌神', body: '용신은 나를 돕는 오행, 기신은 그 반대로 흐름을 막는 오행.' },
+  기신:         { sub: '忌神', body: '용신을 해치는 오행. 이 기운이 강해지는 시기는 흐름이 막힘.' },
+  신강약:       { sub: '身强弱', body: '일간(나)의 힘이 센지 약한지. 신강은 주체가 강한 상태, 신약은 외부 기운에 쏠린 상태.' },
+  지장간:       { sub: '支藏干', body: '지지 속에 숨어있는 천간. 겉으론 보이지 않지만 속에서 작용하며 여기·중기·정기 순서로 흐름.' },
+  통근:         { sub: '通根', body: '천간이 지지에 뿌리를 내린 상태. 뿌리가 있을수록 그 기운이 안정되고 강해짐.' },
+  운성:         { sub: '十二運星', body: '천간이 지지를 만나 갖는 기운의 세기. 사람의 일생처럼 장생→목욕→관대→건록→제왕→쇠→병→사→묘→절→태→양 열두 단계로 순환.' },
+  사령신:       { sub: '司令神', body: '태어난 달 그 시점에 실제로 힘을 잡고 있는 기운. 월지 지장간 중 당령한 천간.' },
+  오행:         { sub: '五行', body: '목·화·토·금·수 다섯 기운. 이 다섯의 많고 적음이 사주의 색깔과 균형을 결정.' },
+  세운:         { sub: '歲運', body: '한 해 한 해의 운. 매년 들어오는 천간·지지가 사주 원국과 어떻게 만나는지를 봄.' },
+  대운:         { sub: '大運', body: '10년 단위로 바뀌는 큰 흐름. 인생의 계절과 같음.' },
+  천간:         { sub: '天干', body: '사주 네 기둥 위쪽 글자 네 자. 하늘의 기운이며 성격·의지·표현을 드러냄.' },
+  지지:         { sub: '地支', body: '사주 네 기둥 아래쪽 글자 네 자. 땅의 기운이며 환경·운·실제 삶을 담음.' },
+};
+
+// 클릭 시 추가 블록 (격국·용신기신·신강약)
+const GLOSS_EXTRA: Record<string, Array<{ label: string; text: string }>> = {
+  격국: [
+    { label: '어떻게 정해지나', text: '월지(월주 지지)가 일간에 어떤 십신으로 작용하는지를 기준으로 결정됨.' },
+    { label: '격국 종류 예시', text: '식신격 · 상관격 · 편재격 · 정재격 · 편관격 · 정관격 · 편인격 · 정인격 (8 기본격). 여기에 건록격 · 양인격이 추가됨.' },
+  ],
+  '용신 / 기신': [
+    { label: '어떻게 찾나', text: '신강이면 일간을 약하게 할 오행(관·식상·재), 신약이면 일간을 보강할 오행(인성·비겁)이 용신이 됨.' },
+    { label: '오행별 용신 예시', text: '목 용신 → 성장·배움·확장 / 화 용신 → 표현·소통·활동 / 토 용신 → 현실 착지·안정·중재 / 금 용신 → 결단·정리·원칙 / 수 용신 → 사색·유연·지식' },
+  ],
+  신강약: [
+    { label: '신강 (身强)', text: '일간을 돕는 기운(비겁·인성)이 많은 상태. 주체성이 강하고 추진력이 있으나 독단 경향도 있음.' },
+    { label: '신약 (身弱)', text: '일간을 도와주는 기운이 부족한 상태. 환경과 타인 영향을 크게 받음. 인성·비겁이 용신이 되기 쉬움.' },
+    { label: '중화 (中和)', text: '일간의 힘이 균형 잡힌 상태. 가장 유연하게 운을 활용할 수 있는 구조.' },
+  ],
+};
+
+const SIPSIN_GLOSS: Record<string, string> = {
+  비견: '나와 같은 오행·음양. 자존심·독립심·경쟁심. 형제·동료에 해당하는 기운.',
+  겁재: '나와 같은 오행이지만 음양이 다름. 추진력·승부욕이 강하나 재물이 새기 쉬운 기운.',
+  식신: '내가 자연스럽게 내놓는 기운. 표현력·먹을복·꾸준함. 한 우물을 파는 재능.',
+  상관: '강한 표현력과 비판 정신. 재주가 많고 틀을 깨는 힘이 있으나 충돌도 잦음.',
+  편재: '넓게 흐르는 재물 기운. 융통성·사업 수완. 큰 돈을 굴리는 기질.',
+  정재: '착실히 모으는 재물 기운. 성실·안정. 내 몫을 지키는 성향.',
+  편관: '나를 강하게 누르는 압력. 결단력·카리스마가 있으나 스트레스와 함께 옴.',
+  정관: '책임·명예·규범. 스스로를 다스리는 기운. 직장·관직과 인연이 깊음.',
+  편인: '독특한 사고와 직관. 학문·기획·창작에서 남다른 관점을 만드는 기운.',
+  정인: '배움과 보호받는 기운. 인내·인덕. 꾸준히 받쳐주는 뿌리.',
+  일간: '사주의 주인공, 나 자신. 모든 해석의 기준점이 되는 글자.',
+};
+
+const ROLE_GLOSS: Record<string, string> = {
+  년주: '뿌리·조상·어린 시절. 내가 자란 배경의 자리.',
+  월주: '환경·사회·부모. 직업과 사회생활이 드러나는 자리.',
+  일주: '나 자신과 배우자. 사주의 중심 자리.',
+  시주: '활동·미래·자식. 말년과 결실의 자리.',
+};
+
+// ── DetailPayload 타입 ──
+interface DetailPayload {
+  head: string;
+  han: string | null;
+  oh: string | null;
+  chips: string[];
+  blocks: Array<{ label: string; text: string }>;
+}
+
+// ── Context ──
+const SajuUICtx = createContext<{ m: boolean; openDetail: (p: DetailPayload) => void }>({
+  m: false, openDetail: () => {},
+});
+
+// ── 반응형 훅 ──
+function useIsMobile(bp = 768) {
+  const [m, setM] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width:${bp - 1}px)`);
+    const h = () => setM(mq.matches); h();
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, [bp]);
+  return m;
+}
+
+// ── KoLabel ──
+function KoLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 3, color: INK.ink45, ...style }}>
+      {children}
+    </span>
+  );
+}
+
+// ── Panel ──
+function Panel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 8, background: INK.card, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+// ── Hair 구분선 ──
+function Hair({ style }: { style?: React.CSSProperties }) {
+  return <div style={{ height: 1, background: INK.hair, ...style }} />;
+}
+
+// ── TapChar ──
+function TapChar({ char, el, size, onTap }: { char: string; el: string; size: number; onTap: () => void }) {
+  const ohColor = OH[el]?.color ?? INK.ink;
+  const ohSoft  = OH[el]?.soft  ?? 'transparent';
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); onTap(); }}
+      onMouseEnter={e => { (e.currentTarget as HTMLSpanElement).style.textShadow = `0 0 22px ${ohSoft}`; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLSpanElement).style.textShadow = 'none'; }}
+      style={{ display: 'inline-block', cursor: 'pointer', fontSize: size, fontWeight: 500,
+        fontFamily: SERIF, lineHeight: 1.15, color: ohColor, transition: 'text-shadow .15s', borderRadius: 4 }}
+    >
+      {char}
+    </span>
+  );
+}
+
+// ── Term ──
+function Term({ termKey, children, onOpen }: {
+  termKey: string;
+  children: React.ReactNode;
+  onOpen: (p: DetailPayload) => void;
+}) {
+  function buildTermPayload(key: string): DetailPayload {
+    const g = GLOSS[key];
+    const extra = GLOSS_EXTRA[key] ?? [];
+    if (g) {
+      return { head: key, han: g.sub || null, oh: null, chips: g.sub ? [g.sub] : [], blocks: [{ label: '개념', text: g.body }, ...extra] };
+    }
+    const ss = SIPSIN_GLOSS[key];
+    if (ss) {
+      return { head: key, han: null, oh: null, chips: [], blocks: [{ label: key, text: ss }] };
+    }
+    return { head: key, han: null, oh: null, chips: [], blocks: [{ label: key, text: '' }] };
+  }
+  return (
+    <span
+      onClick={e => { e.stopPropagation(); onOpen(buildTermPayload(termKey)); }}
+      style={{ cursor: 'pointer', borderBottom: `1px dotted ${INK.ink28}` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ── DetailSheet ──
+function DetailSheet({ data, onClose }: { data: DetailPayload | null; onClose: () => void }) {
+  const { m } = useContext(SajuUICtx);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (data) requestAnimationFrame(() => setShow(true));
+    else setShow(false);
+  }, [data]);
+
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+
+  if (!data) return null;
+
+  const accent = data.oh ? (OH[data.oh]?.color ?? INK.gold) : INK.gold;
+  const glow   = data.oh ? (OH[data.oh]?.soft  ?? 'none')   : 'none';
+
+  const panelBase: React.CSSProperties = {
+    position: 'fixed', background: '#100c09', zIndex: 200,
+    border: `1px solid ${INK.cardLine}`,
+    boxShadow: '0 -10px 60px rgba(0,0,0,.6), 0 10px 60px rgba(0,0,0,.6)',
+    fontFamily: SERIF, color: INK.ink, boxSizing: 'border-box',
+    transition: 'transform .26s cubic-bezier(.2,.7,.3,1)',
+    overflowY: 'auto',
+  };
+
+  const panelStyle: React.CSSProperties = m
+    ? { ...panelBase, left: 0, right: 0, bottom: 0, borderRadius: '16px 16px 0 0',
+        padding: '14px 22px 30px', maxHeight: '86vh',
+        transform: show ? 'translateY(0)' : 'translateY(101%)' }
+    : { ...panelBase, top: 0, bottom: 0, right: 0, width: 440,
+        padding: '34px 36px',
+        transform: show ? 'translateX(0)' : 'translateX(101%)' };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 199,
+        background: 'rgba(8,6,4,.62)', backdropFilter: 'blur(3px)',
+        opacity: show ? 1 : 0, transition: 'opacity .26s' }}
+    >
+      <div onClick={e => e.stopPropagation()} style={panelStyle}>
+        {m && <div style={{ width: 40, height: 4, borderRadius: 2, background: INK.ink28, margin: '0 auto 18px' }} />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: m ? 0 : -10 }}>
+          <button onClick={onClose}
+            style={{ border: 'none', background: 'transparent', color: INK.ink45,
+              fontSize: 22, lineHeight: 1, cursor: 'pointer', padding: 4 }}>×</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <span style={{ fontSize: 72, lineHeight: 0.9, fontWeight: 500, color: accent,
+            textShadow: data.oh ? `0 0 44px ${glow}` : 'none', fontFamily: SERIF }}>{data.head}</span>
+          {data.han && <span style={{ fontSize: 30, fontWeight: 300, fontFamily: SERIF, color: INK.ink70 }}>{data.han}</span>}
+        </div>
+        {data.chips.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 16 }}>
+            {data.chips.map((ch, i) => (
+              <span key={i} style={{ fontSize: 12.5, color: INK.ink70,
+                border: `1px solid ${INK.cardLine}`, borderRadius: 20, padding: '5px 13px' }}>{ch}</span>
+            ))}
+          </div>
+        )}
+        <div style={{ marginTop: 26, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {data.blocks.filter(b => b.text).map((b, i) => (
+            <div key={i}>
+              <KoLabel style={{ fontSize: 10.5, color: accent }}>{b.label}</KoLabel>
+              <p style={{ fontSize: 15, lineHeight: 1.75, color: INK.ink, margin: '8px 0 0' }}>{b.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── 출생지 데이터 ──
 const DOMESTIC_CITIES: { label: string; lon: number }[] = [
@@ -49,9 +323,8 @@ const OVERSEAS_CITIES: { label: string; lon: number }[] = [
   { label: '프랑크푸르트', lon: 8.7  }, { label: '두바이',  lon: 55.3  },
 ];
 
-// ── seolgi.json 로더 (클라이언트 캐시) ──
+// ── seolgi.json 로더 ──
 let seolgiCache: SeolgiIndex | null = null;
-
 async function loadSeolgi(): Promise<SeolgiIndex> {
   if (seolgiCache) return seolgiCache;
   const res = await fetch("/seolgi.json");
@@ -60,7 +333,7 @@ async function loadSeolgi(): Promise<SeolgiIndex> {
   return seolgiCache;
 }
 
-// ── 계산 결과 → UI용 데이터 변환 ──
+// ── 타입 ──
 interface BirthParams {
   year: number; month: number; day: number;
   hour: number | null; sex: 'male' | 'female';
@@ -81,11 +354,11 @@ interface SajuUIResult {
   advanced: AdvancedAnalysis;
 }
 
+// ── buildUIResult ──
 function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   const dm = fp.day.stem;
   const dmData = STEM_DATA[dm];
 
-  // 오행 카운트 (8자 기준)
   const active = [fp.year, fp.month, fp.day, ...(fp.hour ? [fp.hour] : [])];
   const elemCount: Record<Element, number> = { 목:0, 화:0, 토:0, 금:0, 수:0 };
   for (const p of active) {
@@ -104,19 +377,18 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   });
 
   const sipshinMap: Record<string, string | null> = {
-    yearStem:          getSipshin(dm, fp.year.stem),
-    yearBranch:        getBranchSipshin(dm, fp.year.branch),
-    monthStem:         getSipshin(dm, fp.month.stem),
-    monthBranch:       getBranchSipshin(dm, fp.month.branch),
-    dayStem:           '본인',
-    dayBranch:         getBranchSipshin(dm, fp.day.branch),
-    hourStem:          fp.hour ? getSipshin(dm, fp.hour.stem) : null,
-    hourBranch:        fp.hour ? getBranchSipshin(dm, fp.hour.branch) : null,
+    yearStem:    getSipshin(dm, fp.year.stem),
+    yearBranch:  getBranchSipshin(dm, fp.year.branch),
+    monthStem:   getSipshin(dm, fp.month.stem),
+    monthBranch: getBranchSipshin(dm, fp.month.branch),
+    dayStem:     '본인',
+    dayBranch:   getBranchSipshin(dm, fp.day.branch),
+    hourStem:    fp.hour ? getSipshin(dm, fp.hour.stem)      : null,
+    hourBranch:  fp.hour ? getBranchSipshin(dm, fp.hour.branch) : null,
   };
 
-  // advanced 분석 (사령·통근·격국·용신)
-  const jieMs    = new Date(fp.trace.jieUTC).getTime();
-  const birthMs  = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, 0, 0);
+  const jieMs   = new Date(fp.trace.jieUTC).getTime();
+  const birthMs = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, 0, 0);
   const daysFromJie = Math.max(0, Math.round((birthMs - jieMs) / 86_400_000));
   const advanced = analyzeAdvanced(fp, daysFromJie);
 
@@ -130,104 +402,206 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   };
 }
 
-// ── 세운 행 ──
-const STEMS_ARR = ['갑','을','병','정','무','기','경','신','임','계'] as const;
+// ── 12운성 ──
+const UNSUNG_NAMES = ['장생','목욕','관대','건록','제왕','쇠','병','사','묘','절','태','양'] as const;
+type Unsung = typeof UNSUNG_NAMES[number];
+const BRANCHES_12 = ['자','축','인','묘','진','사','오','미','신','유','술','해'] as const;
+const UNSUNG_YANG_START: Record<Element, number> = { 목:11, 화:2, 토:2, 금:5, 수:8 };
+const UNSUNG_YIN_START:  Record<Element, number> = { 목:6,  화:9, 토:9, 금:0, 수:3 };
+
+function getUnsung(stem: Stem, branch: Branch): Unsung {
+  const { yang, element } = STEM_DATA[stem];
+  const brIdx = BRANCHES_12.indexOf(branch as typeof BRANCHES_12[number]);
+  const start = yang ? UNSUNG_YANG_START[element] : UNSUNG_YIN_START[element];
+  const offset = yang ? (brIdx - start + 12) % 12 : (start - brIdx + 12) % 12;
+  return UNSUNG_NAMES[offset];
+}
+
+// ── 공망 ──
+function getGongmang(dayGz: number): Branch[] {
+  const g = Math.floor(dayGz / 10);
+  const pairs: Branch[][] = [['술','해'],['신','유'],['오','미'],['진','사'],['인','묘'],['자','축']];
+  return pairs[g % 6];
+}
+
+// ── 신살 ──
+interface Sinsal { name: string; desc: string; branches: Branch[] }
+
+function calcSinsal(fp: FourPillars): Sinsal[] {
+  const result: Sinsal[] = [];
+  const all = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+  const yb  = fp.year.branch;
+  const dm  = fp.day.stem;
+
+  const yeokmaMap: Partial<Record<Branch, Branch>> = {
+    인:'신', 오:'신', 술:'신', 신:'인', 자:'인', 진:'인',
+    사:'해', 유:'해', 축:'해', 해:'사', 묘:'사', 미:'사',
+  };
+  const ym = yeokmaMap[yb];
+  if (ym) { const f = all.filter(b=>b===ym); if(f.length) result.push({ name:'역마살', desc:'이동·변화·활동성', branches:f }); }
+
+  const dohwaMap: Partial<Record<Branch, Branch>> = {
+    인:'묘', 오:'묘', 술:'묘', 사:'오', 유:'오', 축:'오',
+    신:'유', 자:'유', 진:'유', 해:'자', 묘:'자', 미:'자',
+  };
+  const dh = dohwaMap[yb];
+  if (dh) { const f = all.filter(b=>b===dh); if(f.length) result.push({ name:'도화살', desc:'매력·인기·예술성', branches:f }); }
+
+  const guiMap: Partial<Record<Stem, Branch[]>> = {
+    갑:['축','미'], 무:['축','미'], 경:['축','미'],
+    을:['자','신'], 기:['자','신'],
+    병:['해','유'], 정:['해','유'],
+    신:['인','오'],
+    임:['묘','사'], 계:['묘','사'],
+  };
+  const gt = (guiMap[dm] ?? []) as Branch[];
+  const gf = all.filter(b=>gt.includes(b));
+  if (gf.length) result.push({ name:'천을귀인', desc:'귀인 도움·위기 극복', branches:gf });
+
+  const yanginMap: Partial<Record<Stem, Branch>> = { 갑:'묘', 병:'오', 무:'오', 경:'유', 임:'자' };
+  const yi = yanginMap[dm];
+  if (yi) { const f = all.filter(b=>b===yi); if(f.length) result.push({ name:'양인살', desc:'강한 의지·공격성·고집', branches:f }); }
+
+  const hwagaeMap: Partial<Record<Branch, Branch>> = {
+    인:'술', 오:'술', 술:'술', 사:'축', 유:'축', 축:'축',
+    신:'진', 자:'진', 진:'진', 해:'미', 묘:'미', 미:'미',
+  };
+  const hw = hwagaeMap[yb];
+  if (hw) { const f = all.filter(b=>b===hw); if(f.length) result.push({ name:'화개살', desc:'예술·종교·고독·집중력', branches:f }); }
+
+  return result;
+}
+
+// ── 세운 계산 ──
+const STEMS_ARR  = ['갑','을','병','정','무','기','경','신','임','계'] as const;
 const BRANCHES_ARR = ['자','축','인','묘','진','사','오','미','신','유','술','해'] as const;
 const mod = (n: number, m: number) => ((n % m) + m) % m;
 
 function calcSeyunPillar(year: number) {
   const gz = mod(year - 4, 60);
-  const stem = STEMS_ARR[gz % 10];
+  const stem   = STEMS_ARR[gz % 10];
   const branch = BRANCHES_ARR[gz % 12];
   return { stem, branch, gz };
 }
 
-function SeyunRow({ dm }: { dm: Stem }) {
-  const currentYear = new Date().getFullYear();
-  const years = [currentYear, currentYear + 1];
+// ── POS_LABEL ──
+const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as const;
+
+// ── 타입 탭 ──
+type ReadingType = 'full' | 'today' | 'love' | 'career';
+
+const READING_TABS: { id: ReadingType; label: string; sub: string }[] = [
+  { id: 'full',   label: '종합',   sub: '성격·연애·직업·운' },
+  { id: 'today',  label: '오늘',   sub: '오늘 일진 흐름' },
+  { id: 'love',   label: '연애',   sub: '연애 패턴·스타일' },
+  { id: 'career', label: '직업',   sub: '직업·재물 성향' },
+];
+
+// ── AI 해석 컴포넌트 ──
+function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
+  const { m } = useContext(SajuUICtx);
+  const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
+  const [activeType, setActiveType] = useState<ReadingType>(initialType);
+  const [loadingType, setLoadingType] = useState<ReadingType | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async (type: ReadingType) => {
+    if (readings[type]) return;
+    setLoadingType(type); setErr(null);
+    try {
+      const res = await fetch('/api/saju/reading', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: birth.year, month: birth.month, day: birth.day,
+          hour: birth.hour, sex: birth.sex, longitudeE: birth.longitudeE,
+          name: birth.name, concern: birth.concern, tier: 'free', type,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json() as ReadingResponse;
+      setReadings(prev => ({ ...prev, [type]: data }));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '알 수 없는 오류');
+    } finally { setLoadingType(null); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [birth]);
+
+  useEffect(() => { load(initialType); }, []); // eslint-disable-line
+
+  function selectType(type: ReadingType) {
+    setActiveType(type);
+    setErr(null);
+    load(type);
+  }
+
+  const current = readings[activeType];
+  const isLoading = loadingType === activeType;
+
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3">
-      <p className="text-[10px] text-white/35 tracking-widest mb-3">세운 (년운)</p>
-      <div className="flex gap-3">
-        {years.map((y, i) => {
-          const { stem, branch } = calcSeyunPillar(y);
-          const se = STEM_DATA[stem];
-          const be = BRANCH_DATA[branch];
-          const ss = getSipshin(dm, stem);
-          const sb = getBranchSipshin(dm, branch);
+    <div>
+      {/* 렌즈 선택 */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20,
+        borderBottom: `1px solid ${INK.hair}`, paddingBottom: 16 }}>
+        {READING_TABS.map(t => {
+          const on = activeType === t.id;
+          const isThisLoading = loadingType === t.id;
           return (
-            <div key={y} className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-2.5 border ${i === 0 ? 'border-white/15 bg-white/[0.05]' : 'border-white/5'}`}>
-              <div>
-                <p className="text-[10px] text-white/35 mb-1">{y}년{i === 0 ? ' ·올해' : ''}</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[se.element] }}>{stem}</span>
-                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[be.element] }}>{branch}</span>
-                </div>
+            <button key={t.id} onClick={() => selectType(t.id)}
+              style={{ flex: 1, padding: m ? '8px 4px' : '10px 8px', border: 'none',
+                borderRadius: 6, cursor: 'pointer', transition: 'background-color .15s, color .15s',
+                backgroundColor: on ? 'rgba(232,223,200,0.10)' : 'rgba(0,0,0,0)',
+                color: on ? INK.ink : INK.ink45,
+                boxShadow: on ? `inset 0 0 0 1px ${INK.cardLine}` : 'none' }}>
+              <div style={{ fontSize: m ? 13 : 14, fontFamily: SERIF, fontWeight: on ? 600 : 400 }}>
+                {isThisLoading ? '...' : t.label}
               </div>
-              <div className="ml-auto text-right">
-                <p className="text-[10px] text-white/40">{ss}</p>
-                <p className="text-[10px] text-white/30">{sb}</p>
-              </div>
-            </div>
+              {!m && <div style={{ fontSize: 10, color: on ? INK.ink45 : INK.ink28, fontFamily: MONO, marginTop: 2 }}>{t.sub}</div>}
+            </button>
           );
         })}
       </div>
-    </div>
-  );
-}
 
-// ── 궁 설명 ──
-const PALACE_DESC: Record<string, { sub: string; meaning: string }> = {
-  년: { sub: '뿌리',  meaning: '타고난 바탕 · 조상 · 어린 시절' },
-  월: { sub: '환경',  meaning: '성장 환경 · 부모 · 사회적 모습' },
-  일: { sub: '나',    meaning: '나 자신 · 배우자 · 핵심 자아' },
-  시: { sub: '활동',  meaning: '활동 방식 · 자녀 · 노년 · 꿈' },
-};
-
-// ── 십신 배지 (클릭하면 설명 펼침) ──
-function SipshinBadge({ name }: { name: string | null | undefined }) {
-  const [open, setOpen] = useState(false);
-  if (!name) return <span className="h-4" />;
-  const desc = SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC];
-  return (
-    <button onClick={() => setOpen(o => !o)} className="group text-center">
-      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] transition-all
-        ${open ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white/80'}`}>
-        {name}
-      </span>
-      <AnimatePresence>
-        {open && desc && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden">
-            <p className="mt-1 text-[9px] text-white/40 leading-tight w-16 text-center mx-auto">{desc.short}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </button>
-  );
-}
-
-// ── PillarCell ──
-function PillarCell({ label, pillar, sipshinStem, sipshinBranch, isDay }: {
-  label: string; pillar: Pillar;
-  sipshinStem?: string | null; sipshinBranch?: string | null; isDay?: boolean;
-}) {
-  const stemEl   = STEM_DATA[pillar.stem];
-  const branchEl = BRANCH_DATA[pillar.branch];
-  const palace   = PALACE_DESC[label];
-  return (
-    <div className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-3 ${isDay ? 'border-white/20 bg-white/[0.07]' : 'border-white/8 bg-white/[0.03]'}`}>
-      <div className="text-center">
-        <span className={`text-xs font-semibold ${isDay ? 'text-white' : 'text-white/50'}`}>{label}주</span>
-        {palace && <p className="text-[9px] text-white/25 leading-tight">{palace.sub}</p>}
-      </div>
-      <SipshinBadge name={sipshinStem} />
-      <span className="text-3xl font-bold leading-none" style={{ color: ELEMENT_COLOR[stemEl.element] }}>{pillar.stem}</span>
-      <span className="text-[9px] text-white/30">{stemEl.image}</span>
-      <div className="my-0.5 h-px w-full bg-white/8" />
-      <span className="text-3xl font-bold leading-none" style={{ color: ELEMENT_COLOR[branchEl.element] }}>{pillar.branch}</span>
-      <span className="text-[9px] text-white/30">{branchEl.animal}</span>
-      <SipshinBadge name={sipshinBranch} />
+      {/* 콘텐츠 */}
+      {isLoading && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0' }}>
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+            style={{ width: 20, height: 20, borderRadius: '50%',
+              border: `2px solid ${INK.ink28}`, borderTopColor: INK.ink70 }} />
+          <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO }}>해석 중...</span>
+        </div>
+      )}
+      {err && !isLoading && (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <p style={{ fontSize: 13, color: '#c4685a', marginBottom: 12 }}>{err}</p>
+          <button onClick={() => load(activeType)}
+            style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
+              borderRadius: 4, padding: '8px 20px', cursor: 'pointer', fontFamily: MONO, fontSize: 12 }}>
+            다시 시도
+          </button>
+        </div>
+      )}
+      {current && !isLoading && (
+        <motion.div key={activeType} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {current.cautions.length > 0 && (
+            <p style={{ fontSize: 11, color: 'rgba(251,191,36,0.7)', border: '1px solid rgba(251,191,36,0.2)',
+              borderRadius: 6, padding: '8px 12px', margin: 0 }}>
+              ⚠ {current.cautions.join(' · ')}
+            </p>
+          )}
+          {current.sections.map((s: ReadingSection, i: number) => (
+            <Panel key={i} style={{ padding: 20 }}>
+              <p style={{ fontSize: 10, color: INK.ink45, letterSpacing: 3, fontFamily: MONO,
+                textTransform: 'uppercase', marginBottom: 8 }}>{s.title}</p>
+              <p style={{ fontSize: 14, color: INK.ink70, lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
+            </Panel>
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -289,27 +663,17 @@ function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => v
           <p className="text-sm font-medium text-white">사주 카드 공유</p>
           <button onClick={onClose} className="text-white/40 hover:text-white text-lg leading-none">×</button>
         </div>
-
-        {/* 카드 미리보기 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={ogUrl}
-          alt="사주 카드"
+        <img src={ogUrl} alt="사주 카드"
           className="w-full rounded-xl mb-3 border border-white/8"
-          style={{ aspectRatio: '1 / 1', objectFit: 'cover' }}
-        />
-
+          style={{ aspectRatio: '1 / 1', objectFit: 'cover' }} />
         <div className="flex gap-2">
-          <button
-            onClick={download} disabled={downloading}
-            className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white hover:bg-white/10 transition-colors disabled:opacity-50"
-          >
+          <button onClick={download} disabled={downloading}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white hover:bg-white/10 transition-colors disabled:opacity-50">
             {downloading ? '저장 중...' : '이미지 저장'}
           </button>
-          <button
-            onClick={share}
-            className="flex-1 rounded-xl bg-white/10 py-2.5 text-sm text-white hover:bg-white/15 transition-colors"
-          >
+          <button onClick={share}
+            className="flex-1 rounded-xl bg-white/10 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
             {copied ? '복사됨!' : (typeof navigator !== 'undefined' && 'share' in navigator ? '공유' : 'URL 복사')}
           </button>
         </div>
@@ -319,899 +683,852 @@ function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => v
   );
 }
 
-type ReadingType = 'full' | 'today' | 'love';
-const READING_TYPES: { key: ReadingType; label: string; desc: string }[] = [
-  { key: 'full',  label: '종합',    desc: '성격·연애·직업·세운 전체' },
-  { key: 'today', label: '오늘',    desc: '오늘 일진 기반 하루 흐름' },
-  { key: 'love',  label: '연애',    desc: '연애 스타일과 궁합 유형' },
-];
+// ─── RESULT VIEW ────────────────────────────────────────────────
 
-// ── AI 해석 — 자동 로드 ──
-function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
-  const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+// ── IlganCard ──
+function IlganCard({ result }: { result: SajuUIResult }) {
+  const { m } = useContext(SajuUICtx);
+  const { dayMaster, pillars: fp } = result;
+  const dm = dayMaster.stem;
+  const cg = CHEONGAN_DATA[dm];
+  const ohColor = OH[cg?.oh ?? dayMaster.element]?.color ?? INK.ink;
+  const ohSoft  = OH[cg?.oh ?? dayMaster.element]?.soft ?? 'transparent';
+  const keywords: string[] = dayMaster.profile.keyword ?? ['집중력', '감성', '섬세'];
+  const line = dayMaster.profile.strength ?? '';
+  const sub  = dayMaster.profile.vibe ?? '';
 
-  const current = readings[initialType];
-
-  async function load(type: ReadingType) {
-    if (readings[type]) return;
-    setLoading(true); setErr(null);
-    try {
-      const res = await fetch('/api/saju/reading', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          year: birth.year, month: birth.month, day: birth.day,
-          hour: birth.hour, sex: birth.sex,
-          longitudeE: birth.longitudeE,
-          name: birth.name, concern: birth.concern,
-          tier: 'free', type,
-        }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json() as ReadingResponse;
-      setReadings(prev => ({ ...prev, [type]: data }));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : '알 수 없는 오류');
-    } finally { setLoading(false); }
-  }
-
-  // 마운트 시 자동 로드
-  useEffect(() => { load(initialType); }, [initialType]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 통근
+  const allBranches = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+  const roots = findRoots(dm, allBranches);
 
   return (
-    <div className="space-y-3">
-      {loading && (
-        <div className="flex flex-col items-center gap-3 py-12">
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white/60" />
-          <p className="text-xs text-white/35">해석 중...</p>
-        </div>
-      )}
-
-      {err && !loading && (
-        <div className="py-6 text-center space-y-3">
-          <p className="text-sm text-red-400/70">{err}</p>
-          <button onClick={() => load(initialType)}
-            className="rounded-xl border border-white/10 px-5 py-2 text-xs text-white/50 hover:text-white transition-colors">
-            다시 시도
-          </button>
-        </div>
-      )}
-
-      {current && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-          {current.cautions.length > 0 && (
-            <p className="text-[11px] text-yellow-400/60 rounded-xl border border-yellow-400/15 px-3 py-2">
-              ⚠ {current.cautions.join(' · ')}
-            </p>
-          )}
-          {current.sections.map((s, i) => (
-            <div key={i} className="rounded-2xl border border-white/8 bg-white/[0.02] p-5 space-y-2">
-              <p className="text-[10px] text-white/35 tracking-widest uppercase">{s.title}</p>
-              <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{s.body}</p>
-            </div>
-          ))}
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-// ── 사주 아이덴티티 카드 ──
-function SajuIdentityCard({ dayMaster }: { dayMaster: SajuUIResult['dayMaster'] }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-5">
-      <p className="text-[10px] text-white/30 tracking-widest mb-3">일간 — 나의 핵심 에너지</p>
-      <div className="flex items-center gap-4">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-6xl font-bold leading-none" style={{ color: ELEMENT_COLOR[dayMaster.element] }}>
-            {dayMaster.stem}
-          </span>
-          <div>
-            <p className="text-lg font-semibold text-white/80">{dayMaster.hanja}</p>
-            <p className="text-xs text-white/40">{dayMaster.image}</p>
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="flex flex-wrap gap-1.5 mb-2">
-            {dayMaster.profile.keyword.map(k => (
-              <span key={k} className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs text-white/70">{k}</span>
-            ))}
-          </div>
-          <p className="text-xs text-white/50 leading-relaxed">{dayMaster.profile.core}</p>
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-white/30 italic border-t border-white/5 pt-3">{dayMaster.profile.vibe}</p>
-    </div>
-  );
-}
-
-// ── 오행 설명 데이터 ──
-const ELEMENT_DESC: Record<string, { meaning: string; represents: string }> = {
-  목: { meaning: '성장·방향·추진', represents: '의지, 리더십, 계획력' },
-  화: { meaning: '열정·표현·빛',   represents: '감정, 활기, 표현력' },
-  토: { meaning: '안정·중심·포용', represents: '신뢰, 인내, 현실감각' },
-  금: { meaning: '결단·원칙·완성', represents: '결단력, 완벽주의, 자존심' },
-  수: { meaning: '지혜·유연·흐름', represents: '직관, 생각, 적응력' },
-};
-
-// ── 12운성 ──
-const UNSUNG_NAMES = ['장생','목욕','관대','건록','제왕','쇠','병','사','묘','절','태','양'] as const;
-type Unsung = typeof UNSUNG_NAMES[number];
-const BRANCHES_12 = ['자','축','인','묘','진','사','오','미','신','유','술','해'] as const;
-const UNSUNG_YANG_START: Record<Element, number> = { 목:11, 화:2, 토:2, 금:5, 수:8 };
-const UNSUNG_YIN_START:  Record<Element, number> = { 목:6,  화:9, 토:9, 금:0, 수:3 };
-const UNSUNG_TIER: Record<Unsung, 'good'|'mid'|'bad'> = {
-  장생:'good', 건록:'good', 제왕:'good',
-  관대:'mid',  목욕:'mid',  양:'mid',  태:'mid',
-  쇠:'bad',   병:'bad',   사:'bad',  묘:'bad', 절:'bad',
-};
-
-function getUnsung(stem: Stem, branch: Branch): Unsung {
-  const { yang, element } = STEM_DATA[stem];
-  const brIdx = BRANCHES_12.indexOf(branch as typeof BRANCHES_12[number]);
-  const start = yang ? UNSUNG_YANG_START[element] : UNSUNG_YIN_START[element];
-  const offset = yang ? (brIdx - start + 12) % 12 : (start - brIdx + 12) % 12;
-  return UNSUNG_NAMES[offset];
-}
-
-// ── 공망 ──
-function getGongmang(dayGz: number): Branch[] {
-  const g = Math.floor(dayGz / 10);
-  const pairs: Branch[][] = [['술','해'],['신','유'],['오','미'],['진','사'],['인','묘'],['자','축']];
-  return pairs[g % 6];
-}
-
-// ── 신살 ──
-interface Sinsal { name: string; desc: string; branches: Branch[] }
-
-function calcSinsal(fp: FourPillars): Sinsal[] {
-  const result: Sinsal[] = [];
-  const all = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
-  const yb  = fp.year.branch;
-  const dm  = fp.day.stem;
-
-  // 역마살 (연지 기준)
-  const yeokmaMap: Partial<Record<Branch, Branch>> = {
-    인:'신', 오:'신', 술:'신', 신:'인', 자:'인', 진:'인',
-    사:'해', 유:'해', 축:'해', 해:'사', 묘:'사', 미:'사',
-  };
-  const ym = yeokmaMap[yb];
-  if (ym) { const f = all.filter(b=>b===ym); if(f.length) result.push({ name:'역마살', desc:'이동·변화·활동성', branches:f }); }
-
-  // 도화살 (연지 기준)
-  const dohwaMap: Partial<Record<Branch, Branch>> = {
-    인:'묘', 오:'묘', 술:'묘', 사:'오', 유:'오', 축:'오',
-    신:'유', 자:'유', 진:'유', 해:'자', 묘:'자', 미:'자',
-  };
-  const dh = dohwaMap[yb];
-  if (dh) { const f = all.filter(b=>b===dh); if(f.length) result.push({ name:'도화살', desc:'매력·인기·예술성', branches:f }); }
-
-  // 천을귀인 (일간 기준)
-  const guiMap: Partial<Record<Stem, Branch[]>> = {
-    갑:['축','미'], 무:['축','미'], 경:['축','미'],
-    을:['자','신'], 기:['자','신'],
-    병:['해','유'], 정:['해','유'],
-    신:['인','오'],
-    임:['묘','사'], 계:['묘','사'],
-  };
-  const gt = (guiMap[dm] ?? []) as Branch[];
-  const gf = all.filter(b=>gt.includes(b));
-  if (gf.length) result.push({ name:'천을귀인', desc:'귀인 도움·위기 극복', branches:gf });
-
-  // 양인살 (일간 기준, 양간만)
-  const yanginMap: Partial<Record<Stem, Branch>> = { 갑:'묘', 병:'오', 무:'오', 경:'유', 임:'자' };
-  const yi = yanginMap[dm];
-  if (yi) { const f = all.filter(b=>b===yi); if(f.length) result.push({ name:'양인살', desc:'강한 의지·공격성·고집', branches:f }); }
-
-  // 화개살 (연지 기준)
-  const hwagaeMap: Partial<Record<Branch, Branch>> = {
-    인:'술', 오:'술', 술:'술', 사:'축', 유:'축', 축:'축',
-    신:'진', 자:'진', 진:'진', 해:'미', 묘:'미', 미:'미',
-  };
-  const hw = hwagaeMap[yb];
-  if (hw) { const f = all.filter(b=>b===hw); if(f.length) result.push({ name:'화개살', desc:'예술·종교·고독·집중력', branches:f }); }
-
-  return result;
-}
-
-// ── 타입별 탭 설정 ──
-type TabKey = 'reading' | 'pillars' | 'elements' | 'daeun' | 'monthly' | 'compat';
-const TYPE_TABS: Record<ReadingType, [TabKey, string][]> = {
-  full:  [['reading','✦ AI'],['pillars','사주풀이'],['elements','오행'],['daeun','대운'],['monthly','올해'],['compat','궁합']],
-  today: [['reading','오늘 해석'],['pillars','내 사주']],
-  love:  [['reading','연애 해석'],['compat','궁합'],['pillars','내 사주']],
-};
-
-// ── 심층 분석 패널 (격국·용신·신강약·사령신·합충·통근) ──
-const ELEMENTS = ['목','화','토','금','수'] as const;
-const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as const;
-
-function AdvancedPanel({ advanced, fp }: { advanced: AdvancedAnalysis; fp: FourPillars }) {
-  const { geokGuk, yongSin, bodyStrength, strengths, hapChung } = advanced;
-  const dmEl   = STEM_DATA[fp.day.stem].element;
-  const branches = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
-
-  const pillarsForRoot = [
-    { label: '년간', stem: fp.year.stem },
-    { label: '월간', stem: fp.month.stem },
-    { label: '일간', stem: fp.day.stem },
-    ...(fp.hour ? [{ label: '시간', stem: fp.hour.stem }] : []),
-  ];
-
-  const bodyLabel = bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화';
-  const bodyColor = bodyStrength === 'strong' ? '#fb923c' : bodyStrength === 'weak' ? '#60a5fa' : 'rgba(255,255,255,0.6)';
-  const selfRatio  = Math.round((strengths.ratios[dmEl] ?? 0) * 100);
-
-  const hasHapChung = hapChung.stemCombines.length + hapChung.branchHaps.length + hapChung.branchChungs.length > 0;
-
-  // 12운성
-  const pillarsWithBranch = [
-    { label: '년', stem: fp.year.stem,  branch: fp.year.branch  },
-    { label: '월', stem: fp.month.stem, branch: fp.month.branch },
-    { label: '일', stem: fp.day.stem,   branch: fp.day.branch   },
-    ...(fp.hour ? [{ label: '시', stem: fp.hour.stem, branch: fp.hour.branch }] : []),
-  ];
-
-  // 공망
-  const gongmang = getGongmang(fp.day.gz);
-
-  // 신살
-  const sinsal = calcSinsal(fp);
-
-  return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden divide-y divide-white/5 text-sm">
-
-      {/* 격국 + 용신 */}
-      <div className="grid grid-cols-2 divide-x divide-white/5">
-        <div className="px-4 py-4">
-          <p className="text-[10px] text-white/30 tracking-widest mb-2">격국</p>
-          <p className="text-base font-bold text-white">{geokGuk.name}</p>
-          <p className="text-[11px] text-white/30 mt-1 leading-relaxed">
-            {geokGuk.projected ? '월령 투간 ✓' : '투간 미확인'} · {geokGuk.confidence === 'deterministic' ? '확정' : '추정'}
-          </p>
-        </div>
-        <div className="px-4 py-4">
-          <p className="text-[10px] text-white/30 tracking-widest mb-2">용신 / 기신</p>
-          <div className="flex items-baseline gap-2">
-            <span className="text-base font-bold" style={{ color: ELEMENT_COLOR[yongSin.yongsin] }}>{yongSin.yongsin}</span>
-            <span className="text-white/20">/</span>
-            <span className="text-base font-semibold text-white/25 line-through decoration-white/20">{yongSin.gisin}</span>
-          </div>
-          <p className="text-[11px] text-white/30 mt-1">{yongSin.label}</p>
-        </div>
-      </div>
-
-      {/* 오행 세력 + 신강약 */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] text-white/30 tracking-widest">오행 세력 (가중 분석)</p>
-          <span className="text-xs font-semibold" style={{ color: bodyColor }}>{bodyLabel} — 자비 {selfRatio}%</span>
-        </div>
-        <div className="space-y-1.5">
-          {ELEMENTS.map(el => {
-            const ratio = Math.round((strengths.ratios[el] ?? 0) * 100);
-            const isDm  = el === dmEl;
-            return (
-              <div key={el} className="flex items-center gap-2">
-                <span className="w-4 text-[11px] font-bold shrink-0" style={{ color: ELEMENT_COLOR[el] }}>{el}</span>
-                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }} animate={{ width: `${ratio}%` }}
-                    transition={{ duration: 0.7, ease: 'easeOut' }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: ELEMENT_COLOR[el], opacity: isDm ? 1 : 0.55 }}
-                  />
-                </div>
-                <span className={`text-[11px] w-7 text-right shrink-0 ${isDm ? 'text-white/70 font-semibold' : 'text-white/30'}`}>{ratio}%</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 사령신 */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <p className="text-[10px] text-white/30 tracking-widest">사령신 (당령)</p>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold" style={{ color: ELEMENT_COLOR[strengths.salyeong.element] }}>
-            {strengths.salyeong.stem}({strengths.salyeong.element})
-          </span>
-          <span className="text-xs text-white/40">{POS_LABEL[strengths.salyeong.pos]}</span>
-          <span className="text-[11px] text-white/20">{strengths.salyeong.daysFromJie}일 경과</span>
-        </div>
-      </div>
-
-      {/* 합충 */}
-      {hasHapChung && (
-        <div className="px-4 py-4">
-          <p className="text-[10px] text-white/30 tracking-widest mb-2.5">합 · 충</p>
-          <div className="flex flex-wrap gap-1.5">
-            {hapChung.stemCombines.map((sc, i) => (
-              <div key={i} className={`rounded-lg px-2.5 py-1.5 border text-xs ${sc.formed ? 'border-white/15 bg-white/[0.04]' : 'border-white/7 bg-white/[0.02]'}`}>
-                <span className="text-white/40">천간합 </span>
-                <span className="font-semibold text-white/75">{sc.a}{sc.b}</span>
-                <span className="text-white/30"> → </span>
-                <span style={{ color: ELEMENT_COLOR[sc.transformed] }}>{sc.transformed}화</span>
-                {!sc.formed && <span className="text-white/20 ml-1">(합이불화)</span>}
-              </div>
-            ))}
-            {hapChung.branchHaps.map((bh, i) => (
-              <div key={i} className="rounded-lg px-2.5 py-1.5 border border-white/10 bg-white/[0.03] text-xs">
-                <span className="text-white/40">{bh.type} </span>
-                <span className="font-semibold text-white/75">{bh.branches.join('')}</span>
-                <span className="text-white/30"> → </span>
-                <span style={{ color: ELEMENT_COLOR[bh.element] }}>{bh.element}</span>
-                <span className="text-white/25"> 강화</span>
-              </div>
-            ))}
-            {hapChung.branchChungs.map(([a, b], i) => (
-              <div key={i} className="rounded-lg px-2.5 py-1.5 border border-red-500/15 bg-red-500/[0.04] text-xs">
-                <span className="text-red-400/50">충 </span>
-                <span className="font-semibold text-red-400/75">{a}{b}</span>
-                <span className="text-red-400/40"> — 변동</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 통근 */}
-      <div className="px-4 py-4">
-        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">통근 (천간 뿌리)</p>
-        <div className="space-y-2">
-          {pillarsForRoot.map(({ label, stem }) => {
-            const roots = findRoots(stem, branches);
-            const el    = STEM_DATA[stem].element;
-            return (
-              <div key={label} className="flex items-center gap-2.5">
-                <span className="w-7 text-[11px] text-white/25 shrink-0">{label}</span>
-                <span className="text-sm font-bold w-5 shrink-0" style={{ color: ELEMENT_COLOR[el] }}>{stem}</span>
-                {roots.length > 0 ? (
-                  <div className="flex gap-1 flex-wrap">
-                    {roots.map(r => (
-                      <span key={r.branch + r.pos} className="rounded px-1.5 py-0.5 bg-white/5 border border-white/8 text-[11px] text-white/50">
-                        {r.branch}
-                        <span className="text-white/20 ml-0.5">{POS_LABEL[r.pos][0]}</span>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-white/20">통근 없음</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-[10px] text-white/15 leading-relaxed">
-          정 = 정기근 · 중 = 중기근 · 여 = 여기근. 뿌리 많을수록 해당 오행 안정.
-        </p>
-      </div>
-
-      {/* 12운성 */}
-      <div className="px-4 py-4">
-        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">12운성 (일간 기준)</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {pillarsWithBranch.map(({ label, stem, branch }) => {
-            const u = getUnsung(stem, branch);
-            const tier = UNSUNG_TIER[u];
-            const color = tier === 'good' ? 'text-emerald-400/80 border-emerald-400/20 bg-emerald-400/[0.06]'
-                        : tier === 'mid'  ? 'text-white/50 border-white/10 bg-white/[0.03]'
-                        :                   'text-white/25 border-white/6 bg-white/[0.02]';
-            return (
-              <div key={label} className={`rounded-lg border px-2 py-2 text-center ${color}`}>
-                <p className="text-[9px] text-white/25 mb-0.5">{label}지</p>
-                <p className="text-xs font-semibold">{u}</p>
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-[10px] text-white/15">장생·건록·제왕 = 힘이 활발히 발휘되는 상태</p>
-      </div>
-
-      {/* 공망 */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <p className="text-[10px] text-white/30 tracking-widest">공망 (空亡)</p>
-        <div className="flex items-center gap-2">
-          {gongmang.map(b => {
-            const inChart = branches.includes(b);
-            return (
-              <span key={b} className={`rounded px-2 py-0.5 text-xs border ${inChart ? 'border-amber-400/25 bg-amber-400/[0.07] text-amber-400/70' : 'border-white/8 text-white/25'}`}>
-                {b}{inChart && <span className="ml-0.5 text-[10px]">↑</span>}
-              </span>
-            );
-          })}
-          {branches.some(b => gongmang.includes(b))
-            ? <span className="text-[11px] text-amber-400/50">차트 내 공망 포함</span>
-            : <span className="text-[11px] text-white/20">차트 내 공망 없음</span>
-          }
-        </div>
-      </div>
-
-      {/* 신살 */}
-      {sinsal.length > 0 && (
-        <div className="px-4 py-4">
-          <p className="text-[10px] text-white/30 tracking-widest mb-2.5">신살 (神煞)</p>
-          <div className="flex flex-wrap gap-2">
-            {sinsal.map(s => (
-              <div key={s.name} className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs">
-                <span className="font-semibold text-white/70">{s.name}</span>
-                <span className="text-white/25 ml-0.5">({s.branches.join('')})</span>
-                <p className="text-white/30 mt-0.5">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 지장간 */}
-      <div className="px-4 py-4">
-        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">지장간 (地藏干)</p>
-        <div className="space-y-1.5">
-          {pillarsWithBranch.map(({ label, branch }) => {
-            const hidden = JIJANGGAN[branch as Branch] ?? [];
-            return (
-              <div key={label} className="flex items-center gap-2">
-                <span className="w-5 text-[10px] text-white/25 shrink-0">{label}지</span>
-                <span className="text-sm font-bold shrink-0" style={{ color: ELEMENT_COLOR[BRANCH_DATA[branch as Branch].element] }}>{branch}</span>
-                <div className="flex gap-1 flex-wrap">
-                  {hidden.map(hs => (
-                    <span key={hs.stem + hs.pos} className="flex items-center gap-0.5 rounded px-1.5 py-0.5 bg-white/[0.03] border border-white/6 text-[11px]">
-                      <span style={{ color: ELEMENT_COLOR[STEM_DATA[hs.stem].element] }}>{hs.stem}</span>
-                      <span className="text-white/20">{POS_LABEL[hs.pos as keyof typeof POS_LABEL][0]}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-2 text-[10px] text-white/15">정=본기(정기) · 중=중기 · 여=여기. 지지 안에 숨어있는 천간 에너지.</p>
-      </div>
-
-    </div>
-  );
-}
-
-// ── 내 사주 패널 (사주풀이 + 8자 그리드) ──
-function MySajuPanel({ fp, dayMaster, sipshinMap, advanced, showPillarGrid = true, showSeun = false }: {
-  fp: FourPillars; dayMaster: SajuUIResult['dayMaster'];
-  sipshinMap: SajuUIResult['sipshinMap']; advanced: AdvancedAnalysis;
-  showPillarGrid?: boolean; showSeun?: boolean;
-}) {
-  return (
-    <div className="space-y-4">
-      {showPillarGrid && (
+    <Panel style={{ padding: m ? 22 : 26, display: 'flex', flexDirection: 'column' }}>
+      <KoLabel style={{ color: INK.ink45 }}>나의 핵심 · 日干</KoLabel>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
+        <span style={{ fontSize: m ? 72 : 88, lineHeight: 0.85, fontWeight: 500,
+          color: ohColor, textShadow: `0 0 50px ${ohSoft}`, fontFamily: SERIF }}>
+          {dm}
+        </span>
         <div>
-          <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
-          <div className="grid grid-cols-4 gap-1.5">
-            {fp.hour ? (
-              <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
-            )}
-            <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
-            <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
-            <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
-          </div>
+          <div style={{ fontSize: 22, fontWeight: 300, fontFamily: SERIF, color: INK.ink70 }}>{cg?.han ?? dayMaster.hanja}</div>
+          <div style={{ fontSize: 13.5, color: INK.ink70, marginTop: 6 }}>{cg?.img ?? dayMaster.image}</div>
         </div>
-      )}
-      {showSeun && <SeyunRow dm={fp.day.stem} />}
-
-      {/* 심층 분석 (격국·용신·신강약·사령신·합충·통근) */}
-      <AdvancedPanel advanced={advanced} fp={fp} />
-
-      <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-        <div className="px-5 py-5">
-          <p className="text-sm font-semibold text-white/50 mb-2">강점</p>
-          <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.strength}</p>
-        </div>
-        <div className="border-t border-white/6" />
-        <div className="px-5 py-5">
-          <p className="text-sm font-semibold text-white/50 mb-2">주의점</p>
-          <p className="text-base text-white/85 leading-relaxed">{dayMaster.profile.weakness}</p>
-        </div>
-        <div className="border-t border-white/6" />
-        <div className="px-5 py-5">
-          <p className="text-sm font-semibold text-white/50 mb-1">십신 구성</p>
-          <p className="text-xs text-white/30 mb-4">십신 = 나(일간)와 다른 글자들의 관계. 내 삶에서 어떤 에너지가 어디에 있는지 보여줘.</p>
-          <div className="space-y-4">
-            {([
-              ['년간', sipshinMap.yearStem], ['년지', sipshinMap.yearBranch],
-              ['월간', sipshinMap.monthStem], ['월지', sipshinMap.monthBranch],
-              ['일지', sipshinMap.dayBranch],
-              ...(sipshinMap.hourStem   ? [['시간', sipshinMap.hourStem]]   : []),
-              ...(sipshinMap.hourBranch ? [['시지', sipshinMap.hourBranch]] : []),
-            ] as [string,string|null][]).map(([lbl,name])=> name && (
-              <div key={lbl} className="flex items-start gap-3">
-                <span className="w-9 shrink-0 text-xs text-white/30 pt-0.5">{lbl}</span>
-                <div>
-                  <span className="text-sm font-semibold text-white/85">{name}</span>
-                  <span className="ml-2 text-sm text-white/40">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.short}</span>
-                  <p className="text-xs text-white/40 mt-1 leading-relaxed">{SIPSHIN_DESC[name as keyof typeof SIPSHIN_DESC]?.detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="border-t border-white/6" />
-        <details className="px-5 py-4">
-          <summary className="cursor-pointer text-xs text-white/25">계산 상세 보기</summary>
-          <div className="mt-3 space-y-1 text-xs text-white/35 font-mono">
-            <p>사주년: {fp.trace.sajuYear} (입춘 {fp.trace.ipchunUTC.slice(0,16)} UTC)</p>
-            <p>월 절기: {fp.trace.monthTermName} ({fp.trace.jieUTC.slice(0,16)} UTC)</p>
-            <p>일주 경계: {fp.trace.dayBoundaryRule}{fp.trace.dayRolled?' (익일 적용)':''}</p>
-          </div>
-        </details>
       </div>
-    </div>
-  );
-}
-
-// ── 결과 뷰 ──
-function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; defaultType?: ReadingType }) {
-  const { pillars: fp, dayMaster, elements, sipshinMap } = result;
-  const tabs = TYPE_TABS[defaultType];
-  const [tab, setTab] = useState<TabKey>('reading');
-  const total = elements.reduce((s,e)=>s+e.count,0);
-
-  // today 타입: 오늘 일진 클라이언트 계산
-  const [todayJin, setTodayJin] = useState<{ stem: string; branch: string; color: string } | null>(null);
-  useEffect(() => {
-    if (defaultType !== 'today') return;
-    const now = new Date();
-    loadSeolgi().then(index => {
-      const todayFp = computeFourPillars(index, fromKST(now.getFullYear(), now.getMonth()+1, now.getDate(), null), 'male');
-      const st = todayFp.day.stem;
-      const br = todayFp.day.branch;
-      setTodayJin({ stem: st, branch: br, color: ELEMENT_COLOR[STEM_DATA[st].element] });
-    }).catch(() => {});
-  }, [defaultType]);
-
-  const todayDate = new Date();
-  const todayLabel = `${todayDate.getFullYear()}년 ${todayDate.getMonth()+1}월 ${todayDate.getDate()}일`;
-
-  return (
-    <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.5 }} className="mt-6 space-y-4">
-
-      {/* today: 날짜 + 일진 배너 / full+love: 아이덴티티 카드 */}
-      {defaultType === 'today' ? (
-        <div className="rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] text-white/35 mb-0.5">오늘 일진</p>
-            {todayJin ? (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold" style={{ color: todayJin.color }}>{todayJin.stem}</span>
-                <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[(BRANCH_DATA as Record<string, { element: Element }>)[todayJin.branch]?.element ?? '목'] }}>{todayJin.branch}</span>
-                <span className="text-xs text-white/35 ml-1">일</span>
-              </div>
-            ) : (
-              <div className="h-5 w-12 rounded bg-white/5 animate-pulse" />
-            )}
-          </div>
-          <p className="text-xs text-white/35">{todayLabel}</p>
-        </div>
-      ) : (
-        <SajuIdentityCard dayMaster={dayMaster} />
-      )}
-
-      {/* full 타입: 8자 그리드 + 세운 항상 위에 */}
-      {defaultType === 'full' && (
-        <>
-          <div>
-            <p className="text-[10px] text-white/30 mb-2 px-1">사주 8자 — 각 글자를 눌러 십신 설명 보기</p>
-            <div className="grid grid-cols-4 gap-1.5">
-              {fp.hour ? (
-                <PillarCell label="시" pillar={fp.hour} sipshinStem={sipshinMap.hourStem} sipshinBranch={sipshinMap.hourBranch} />
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-white/5 py-6 text-white/20 text-xs text-center">시간<br/>미상</div>
-              )}
-              <PillarCell label="일" pillar={fp.day}   sipshinBranch={sipshinMap.dayBranch} isDay />
-              <PillarCell label="월" pillar={fp.month} sipshinStem={sipshinMap.monthStem}  sipshinBranch={sipshinMap.monthBranch} />
-              <PillarCell label="년" pillar={fp.year}  sipshinStem={sipshinMap.yearStem}   sipshinBranch={sipshinMap.yearBranch} />
-            </div>
-          </div>
-          <SeyunRow dm={fp.day.stem} />
-        </>
-      )}
-
-      {/* 경계 주의 */}
-      {fp.trace.boundaryCaution && (
-        <p className="text-[11px] text-yellow-400/70 rounded-lg border border-yellow-400/20 px-3 py-2">
-          ⚠ 절기 경계 ±3분 이내 출생 — 월주가 달라질 수 있습니다.
+      <p style={{ fontSize: 14.5, lineHeight: 1.65, margin: '16px 0 10px', color: INK.ink }}>{line}</p>
+      {sub && <p style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 16px', color: INK.ink45, fontStyle: 'italic' }}>"{sub}"</p>}
+      {roots.length > 0 && (
+        <p style={{ fontSize: 12, color: INK.ink28, margin: '0 0 10px', fontFamily: MONO }}>
+          통근: {roots.map(r => r.branch).join(' ')}
         </p>
       )}
-
-      {/* 탭 */}
-      <div className="flex overflow-x-auto rounded-xl border border-white/8 p-0.5 gap-0.5 scrollbar-none">
-        {tabs.map(([key,label])=>(
-          <button key={key} onClick={()=>setTab(key)}
-            className={`shrink-0 flex-1 min-w-[52px] rounded-lg py-2 text-[11px] transition-all ${tab===key?'bg-white/10 text-white':'text-white/50 hover:text-white'}`}>
-            {label}
-          </button>
+      <div style={{ display: 'flex', gap: 7, marginTop: 'auto', flexWrap: 'wrap' }}>
+        {keywords.map((k: string) => (
+          <span key={k} style={{ fontSize: 12.5, color: INK.ink70,
+            border: `1px solid ${INK.cardLine}`, borderRadius: 20, padding: '5px 12px', whiteSpace: 'nowrap' }}>{k}</span>
         ))}
       </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div key={tab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
-
-          {tab==='reading' && <ReadingTab birth={result.birth} initialType={defaultType} />}
-
-          {/* full 타입 사주풀이 탭: 강점/약점/십신 (그리드는 위에 항상 표시) */}
-          {tab==='pillars' && defaultType === 'full' && (
-            <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} advanced={result.advanced} showPillarGrid={false} />
-          )}
-
-          {/* today/love 타입 내 사주 탭: 아이덴티티 카드 + 그리드 + 풀이 + 세운 */}
-          {tab==='pillars' && defaultType !== 'full' && (
-            <div className="space-y-4">
-              <SajuIdentityCard dayMaster={dayMaster} />
-              <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} advanced={result.advanced} showPillarGrid={true} showSeun={true} />
-            </div>
-          )}
-
-          {tab==='elements' && (
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/6">
-                <p className="text-sm font-semibold text-white/80">오행 분포</p>
-                <p className="text-xs text-white/40 mt-1">목·화·토·금·수 다섯 에너지가 내 사주 8글자에 어떻게 퍼져있는지. 많은 오행 = 그 성향이 강함, 없는 오행 = 약점 또는 보완 포인트.</p>
-              </div>
-              <div className="divide-y divide-white/5">
-                {elements.map(({el,count,color,comment})=>(
-                  <div key={el} className="px-5 py-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold" style={{color}}>{el}</span>
-                        <span className="text-sm text-white/50">{ELEMENT_DESC[el]?.meaning}</span>
-                      </div>
-                      <span className="text-sm text-white/40">{count}개 · {Math.round(count/total*100)}%</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5 mb-2">
-                      <motion.div initial={{width:0}} animate={{width:`${count/total*100}%`}} transition={{duration:0.8,ease:'easeOut'}}
-                        className="h-full rounded-full" style={{backgroundColor:color}} />
-                    </div>
-                    <p className="text-xs text-white/40">{ELEMENT_DESC[el]?.represents}</p>
-                    {comment && <p className="mt-2 text-sm text-white/60">{comment}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {tab==='daeun' && (
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/6">
-                <p className="text-sm font-semibold text-white/80">대운 흐름</p>
-                <p className="text-xs text-white/40 mt-1">10년 단위로 바뀌는 큰 운의 흐름. 어떤 에너지가 언제 들어오는지 보여줘.</p>
-              </div>
-              <div className="flex gap-2 overflow-x-auto px-5 py-4">
-                {fp.daeun.map(d=>{
-                  const se = STEM_DATA[d.pillar.stem];
-                  const be = BRANCH_DATA[d.pillar.branch];
-                  return (
-                    <div key={d.startAge} className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 min-w-[72px]">
-                      <span className="text-xs text-white/40">{d.startAge}세~</span>
-                      <span className="text-xl font-bold" style={{color:ELEMENT_COLOR[se.element]}}>{d.pillar.stem}</span>
-                      <span className="text-xl font-bold" style={{color:ELEMENT_COLOR[be.element]}}>{d.pillar.branch}</span>
-                      <span className="text-xs text-white/30">{d.startYear}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {tab==='monthly'  && <MonthlyTab dm={fp.day.stem} />}
-          {tab==='compat'   && <CompatTab myElement={dayMaster.element} />}
-
-        </motion.div>
-      </AnimatePresence>
-    </motion.div>
+    </Panel>
   );
 }
 
-// ── 월운 한 줄 설명 ──
-const MONTH_SIPSHIN_FLAVOR: Record<string, string> = {
-  비견: '독립심이 올라오는 달. 내 페이스대로 밀고 나가기 좋아.',
-  겁재: '경쟁·긴장감 있는 달. 협상이나 계약은 꼼꼼히.',
-  식신: '아이디어·표현력 살아나는 달. 창의적 시도하기 딱 좋아.',
-  상관: '뭔가 튀어나오고 싶은 달. 표현은 자유롭게, 마찰은 조심.',
-  편재: '돈·기회 움직이는 달. 적극적으로 나서면 성과 있어.',
-  정재: '착실하게 쌓이는 달. 저축·정리 정돈에 집중해.',
-  편관: '압박감 있는 달. 버티면 인정받고, 도망치면 반복돼.',
-  정관: '사회적으로 인정받기 좋은 달. 공식적인 자리·평가 긍정적.',
-  편인: '내면으로 들어가는 달. 배움·혼자만의 시간이 에너지 줘.',
-  정인: '지지받고 안정되는 달. 배우거나 준비하는 것들이 쌓여.',
-};
+// ── WonGukCard ──
+function WonGukCard({ result }: { result: SajuUIResult }) {
+  const { m, openDetail } = useContext(SajuUICtx);
+  const { pillars: fp, sipshinMap } = result;
+  const cs = m ? 30 : 42;
 
-// ── 올해 월운 탭 ──
-function MonthlyTab({ dm }: { dm: Stem }) {
-  const today    = new Date();
-  const curYear  = today.getFullYear();
-  const curMonth = today.getMonth() + 1;
+  // 시·일·월·년 순 (디자인 명세)
+  const pillarsDisplay = [
+    { label: '시주', role: '활동·미래', isSelf: false,
+      pillar: fp.hour, sipGan: sipshinMap.hourStem, sipJi: sipshinMap.hourBranch },
+    { label: '일주', role: '나 자신',   isSelf: true,
+      pillar: fp.day,  sipGan: '일간',               sipJi: sipshinMap.dayBranch  },
+    { label: '월주', role: '환경·사회', isSelf: false,
+      pillar: fp.month, sipGan: sipshinMap.monthStem, sipJi: sipshinMap.monthBranch },
+    { label: '년주', role: '뿌리·조상', isSelf: false,
+      pillar: fp.year,  sipGan: sipshinMap.yearStem,  sipJi: sipshinMap.yearBranch  },
+  ];
 
-  // 올해 연간 천간 인덱스
-  const yearGz      = mod(curYear - 4, 60);
-  const yearStemIdx = yearGz % 10;
-  const tigerStem   = TIGER_MONTH_STEM[yearStemIdx % 5];
+  function buildGanPayload(label: string, pillar: Pillar, sipGan: string | null): DetailPayload {
+    const cg = CHEONGAN_DATA[pillar.stem] ?? {};
+    const oh = STEM_DATA[pillar.stem].element;
+    return {
+      head: pillar.stem,
+      han: cg.han ?? null,
+      oh,
+      chips: [`${oh} · ${cg.yy === '양' ? '양(陽)' : '음(陰)'}`, cg.img ?? STEM_DATA[pillar.stem].image],
+      blocks: [
+        { label: `십신 — ${sipGan ?? ''}`, text: SIPSIN_GLOSS[sipGan ?? ''] ?? '' },
+        { label: `${label} · 천간`, text: ROLE_GLOSS[label] ?? '' },
+      ],
+    };
+  }
 
-  const months = Array.from({ length: 13 - curMonth }, (_, i) => {
-    const m          = curMonth + i;
-    const branchIdx  = m % 12;
-    const monthOrder = mod(branchIdx - 2, 12);
-    const stemIdx    = mod(tigerStem + monthOrder, 10);
-    const stem       = STEMS_ARR[stemIdx];
-    const branch     = BRANCHES_ARR[branchIdx];
-    const ss         = getSipshin(dm, stem);
-    const sb         = getBranchSipshin(dm, branch);
-    // 대표 십신: 천간 우선
-    const key        = ss;
-    return { m, stem, branch, ss, sb, flavor: MONTH_SIPSHIN_FLAVOR[key] ?? '' };
-  });
+  function buildJiPayload(label: string, pillar: Pillar, sipJi: string | null): DetailPayload {
+    const jj = JIJI_DATA[pillar.branch] ?? {};
+    const oh = BRANCH_DATA[pillar.branch].element;
+    const jijangItems = (JIJANGGAN[pillar.branch as Branch] ?? []);
+    return {
+      head: pillar.branch,
+      han: jj.han ?? null,
+      oh,
+      chips: [`${oh} · 지지`, `${jj.animal ?? BRANCH_DATA[pillar.branch].animal}띠`],
+      blocks: [
+        { label: `십신 — ${sipJi ?? ''}`, text: SIPSIN_GLOSS[sipJi ?? ''] ?? '' },
+        { label: `${label} · 지지`, text: ROLE_GLOSS[label] ?? '' },
+        { label: '지장간', text: '이 지지 속에 숨은 천간: ' + jijangItems.map(j => `${j.stem}(${POS_LABEL[j.pos]})`).join(' · ') },
+      ],
+    };
+  }
+
+  const wonGukInfoPayload: DetailPayload = {
+    head: '命式', han: '사주 여덟 글자', oh: null,
+    chips: ['년주', '월주', '일주', '시주'],
+    blocks: [
+      { label: '사주 여덟 글자란', text: '태어난 년·월·일·시를 각각 두 글자(천간·지지)로 나타낸 여덟 자. 이 여덟 글자가 사주의 뼈대.' },
+      { label: '일주(日柱) — 나 자신', text: '가장 중심이 되는 기둥. 천간(위)이 나의 본질·일간, 지지(아래)가 내면과 배우자 자리. 모든 해석의 기준.' },
+      { label: '월주(月柱) — 환경·사회', text: '자란 환경, 부모, 직업운이 드러나는 자리. 일간에 가장 큰 영향을 주는 기둥. 格(격)도 여기서 정함.' },
+      { label: '년주(年柱) — 뿌리·조상', text: '태어난 해의 기운. 집안 배경, 어린 시절, 조상의 덕을 읽는 자리.' },
+      { label: '시주(時柱) — 활동·미래', text: '태어난 시의 기운. 내 의지·활동 방향, 자식운, 말년운을 보는 자리.' },
+    ],
+  };
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/6">
-        <p className="text-sm font-semibold text-white/80">{curYear}년 남은 월운</p>
-        <p className="text-xs text-white/40 mt-0.5">일간과 각 달의 월령 관계로 보는 흐름. 절기 기준이라 양력 월 초와 1~7일 차이 있을 수 있어.</p>
+    <Panel style={{ padding: m ? 16 : 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <KoLabel style={{ color: INK.ink45 }}>사주 여덟 글자 · 命式</KoLabel>
+          <button
+            onClick={() => openDetail(wonGukInfoPayload)}
+            style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${INK.ink28}`,
+              background: 'transparent', color: INK.ink28, fontSize: 10, lineHeight: 1,
+              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: MONO, flexShrink: 0 }}>
+            ?
+          </button>
+        </div>
+        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1, color: INK.ink28 }}>글자를 눌러 뜻을 확인하세요</span>
       </div>
-      <div className="divide-y divide-white/5">
-        {months.map(({ m, stem, branch, ss, sb, flavor }) => {
-          const se = STEM_DATA[stem];
-          const be = BRANCH_DATA[branch];
-          const isCurrent = m === curMonth;
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: m ? 6 : 10 }}>
+        {pillarsDisplay.map(({ label, role, isSelf, pillar, sipGan, sipJi }) => {
+          if (!pillar) {
+            return (
+              <div key={label} style={{ borderRadius: 6, border: `1px solid ${INK.hair}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minHeight: 120, textAlign: 'center' }}>
+                <span style={{ fontSize: 11, color: INK.ink28 }}>시간<br/>미상</span>
+              </div>
+            );
+          }
+          const stemEl   = STEM_DATA[pillar.stem].element;
+          const branchEl = BRANCH_DATA[pillar.branch].element;
           return (
-            <div key={m} className={`px-5 py-4 ${isCurrent ? 'bg-white/[0.04]' : ''}`}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 shrink-0 text-center">
-                  <p className={`text-sm font-semibold ${isCurrent ? 'text-white' : 'text-white/50'}`}>{m}월</p>
-                  {isCurrent && <p className="text-[9px] text-white/30">이번달</p>}
-                </div>
-                <div className="flex items-center gap-2 w-20 shrink-0">
-                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[se.element] }}>{stem}</span>
-                  <span className="text-xl font-bold" style={{ color: ELEMENT_COLOR[be.element] }}>{branch}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-white/70">{ss}</span>
-                    <span className="text-[10px] text-white/30">·</span>
-                    <span className="text-xs text-white/40">{sb}</span>
-                  </div>
-                  <p className="text-xs text-white/50 leading-relaxed">{flavor}</p>
-                </div>
+            <div key={label} style={{ borderRadius: 6, overflow: 'hidden',
+              border: `1px solid ${isSelf ? INK.gold + '55' : INK.hair}` }}>
+              <div style={{ textAlign: 'center', padding: '9px 0',
+                background: isSelf ? 'rgba(194,163,91,0.06)' : 'rgba(232,223,200,0.02)' }}>
+                <KoLabel style={{ fontSize: 9.5, letterSpacing: 1.5, color: isSelf ? INK.gold : INK.ink45 }}>{label}</KoLabel>
+                {!m && <div style={{ fontSize: 9.5, color: INK.ink28, marginTop: 2 }}>{role}</div>}
+              </div>
+              <div style={{ textAlign: 'center', padding: m ? '8px 0 9px' : '10px 0 12px',
+                background: isSelf ? 'rgba(194,163,91,0.04)' : 'transparent' }}>
+                <div style={{ fontSize: 11, color: INK.ink45 }}>{sipGan}</div>
+                <TapChar char={pillar.stem} el={stemEl} size={cs}
+                  onTap={() => openDetail(buildGanPayload(label, pillar, sipGan))} />
+                <div style={{ fontSize: 10, color: INK.ink28 }}>{stemEl}</div>
+              </div>
+              <Hair />
+              <div style={{ textAlign: 'center', padding: m ? '9px 0 8px' : '12px 0 11px',
+                background: isSelf ? 'rgba(194,163,91,0.04)' : 'transparent' }}>
+                <TapChar char={pillar.branch} el={branchEl} size={cs}
+                  onTap={() => openDetail(buildJiPayload(label, pillar, sipJi))} />
+                <div style={{ fontSize: 10, color: INK.ink28, marginTop: 2 }}>{branchEl} · {BRANCH_DATA[pillar.branch].animal}</div>
+                <div style={{ fontSize: 11, color: INK.ink45, marginTop: 4 }}>{sipJi}</div>
               </div>
             </div>
           );
         })}
       </div>
+    </Panel>
+  );
+}
+
+// ── ManseTab ──
+function ManseTab({ result }: { result: SajuUIResult }) {
+  const { m, openDetail } = useContext(SajuUICtx);
+  const { pillars: fp, advanced, sipshinMap, dayMaster } = result;
+  const { strengths, bodyStrength, hapChung, geokGuk, yongSin } = advanced;
+  const dmEl = STEM_DATA[fp.day.stem].element;
+  const selfRatio = Math.round((strengths.ratios[dmEl] ?? 0) * 100);
+  const bodyLabel = bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화';
+
+  // 시·일·월·년 순으로 표시 (년→월→일→시를 뒤집기)
+  const pillarsAll = [
+    { label: '년주', stem: fp.year.stem,   branch: fp.year.branch,   sipGan: sipshinMap.yearStem,   sipJi: sipshinMap.yearBranch,  isSelf: false },
+    { label: '월주', stem: fp.month.stem,  branch: fp.month.branch,  sipGan: sipshinMap.monthStem,  sipJi: sipshinMap.monthBranch, isSelf: false },
+    { label: '일주', stem: fp.day.stem,    branch: fp.day.branch,    sipGan: '일간',                 sipJi: sipshinMap.dayBranch,   isSelf: true  },
+    ...(fp.hour ? [{ label: '시주', stem: fp.hour.stem, branch: fp.hour.branch, sipGan: sipshinMap.hourStem, sipJi: sipshinMap.hourBranch, isSelf: false }] : []),
+  ];
+  const allBranches = pillarsAll.map(p => p.branch) as Branch[];
+  const gongmang = getGongmang(fp.day.gz);
+  const sinsal   = calcSinsal(fp);
+
+  const hapParts: string[] = [];
+  hapChung.stemCombines.forEach(sc => hapParts.push(`${sc.a}${sc.b}합→${sc.transformed}${sc.formed ? '' : '(불화)'}`));
+  hapChung.branchHaps.forEach(bh => hapParts.push(`${bh.branches.join('')}${bh.type}→${bh.element}`));
+  hapChung.branchChungs.forEach(([a, b]) => hapParts.push(`${a}${b}충`));
+
+  const gutter = m ? 52 : 86;
+  const cs = m ? 30 : 46;
+  const rowGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: `${gutter}px repeat(4,1fr)` };
+
+  function GutterTerm({ children }: { children: string }) {
+    return (
+      <div style={{ padding: m ? '10px 8px' : '12px 18px', display: 'flex', alignItems: 'center' }}>
+        <Term termKey={children} onOpen={openDetail}>
+          <KoLabel style={{ fontSize: m ? 9.5 : 10.5 }}>{children}</KoLabel>
+        </Term>
+      </div>
+    );
+  }
+
+  function Cell({ children, isSelf, style }: { children: React.ReactNode; isSelf?: boolean; style?: React.CSSProperties }) {
+    return (
+      <div style={{ padding: m ? '10px 4px' : '12px 8px', textAlign: 'center',
+        borderLeft: `1px solid ${INK.hair}`,
+        background: isSelf ? 'rgba(194,163,91,0.04)' : 'transparent', ...style }}>
+        {children}
+      </div>
+    );
+  }
+
+  function buildGanPayload2(label: string, stem: Stem, sipGan: string | null): DetailPayload {
+    const cg = CHEONGAN_DATA[stem] ?? {};
+    const oh = STEM_DATA[stem].element;
+    return {
+      head: stem, han: cg.han ?? null, oh,
+      chips: [`${oh} · ${cg.yy === '양' ? '양(陽)' : '음(陰)'}`, cg.img ?? STEM_DATA[stem].image],
+      blocks: [
+        { label: `십신 — ${sipGan ?? ''}`, text: SIPSIN_GLOSS[sipGan ?? ''] ?? '' },
+        { label: `${label} · 천간`, text: ROLE_GLOSS[label] ?? '' },
+      ],
+    };
+  }
+
+  function buildJiPayload2(label: string, branch: Branch, sipJi: string | null): DetailPayload {
+    const jj = JIJI_DATA[branch] ?? {};
+    const oh = BRANCH_DATA[branch].element;
+    const jijangItems = JIJANGGAN[branch] ?? [];
+    return {
+      head: branch, han: jj.han ?? null, oh,
+      chips: [`${oh} · 지지`, `${jj.animal ?? BRANCH_DATA[branch].animal}띠`],
+      blocks: [
+        { label: `십신 — ${sipJi ?? ''}`, text: SIPSIN_GLOSS[sipJi ?? ''] ?? '' },
+        { label: `${label} · 지지`, text: ROLE_GLOSS[label] ?? '' },
+        { label: '지장간', text: '이 지지 속에 숨은 천간: ' + jijangItems.map(j => `${j.stem}(${POS_LABEL[j.pos]})`).join(' · ') },
+      ],
+    };
+  }
+
+  // 오행 분포 %
+  const active = [fp.year, fp.month, fp.day, ...(fp.hour ? [fp.hour] : [])];
+  const elemCount: Record<Element, number> = { 목:0, 화:0, 토:0, 금:0, 수:0 };
+  for (const p of active) {
+    elemCount[STEM_DATA[p.stem].element]++;
+    elemCount[BRANCH_DATA[p.branch].element]++;
+  }
+  const totalCount = Object.values(elemCount).reduce((s,v)=>s+v,0);
+  const OH_ORDER: Element[] = ['목','화','토','금','수'];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 14 : 20 }}>
+
+      {/* ① 격국·용신·신강약 */}
+      <Panel style={{ padding: m ? '18px 0' : '22px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+          {[
+            { l: '격국',          v: geokGuk.name,                        s: geokGuk.confidence === 'deterministic' ? '확정' : '추정', c: INK.ink },
+            { l: '용신 / 기신',   v: `${yongSin.yongsin} / ${yongSin.gisin}`, s: yongSin.label,               c: OH[yongSin.yongsin]?.color ?? INK.ink },
+            { l: '신강약',        v: bodyLabel,                            s: `자비 ${selfRatio}%`,              c: OH['화']?.color ?? INK.ink },
+          ].map((item, i) => (
+            <div key={item.l} style={{ padding: m ? '2px 12px' : '4px 24px', borderLeft: i ? `1px solid ${INK.hair}` : 'none' }}>
+              <Term termKey={item.l} onOpen={openDetail}>
+                <KoLabel style={{ fontSize: m ? 9 : 10, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>{item.l}</KoLabel>
+              </Term>
+              <div style={{ fontSize: m ? 18 : 26, fontWeight: 600, color: item.c, marginTop: 10, whiteSpace: 'nowrap' }}>{item.v}</div>
+              <div style={{ fontSize: m ? 11 : 12, color: INK.ink45, marginTop: 6 }}>{item.s}</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      {/* ② 오행 분포 */}
+      <Panel style={{ padding: m ? 18 : 24 }}>
+        <Term termKey="오행" onOpen={openDetail}>
+          <KoLabel style={{ color: INK.ink45 }}>오행 분포 · 五行</KoLabel>
+        </Term>
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', border: `1px solid ${INK.cardLine}` }}>
+            {OH_ORDER.map(oh => {
+              const pct = totalCount > 0 ? (elemCount[oh] / totalCount) * 100 : 0;
+              return <div key={oh} style={{ width: `${pct}%`, background: OH[oh]?.color, opacity: 0.85 }} />;
+            })}
+          </div>
+          <div style={{ display: 'flex', marginTop: 12 }}>
+            {OH_ORDER.map(oh => {
+              const pct = totalCount > 0 ? Math.round((elemCount[oh] / totalCount) * 100) : 0;
+              return (
+                <div key={oh} style={{ flex: 1, minWidth: m ? 38 : 46 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: OH[oh]?.color, display: 'inline-block' }} />
+                    <span style={{ fontSize: m ? 13 : 14, fontWeight: 600, color: INK.ink }}>{oh}</span>
+                    {!m && <span style={{ fontSize: 11, color: INK.ink45, fontFamily: MONO }}>{pct}%</span>}
+                  </div>
+                  {m && <div style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO, marginLeft: 12 }}>{pct}%</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </Panel>
+
+      {/* ③ 만세력 테이블 */}
+      <Panel style={{ overflow: 'hidden' }}>
+        {/* 기둥 라벨 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <div />
+          {pillarsAll.map(p => (
+            <div key={p.label} style={{ padding: '11px 0', textAlign: 'center',
+              borderLeft: `1px solid ${INK.hair}`,
+              background: p.isSelf ? 'rgba(194,163,91,0.05)' : 'transparent' }}>
+              <KoLabel style={{ fontSize: 10, letterSpacing: 1.5, color: p.isSelf ? INK.gold : INK.ink45 }}>{p.label}</KoLabel>
+              {!m && <div style={{ fontSize: 10, color: INK.ink28, marginTop: 2 }}>
+                {p.label === '년주' ? '뿌리·조상' : p.label === '월주' ? '환경·사회' : p.label === '일주' ? '나 자신' : '활동·미래'}
+              </div>}
+            </div>
+          ))}
+        </div>
+
+        {/* 천간 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <GutterTerm>천간</GutterTerm>
+          {pillarsAll.map(p => (
+            <Cell key={p.label} isSelf={p.isSelf}>
+              <div style={{ fontSize: m ? 10 : 11, color: INK.ink45 }}>{p.sipGan}</div>
+              <TapChar char={p.stem} el={STEM_DATA[p.stem as Stem].element} size={cs}
+                onTap={() => openDetail(buildGanPayload2(p.label, p.stem as Stem, p.sipGan))} />
+              {!m && <div style={{ fontSize: 10, color: INK.ink28 }}>
+                {STEM_DATA[p.stem as Stem].element} · {CHEONGAN_DATA[p.stem]?.img ?? STEM_DATA[p.stem as Stem].image}
+              </div>}
+            </Cell>
+          ))}
+        </div>
+
+        {/* 지지 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <GutterTerm>지지</GutterTerm>
+          {pillarsAll.map(p => (
+            <Cell key={p.label} isSelf={p.isSelf}>
+              <TapChar char={p.branch} el={BRANCH_DATA[p.branch as Branch].element} size={cs}
+                onTap={() => openDetail(buildJiPayload2(p.label, p.branch as Branch, p.sipJi))} />
+              <div style={{ fontSize: 10, color: INK.ink28, marginTop: 2 }}>
+                {BRANCH_DATA[p.branch as Branch].element} · {BRANCH_DATA[p.branch as Branch].animal}
+              </div>
+              <div style={{ fontSize: m ? 10 : 11, color: INK.ink45, marginTop: 3 }}>{p.sipJi}</div>
+            </Cell>
+          ))}
+        </div>
+
+        {/* 운성 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <GutterTerm>운성</GutterTerm>
+          {pillarsAll.map(p => {
+            const u = getUnsung(p.stem as Stem, p.branch as Branch);
+            return (
+              <Cell key={p.label} isSelf={p.isSelf}>
+                <span style={{ fontSize: m ? 13 : 15, color: u === '장생' ? OH['목']?.color : INK.ink70 }}>{u}</span>
+              </Cell>
+            );
+          })}
+        </div>
+
+        {/* 지장간 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <GutterTerm>지장간</GutterTerm>
+          {pillarsAll.map(p => {
+            const jj = JIJANGGAN[p.branch as Branch] ?? [];
+            return (
+              <Cell key={p.label} isSelf={p.isSelf} style={{ padding: m ? '11px 4px' : '14px 8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                  {jj.map((hs, k) => (
+                    <div key={k} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                      <span style={{ fontSize: m ? 14 : 17, fontWeight: 500, color: INK.ink }}>{hs.stem}</span>
+                      <span style={{ fontSize: 10, color: INK.ink28, fontFamily: MONO }}>{POS_LABEL[hs.pos][0]}</span>
+                    </div>
+                  ))}
+                </div>
+              </Cell>
+            );
+          })}
+        </div>
+
+        {/* 통근 행 */}
+        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+          <GutterTerm>통근</GutterTerm>
+          {pillarsAll.map(p => {
+            const roots = findRoots(p.stem as Stem, allBranches);
+            return (
+              <Cell key={p.label} isSelf={p.isSelf}>
+                {roots.length > 0
+                  ? <span style={{ fontSize: m ? 12 : 14, color: INK.ink70 }}>{roots.map(r => r.branch).join(' ')}</span>
+                  : <span style={{ fontSize: m ? 12 : 14, color: INK.ink28 }}>—</span>}
+              </Cell>
+            );
+          })}
+        </div>
+
+        {/* 메타 행 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: m ? 10 : 16,
+          padding: m ? '13px 16px' : '15px 18px',
+          borderTop: `1px solid ${INK.hair}`, fontSize: m ? 11.5 : 12.5,
+          color: INK.ink45, alignItems: 'baseline' }}>
+          <span>
+            <Term termKey="사령신" onOpen={openDetail}>사령신</Term>{' '}
+            <b style={{ color: OH['목']?.color }}>
+              {strengths.salyeong.stem}({strengths.salyeong.element}) {POS_LABEL[strengths.salyeong.pos]}
+            </b>
+          </span>
+          {hapParts.map((part, i) => <span key={i}>· {part}</span>)}
+          <span>· 공망 {gongmang.join(' · ')}</span>
+          {sinsal.length > 0 && (
+            <>
+              <span>· 신살</span>
+              {sinsal.map(s => <span key={s.name} title={s.desc}>{s.name}({s.branches.join('')})</span>)}
+            </>
+          )}
+        </div>
+      </Panel>
+
+      {/* ④ 강점/주의 */}
+      <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: m ? 12 : 16 }}>
+        <Panel style={{ padding: 22, borderLeft: `2px solid ${OH['목']?.color}` }}>
+          <KoLabel style={{ fontSize: 10, color: OH['목']?.color }}>강점</KoLabel>
+          <div style={{ fontSize: 15, lineHeight: 1.65, color: INK.ink, marginTop: 8 }}>
+            {dayMaster.profile.strength}
+          </div>
+        </Panel>
+        <Panel style={{ padding: 22, borderLeft: `2px solid ${OH['화']?.color}` }}>
+          <KoLabel style={{ fontSize: 10, color: OH['화']?.color }}>주의</KoLabel>
+          <div style={{ fontSize: 15, lineHeight: 1.65, color: INK.ink, marginTop: 8 }}>
+            {dayMaster.profile.weakness}
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
 
-// ── 궁합 탭 ──
-function CompatTab({ myElement }: { myElement: Element }) {
-  const [form, setForm] = useState({ year:'', month:'', day:'' });
+// ── OhaengTab ──
+const OH_MEAN: Record<string, string> = {
+  목: '배움·성장·확장의 기운. 나무처럼 위로 뻗으려 해.',
+  화: '표현·열정·예의 기운. 등불처럼 주변을 밝혀.',
+  토: '안정·중재·신뢰의 기운. 흩어진 걸 모아 현실로 굳혀.',
+  금: '결단·정리·원칙의 기운. 쇠처럼 끊고 다듬어.',
+  수: '지혜·유연·소통의 기운. 물처럼 낮은 곳으로 흘러.',
+};
+
+function OhaengTab({ result }: { result: SajuUIResult }) {
+  const { m, openDetail } = useContext(SajuUICtx);
+  const { elements } = result;
+  const total = elements.reduce((s, e) => s + e.count, 0);
+  const OH_ORDER: Element[] = ['목','화','토','금','수'];
+
+  // 가장 많은 오행과 용신 찾기
+  const topEl = elements.reduce((a, b) => a.count > b.count ? a : b);
+  const { yongSin } = result.advanced;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 12 : 16 }}>
+      <Panel style={{ padding: m ? 20 : 28 }}>
+        <KoLabel style={{ color: INK.ink45 }}>오행의 균형 · 五行</KoLabel>
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', height: 12, borderRadius: 6, overflow: 'hidden', border: `1px solid ${INK.cardLine}` }}>
+            {OH_ORDER.map(oh => {
+              const e = elements.find(el => el.el === oh);
+              const pct = total > 0 && e ? (e.count / total) * 100 : 0;
+              return <div key={oh} style={{ width: `${pct}%`, background: OH[oh]?.color, opacity: 0.85 }} />;
+            })}
+          </div>
+          <div style={{ display: 'flex', marginTop: 12 }}>
+            {OH_ORDER.map(oh => {
+              const e = elements.find(el => el.el === oh);
+              const pct = total > 0 && e ? Math.round((e.count / total) * 100) : 0;
+              return (
+                <div key={oh} style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: OH[oh]?.color, display: 'inline-block' }} />
+                    <span style={{ fontSize: m ? 13 : 14, fontWeight: 600, color: INK.ink }}>{oh}</span>
+                    {!m && <span style={{ fontSize: 11, color: INK.ink45, fontFamily: MONO }}>{pct}%</span>}
+                  </div>
+                  {m && <div style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO, marginLeft: 12 }}>{pct}%</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <p style={{ marginTop: 22, fontSize: m ? 14 : 15, lineHeight: 1.75, color: INK.ink70 }}>
+          <span style={{ color: OH[topEl.el]?.color, fontWeight: 600 }}>{topEl.el}</span>이{' '}
+          {total > 0 ? Math.round((topEl.count / total) * 100) : 0}%로 두드러져.{' '}
+          용신 <span style={{ color: OH[yongSin.yongsin]?.color, fontWeight: 600 }}>{yongSin.yongsin}</span>이{' '}
+          살아야 흐름이 풀리니 이 기운을 의식적으로 키워봐.
+        </p>
+      </Panel>
+      <Panel style={{ overflow: 'hidden' }}>
+        {OH_ORDER.map((oh, i) => {
+          const e = elements.find(el => el.el === oh);
+          const pct = total > 0 && e ? Math.round((e.count / total) * 100) : 0;
+          return (
+            <div key={oh} style={{ display: 'flex', alignItems: 'center', gap: m ? 14 : 20,
+              padding: m ? '15px 18px' : '18px 26px',
+              borderTop: i ? `1px solid ${INK.hair}` : 'none' }}>
+              <div style={{ width: m ? 40 : 52, textAlign: 'center', flex: '0 0 auto' }}>
+                <div style={{ fontSize: m ? 24 : 28, fontWeight: 600, color: OH[oh]?.color, lineHeight: 1 }}>{oh}</div>
+                <div style={{ fontSize: 11, color: INK.ink28, fontFamily: MONO, marginTop: 3 }}>
+                  {CHEONGAN_DATA[oh] ? '' : ''}木火土金水'[i]
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'rgba(232,223,200,0.06)', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: OH[oh]?.color, opacity: 0.85, borderRadius: 4 }} />
+                  </div>
+                  <span style={{ width: 40, textAlign: 'right', fontSize: 14, fontFamily: MONO,
+                    color: pct >= 40 ? OH[oh]?.color : INK.ink45 }}>{pct}%</span>
+                </div>
+                <div style={{ fontSize: m ? 12.5 : 13.5, color: INK.ink70, marginTop: 8 }}>{OH_MEAN[oh]}</div>
+                {e?.comment && <div style={{ fontSize: 13, color: INK.ink45, marginTop: 6 }}>{e.comment}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </Panel>
+    </div>
+  );
+}
+
+// ── DaeunTab ──
+function DaeunTab({ result }: { result: SajuUIResult }) {
+  const { m, openDetail } = useContext(SajuUICtx);
+  const { pillars: fp } = result;
+  const currentYear = new Date().getFullYear();
+
+  // 현재 대운 찾기 (출생년도 기반)
+  const birthYear = fp.trace.sajuYear;
+  const currentAge = currentYear - birthYear;
+
+  return (
+    <Panel style={{ padding: m ? 20 : 28 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        marginBottom: 22, gap: 8, flexWrap: 'wrap' }}>
+        <Term termKey="대운" onOpen={openDetail}>
+          <KoLabel style={{ color: INK.ink45, whiteSpace: 'nowrap' }}>대운 · 大運 — 10년의 흐름</KoLabel>
+        </Term>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: INK.ink45, whiteSpace: 'nowrap' }}>
+          {fp.daeun.length > 0 ? `대운수 ${fp.daeun[0].startAge}` : ''}
+        </span>
+      </div>
+      <div style={{ display: m ? 'flex' : 'grid',
+        gridTemplateColumns: `repeat(${fp.daeun.length}, 1fr)`,
+        gap: 10, overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none', paddingBottom: m ? 4 : 0 }}>
+        {fp.daeun.map(d => {
+          const se = STEM_DATA[d.pillar.stem];
+          const be = BRANCH_DATA[d.pillar.branch];
+          const isCurrent = currentAge >= d.startAge && currentAge < d.startAge + 10;
+          return (
+            <div key={d.startAge}
+              onClick={() => openDetail({
+                head: `${d.pillar.stem}${d.pillar.branch}`, han: null, oh: se.element,
+                chips: [`${d.startAge}세 ~ ${d.startAge + 9}세`, isCurrent ? '현재 대운' : '대운'],
+                blocks: [
+                  { label: `천간 ${d.pillar.stem}`, text: CHEONGAN_DATA[d.pillar.stem]?.img ?? se.image },
+                  { label: `지지 ${d.pillar.branch}`, text: `${be.element} · ${be.animal}` },
+                ],
+              })}
+              style={{ borderRadius: 6, overflow: 'hidden', textAlign: 'center', cursor: 'pointer',
+                flex: m ? '0 0 96px' : 'auto',
+                border: `1px solid ${isCurrent ? INK.gold + '88' : INK.hair}`,
+                background: isCurrent ? 'rgba(194,163,91,0.07)' : 'transparent' }}>
+              <div style={{ padding: '8px 0', borderBottom: `1px solid ${INK.hair}` }}>
+                <span style={{ fontSize: 13, fontFamily: MONO, color: isCurrent ? INK.gold : INK.ink45 }}>{d.startAge}세</span>
+                {isCurrent && <div style={{ fontSize: 9, color: INK.gold, letterSpacing: 1, marginTop: 1 }}>현재</div>}
+              </div>
+              <div style={{ padding: '12px 0 6px' }}>
+                <div style={{ fontSize: 34, fontWeight: 500, fontFamily: SERIF, lineHeight: 1.2, color: OH[se.element]?.color ?? INK.ink }}>{d.pillar.stem}</div>
+                <div style={{ fontSize: 34, fontWeight: 500, fontFamily: SERIF, lineHeight: 1.2, color: OH[be.element]?.color ?? INK.ink }}>{d.pillar.branch}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ marginTop: 22, fontSize: m ? 14 : 14.5, lineHeight: 1.75, color: INK.ink70 }}>
+        대운은 10년 단위로 바뀌는 큰 흐름. 어떤 기운이 들어오는지에 따라 인생의 계절이 달라져.
+      </p>
+    </Panel>
+  );
+}
+
+// ── OlhaeTab ──
+function OlhaeTab({ result }: { result: SajuUIResult }) {
+  const { m } = useContext(SajuUICtx);
+  const dm = result.pillars.day.stem;
+  const currentYear = new Date().getFullYear();
+
+  const { stem: curStem, branch: curBranch } = calcSeyunPillar(currentYear);
+  const { stem: nextStem, branch: nextBranch } = calcSeyunPillar(currentYear + 1);
+
+  const curStemEl   = STEM_DATA[curStem].element;
+  const curBranchEl = BRANCH_DATA[curBranch].element;
+  const nextStemEl  = STEM_DATA[nextStem].element;
+
+  const curSipGan  = getSipshin(dm, curStem);
+  const curSipJi   = getBranchSipshin(dm, curBranch);
+  const nextSipGan = getSipshin(dm, nextStem);
+  const nextSipJi  = getBranchSipshin(dm, nextBranch);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 12 : 16 }}>
+      <Panel style={{ padding: m ? 22 : 28, display: 'flex', flexDirection: m ? 'column' : 'row',
+        gap: m ? 20 : 30, alignItems: m ? 'stretch' : 'center' }}>
+        <div style={{ textAlign: 'center', flex: '0 0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, justifyContent: 'center' }}>
+            <span style={{ fontSize: 14, fontFamily: MONO, color: INK.ink70 }}>{currentYear}</span>
+            <span style={{ fontSize: 11, color: INK.gold, letterSpacing: 1 }}>올해</span>
+          </div>
+          <div style={{ fontSize: 64, fontWeight: 500, fontFamily: SERIF, lineHeight: 1.1, marginTop: 6 }}>
+            <span style={{ color: OH[curStemEl]?.color ?? INK.ink }}>{curStem}</span>
+            <span style={{ color: OH[curBranchEl]?.color ?? INK.ink }}>{curBranch}</span>
+          </div>
+          <div style={{ fontSize: 13, color: INK.ink45, marginTop: 4 }}>{curSipGan} · {curSipJi}</div>
+        </div>
+        <div style={{ width: m ? '100%' : 1, height: m ? 1 : 'auto', alignSelf: 'stretch', background: INK.hair }} />
+        <div>
+          <div style={{ fontSize: m ? 16 : 18, fontWeight: 600, marginBottom: 10, color: INK.ink }}>올해 흐름</div>
+          <p style={{ fontSize: m ? 14.5 : 15.5, lineHeight: 1.8, color: INK.ink70, margin: 0 }}>
+            올해는 <b style={{ color: OH[curStemEl]?.color }}>{curStem}{curBranch}</b>년.{' '}
+            천간 {curSipGan}, 지지 {curSipJi} 기운이 들어와.{' '}
+            이 두 에너지가 나의 사주와 어떻게 만나는지가 올해의 핵심이야.
+          </p>
+        </div>
+      </Panel>
+      <Panel style={{ padding: m ? '18px 22px' : '20px 28px', display: 'flex', alignItems: 'center',
+        justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <KoLabel style={{ fontSize: 10 }}>다음 해 미리보기</KoLabel>
+          <div style={{ fontSize: 13, color: INK.ink45, marginTop: 6 }}>{nextSipGan} · {nextSipJi}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <span style={{ fontSize: 13, fontFamily: MONO, color: INK.ink45 }}>{currentYear + 1}</span>
+          <span style={{ fontSize: 30, fontWeight: 500, fontFamily: SERIF, whiteSpace: 'nowrap' }}>
+            <span style={{ color: OH[nextStemEl]?.color ?? INK.ink }}>{nextStem}</span>
+            {' '}
+            <span style={{ color: OH[BRANCH_DATA[nextBranch].element]?.color ?? INK.ink }}>{nextBranch}</span>
+          </span>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+// ── GunghapTab ──
+function GunghapTab({ result }: { result: SajuUIResult }) {
+  const { m } = useContext(SajuUICtx);
+  const myElement = result.dayMaster.element;
+  const [form, setForm] = useState({ year: '', month: '', day: '' });
   const [res, setRes] = useState<{ compat: ReturnType<typeof getCompat>; dm: string } | null>(null);
 
   async function check() {
-    const y=parseInt(form.year), m=parseInt(form.month), d=parseInt(form.day);
-    if (!y||!m||!d) return;
+    const y=parseInt(form.year), mm=parseInt(form.month), d=parseInt(form.day);
+    if (!y||!mm||!d) return;
     const index = await loadSeolgi();
-    const fp = computeFourPillars(index, fromKST(y,m,d,null), 'male');
-    const otherEl = STEM_DATA[fp.day.stem].element;
-    setRes({ compat: getCompat(myElement, otherEl), dm: `${fp.day.stem}(${STEM_DATA[fp.day.stem].hanja}) · ${otherEl}` });
+    const fp2 = computeFourPillars(index, fromKST(y,mm,d,null), 'male');
+    const otherEl = STEM_DATA[fp2.day.stem].element;
+    setRes({ compat: getCompat(myElement, otherEl), dm: `${fp2.day.stem}(${STEM_DATA[fp2.day.stem].hanja}) · ${otherEl}` });
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-white/40">상대방 생년월일로 일간 오행 기준 궁합을 봅니다.</p>
-      <div className="flex gap-2">
-        {[['년도','year','w-20'],['월','month','w-14'],['일','day','w-14']].map(([ph,k,w])=>(
+    <Panel style={{ padding: m ? '48px 22px' : '64px 28px', textAlign: 'center' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 52, height: 52, borderRadius: 5, border: `1px solid ${INK.gold}55`, color: INK.gold,
+        fontFamily: SERIF, fontSize: 28, fontWeight: 500 }}>合</span>
+      <div style={{ fontSize: m ? 18 : 20, fontWeight: 600, marginTop: 22, color: INK.ink }}>궁합 볼 상대를 더해줘</div>
+      <p style={{ fontSize: m ? 14 : 15, lineHeight: 1.75, color: INK.ink70, maxWidth: 420, margin: '12px auto 28px' }}>
+        상대의 생년월일을 입력하면, 두 사람의 오행이 어떻게 만나는지 읽어줄게.
+      </p>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+        {([['년도','year','80px'],['월','month','60px'],['일','day','60px']] as [string,string,string][]).map(([ph,k,w])=>(
           <input key={k} type="number" placeholder={ph} value={form[k as keyof typeof form]}
             onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
-            className={`${w} rounded-lg border border-white/10 bg-white/5 px-2 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/30`} />
+            style={{ width: w, border: `1px solid ${INK.cardLine}`, background: 'transparent',
+              color: INK.ink, borderRadius: 4, padding: '8px 10px', fontFamily: MONO, fontSize: 13 }} />
         ))}
-        <button onClick={check} className="rounded-lg bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/15 transition-colors">보기</button>
+        <button onClick={check}
+          style={{ background: INK.gold, color: INK.bg, border: 'none', borderRadius: 4,
+            padding: '8px 20px', fontFamily: MONO, fontSize: 12, letterSpacing: 1,
+            cursor: 'pointer', fontWeight: 600 }}>
+          궁합 보기
+        </button>
       </div>
       {res && (
-        <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{res.compat.emoji}</span>
-            <div><span className="text-sm font-bold text-white">{res.compat.level}</span>
-              <span className="ml-2 text-xs text-white/40">{res.dm}</span></div>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 8, padding: '20px 24px',
+            textAlign: 'left', background: INK.card, maxWidth: 420, margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <span style={{ fontSize: 28 }}>{res.compat.emoji}</span>
+            <div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: INK.ink }}>{res.compat.level}</span>
+              <span style={{ marginLeft: 12, fontSize: 12, color: INK.ink45, fontFamily: MONO }}>{res.dm}</span>
+            </div>
           </div>
-          <p className="text-sm text-white/70">{res.compat.comment}</p>
+          <p style={{ fontSize: 14, color: INK.ink70, lineHeight: 1.7, margin: 0 }}>{res.compat.comment}</p>
         </motion.div>
       )}
-    </div>
+    </Panel>
   );
 }
 
-// ── 입력 요약 바 (결과 화면 상단) ──
-function BirthSummary({ birth, dayMaster, onReset }: {
-  birth: BirthParams;
-  dayMaster: SajuUIResult['dayMaster'];
-  onReset: () => void;
-}) {
-  const [showShare, setShowShare] = useState(false);
-  const hourLabel = birth.hour === null ? '모름' : `${birth.hour}시`;
-  const sexLabel  = birth.sex === 'male' ? '남' : '여';
+// ── ResultView ──
+type TabId = 'ai' | 'manse' | 'ohaeng' | 'daeun' | 'olhae' | 'gunghap';
 
-  const shareParams: ShareParams = {
-    stem:     dayMaster.stem,
-    hanja:    dayMaster.hanja,
-    element:  dayMaster.element,
-    image:    dayMaster.image,
-    name:     birth.name ?? '',
-    keywords: dayMaster.profile.keyword.join(','),
-    core:     dayMaster.profile.core,
-  };
+const TABS: { id: TabId; ko: string; mark?: string }[] = [
+  { id: 'ai',      ko: '풀이',   mark: '✦' },
+  { id: 'manse',   ko: '사주풀이' },
+  { id: 'ohaeng',  ko: '오행' },
+  { id: 'daeun',   ko: '대운' },
+  { id: 'olhae',   ko: '올해' },
+  { id: 'gunghap', ko: '궁합' },
+];
+
+function ResultView({ result, defaultType = 'full', onReset, onShare }: {
+  result: SajuUIResult;
+  defaultType?: ReadingType;
+  onReset: () => void;
+  onShare: () => void;
+}) {
+  const m = useIsMobile();
+  const [tab, setTab] = useState<TabId>('manse');
+  const [detail, setDetail] = useState<DetailPayload | null>(null);
+  const { birth, dayMaster } = result;
+
+  const ctx = useMemo(() => ({ m, openDetail: setDetail }), [m]);
+
+  const sexLabel  = birth.sex === 'male' ? '남' : '여';
+  const hourLabel = birth.hour === null ? '시간 미상' : `${birth.hour}시`;
 
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-        className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
-      >
-        <div className="flex items-center gap-3 flex-wrap">
-          {birth.name && (
-            <>
-              <div>
-                <p className="text-[9px] text-white/30 mb-0.5">이름</p>
-                <p className="text-sm font-medium text-white">{birth.name}</p>
-              </div>
-              <div className="h-6 w-px bg-white/8" />
-            </>
-          )}
-          <div>
-            <p className="text-[9px] text-white/30 mb-0.5">성별</p>
-            <p className="text-sm font-medium text-white">{sexLabel}</p>
-          </div>
-          <div className="h-6 w-px bg-white/8" />
-          <div>
-            <p className="text-[9px] text-white/30 mb-0.5">생년월일</p>
-            <p className="text-sm font-medium text-white">{birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')}</p>
-          </div>
-          <div className="h-6 w-px bg-white/8" />
-          <div>
-            <p className="text-[9px] text-white/30 mb-0.5">출생시</p>
-            <p className="text-sm font-medium text-white">{hourLabel}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setShowShare(true)}
-            className="rounded-lg bg-white/8 border border-white/10 px-3 py-1.5 text-[11px] text-white/70 hover:text-white hover:bg-white/12 transition-all">
-            카드 공유
-          </button>
-          <button onClick={onReset}
-            className="rounded-lg border border-white/10 px-3 py-1.5 text-[11px] text-white/50 hover:text-white hover:border-white/20 transition-all">
-            다시입력
-          </button>
-        </div>
-      </motion.div>
+    <SajuUICtx.Provider value={ctx}>
+      <div style={{ background: INK.bg, fontFamily: SERIF, color: INK.ink, minHeight: '100vh' }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: m ? '76px 15px 48px' : '96px 44px 64px', boxSizing: 'border-box' }}>
 
-      <AnimatePresence>
-        {showShare && <ShareModal params={shareParams} onClose={() => setShowShare(false)} />}
-      </AnimatePresence>
-    </>
+          {/* 상단 바 */}
+          <div style={{ display: 'flex', alignItems: m ? 'flex-start' : 'center',
+            justifyContent: 'space-between', flexDirection: m ? 'column' : 'row',
+            gap: m ? 12 : 0, paddingBottom: m ? 18 : 22, borderBottom: `1px solid ${INK.hair}` }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
+              {birth.name && (
+                <span style={{ fontSize: m ? 20 : 22, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', color: INK.ink }}>
+                  {birth.name}
+                </span>
+              )}
+              <span style={{ fontFamily: MONO, fontSize: m ? 10 : 11, color: INK.ink45, whiteSpace: 'nowrap' }}>
+                {sexLabel} · {birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')} · {hourLabel}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flex: '0 0 auto', alignSelf: m ? 'stretch' : 'auto' }}>
+              {[
+                { label: '카드 공유', action: onShare },
+                { label: '다시 입력', action: onReset },
+              ].map(({ label, action }) => (
+                <button key={label} onClick={action}
+                  style={{ flex: m ? 1 : '0 0 auto', textAlign: 'center',
+                    fontFamily: MONO, fontSize: 11, whiteSpace: 'nowrap',
+                    letterSpacing: 1, color: INK.ink45,
+                    border: `1px solid ${INK.cardLine}`, padding: '7px 13px',
+                    borderRadius: 4, background: 'transparent', cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 원국 — 일간카드 + 8자카드 */}
+          <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '380px 1fr',
+            gap: m ? 14 : 24, alignItems: 'stretch', marginTop: m ? 18 : 28 }}>
+            <IlganCard result={result} />
+            <WonGukCard result={result} />
+          </div>
+
+          {/* 탭 바 */}
+          <div style={{ display: 'flex', gap: 4, marginTop: m ? 22 : 32, padding: 5,
+            borderRadius: 10, border: `1px solid ${INK.cardLine}`,
+            background: 'rgba(232,223,200,0.02)',
+            overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
+            {TABS.map(t => {
+              const on = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  style={{ flex: m ? '0 0 auto' : 1, cursor: 'pointer',
+                    border: 'none', borderRadius: 7,
+                    padding: m ? '10px 16px' : '12px 8px', whiteSpace: 'nowrap',
+                    fontFamily: SERIF, fontSize: m ? 14 : 15,
+                    fontWeight: on ? 600 : 400, letterSpacing: 0.5,
+                    transition: 'background-color .18s, color .18s',
+                    backgroundColor: on ? 'rgba(232,223,200,0.10)' : 'rgba(0,0,0,0)',
+                    color: on ? INK.ink : INK.ink45,
+                    boxShadow: on ? `inset 0 0 0 1px rgba(232,223,200,0.10)` : 'none' }}>
+                  {t.mark && <span style={{ color: INK.gold, marginRight: 6, fontSize: 13 }}>{t.mark}</span>}
+                  {t.ko}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 탭 콘텐츠 */}
+          <div style={{ marginTop: m ? 16 : 24 }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                {tab === 'ai'      && (
+                  <Panel style={{ padding: m ? 20 : 28 }}>
+                    <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'} />
+                  </Panel>
+                )}
+                {tab === 'manse'   && <ManseTab result={result} />}
+                {tab === 'ohaeng'  && <OhaengTab result={result} />}
+                {tab === 'daeun'   && <DaeunTab result={result} />}
+                {tab === 'olhae'   && <OlhaeTab result={result} />}
+                {tab === 'gunghap' && <GunghapTab result={result} />}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+        </div>
+      </div>
+
+      <DetailSheet data={detail} onClose={() => setDetail(null)} />
+    </SajuUICtx.Provider>
   );
 }
 
-// ── 타입 카드 데이터 ──
-const TYPE_CARDS: { type: ReadingType; title: string; sub: string }[] = [
-  { type: 'full',  title: '종합 사주',  sub: '성격부터 올해 세운까지 전부' },
-  { type: 'today', title: '오늘의 사주', sub: '오늘 일진으로 보는 하루 흐름' },
-  { type: 'love',  title: '연애운',     sub: '내 연애 패턴과 잘 맞는 상대' },
-];
+// ── 타입 메타 (SEO / 라우팅용) ──
+const TYPE_META: Record<ReadingType, { title: string; sub: string }> = {
+  full:   { title: '종합 풀이',  sub: '성격부터 올해 세운까지' },
+  today:  { title: '오늘의 사주', sub: '오늘 일진으로 보는 하루' },
+  love:   { title: '연애운',     sub: '내 연애 패턴과 스타일' },
+  career: { title: '직업·재물운', sub: '어울리는 일과 재물 성향' },
+};
 
 export type { ReadingType };
 
-// ── 메인 페이지 ──
+// ── 폼 기본값 ──
 const FORM_DEFAULTS = {
   name: '', concern: '',
   year: '', month: '', day: '', hour: '',
@@ -1223,20 +1540,20 @@ const FORM_DEFAULTS = {
   customLon: '',
 };
 
+// ── 메인 페이지 ──
 export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
-  // sessionStorage 복원 + 히스토리에서 온 경우 즉시 계산
   useEffect(() => {
     let pending: { year:number; month:number; day:number; hour:number|null; sex:'male'|'female'; longitudeE:number; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
       if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
-
       const raw = sessionStorage.getItem('saju:pending-compute');
       if (raw) {
         sessionStorage.removeItem('saju:pending-compute');
@@ -1281,7 +1598,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
       setError('시간은 0~23시로 입력하거나 "시간 모름"을 체크하세요.'); setLoading(false); return;
     }
 
-    // 음력 → 양력 변환
     if (form.calType === 'lunar') {
       try {
         const solar = lunarToSolar(y, m, d, form.isLeapMonth);
@@ -1292,8 +1608,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
     }
 
     const longitudeE = getLongitude();
-
-    // 폼 상태 저장 (히스토리에서 돌아올 때 복원)
     try { sessionStorage.setItem('saju:form', JSON.stringify(form)); } catch { /* ignore */ }
 
     try {
@@ -1301,9 +1615,7 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
       const fp = computeFourPillars(index, fromKST(y, m, d, h, 0, longitudeE), form.sex);
       setResult(buildUIResult(fp, {
         year: y, month: m, day: d, hour: h, sex: form.sex,
-        longitudeE,
-        name:    form.name.trim()    || undefined,
-        concern: form.concern.trim() || undefined,
+        longitudeE, name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
       }));
     } catch (err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
@@ -1311,35 +1623,48 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   }
 
   if (result) {
+    const shareParams: ShareParams = {
+      stem:     result.dayMaster.stem,
+      hanja:    result.dayMaster.hanja,
+      element:  result.dayMaster.element,
+      image:    result.dayMaster.image,
+      name:     result.birth.name ?? '',
+      keywords: result.dayMaster.profile.keyword.join(','),
+      core:     result.dayMaster.profile.core,
+    };
+
     return (
-      <main className="mx-auto max-w-2xl px-4 pt-24 pb-20 space-y-4">
-        <BirthSummary birth={result.birth} dayMaster={result.dayMaster} onReset={() => setResult(null)} />
-        <ResultView result={result} defaultType={selectedType} />
-      </main>
+      <>
+        <ResultView
+          result={result}
+          defaultType={selectedType}
+          onReset={() => setResult(null)}
+          onShare={() => setShowShare(true)}
+        />
+        <AnimatePresence>
+          {showShare && <ShareModal params={shareParams} onClose={() => setShowShare(false)} />}
+        </AnimatePresence>
+      </>
     );
   }
 
   return (
     <main className="mx-auto max-w-xl px-5 pt-20 pb-24">
 
-      {/* ── 헤더 ── */}
       <div className="pt-6 pb-10">
         <Link href="/saju" className="inline-flex items-center gap-1.5 text-sm text-white/35 hover:text-white/60 transition-colors mb-6">
-          <span>←</span>
-          <span>사주팔자</span>
+          <span>←</span><span>사주팔자</span>
         </Link>
         <h1 className="text-4xl font-bold tracking-tight text-white">
-          {TYPE_CARDS.find(c => c.type === selectedType)?.title ?? '사주팔자'}
+          {TYPE_META[selectedType]?.title ?? '사주팔자'}
         </h1>
         <p className="mt-2 text-sm text-white/35">
-          {TYPE_CARDS.find(c => c.type === selectedType)?.sub}
+          {TYPE_META[selectedType]?.sub}
         </p>
       </div>
 
-      {/* ── 입력 폼 ── */}
       <form onSubmit={submit} className="space-y-8">
 
-        {/* 이름 + 성별 */}
         <div className="space-y-5">
           <div>
             <label className="text-sm text-white/50 mb-2.5 block">이름 <span className="text-white/25 text-xs">(선택)</span></label>
@@ -1347,7 +1672,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
               onChange={e => set('name', e.target.value)}
               className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
           </div>
-
           <div>
             <label className="text-sm text-white/50 mb-2.5 block">성별</label>
             <div className="flex gap-2">
@@ -1367,7 +1691,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
         <div className="h-px bg-white/[0.06]" />
 
-        {/* 생년월일 */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
             <label className="text-sm text-white/50">생년월일</label>
@@ -1398,7 +1721,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
           )}
         </div>
 
-        {/* 출생 시간 */}
         <div>
           <label className="text-sm text-white/50 mb-2.5 block">태어난 시간</label>
           <div className="flex items-center gap-3">
@@ -1412,7 +1734,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
           </div>
         </div>
 
-        {/* 출생지 */}
         <div>
           <label className="text-sm text-white/50 mb-2.5 block">태어난 곳</label>
           <select value={form.city} onChange={e => set('city', e.target.value)}
@@ -1437,7 +1758,6 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
         <div className="h-px bg-white/[0.06]" />
 
-        {/* 현재 고민 */}
         <div>
           <label className="text-sm text-white/50 mb-2.5 block">지금 가장 궁금한 것 <span className="text-white/25 text-xs">(선택)</span></label>
           <textarea
