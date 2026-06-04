@@ -22,20 +22,30 @@ import { getSipshin } from './sipshin';
 
 export interface SchoolProfile {
   name: string;
-  strongThreshold: number;     // e.g. 0.58
-  weakThreshold:   number;     // e.g. 0.42
+  strongThreshold:    number;     // e.g. 0.58
+  weakThreshold:      number;     // e.g. 0.42
   /** 대운 시작나이 라운딩 규약: 'round'(자평기본) | 'ceil' | 'floor' */
-  daeunRounding:   'round' | 'ceil' | 'floor';
+  daeunRounding:      'round' | 'ceil' | 'floor';
   /** 午未합 화신: '토'(자평진전) | '화'(협기변방서 등 일부) */
-  yukhapOhMi:      '토' | '화';
+  yukhapOhMi:         '토' | '화';
+  /**
+   * 반합(半合) 성립 조건
+   * 'loose' — 삼합 3자 중 2자만 있으면 무조건 반합 (기본, 通說)
+   * 'strict' — 왕지(旺支: 申子辰→子, 寅午戌→午, 巳酉丑→酉, 亥卯未→卯) 포함 시만 반합
+   */
+  halfHapRule:        'loose' | 'strict';
+  /** 종격(從格) 판단 임계값 — 한 오행 비율이 이 값 이상이면 억부 부적용 */
+  jonggyeokThreshold: number;     // e.g. 0.70
 }
 
 export const DEFAULT_SCHOOL: SchoolProfile = {
-  name:            '자평',
-  strongThreshold: 0.58,
-  weakThreshold:   0.42,
-  daeunRounding:   'round',
-  yukhapOhMi:      '토',   // 자평진전 기준
+  name:               '자평',
+  strongThreshold:    0.58,
+  weakThreshold:      0.42,
+  daeunRounding:      'round',
+  yukhapOhMi:         '토',   // 자평진전 기준
+  halfHapRule:        'loose',
+  jonggyeokThreshold: 0.70,
 };
 
 /* ─────────────────────────────────────────
@@ -284,7 +294,13 @@ function detectStemCombines(stems: Stem[], monthEl: Element): StemCombineResult[
   return result;
 }
 
-function detectBranchHaps(branches: Branch[]): BranchHapResult[] {
+// 삼합국별 왕지(旺支): 반합 strict 판정 기준
+// 申子辰→子, 寅午戌→午, 巳酉丑→酉, 亥卯未→卯
+const SAMHAP_WANGJI: Record<string, Branch> = {
+  수: '자', 화: '오', 금: '유', 목: '묘',
+};
+
+function detectBranchHaps(branches: Branch[], school: SchoolProfile = DEFAULT_SCHOOL): BranchHapResult[] {
   const result: BranchHapResult[] = [];
   const brSet = new Set(branches);
 
@@ -294,10 +310,14 @@ function detectBranchHaps(branches: Branch[]): BranchHapResult[] {
   }
   for (const [a, b, c, el] of BRANCH_SAMHAP) {
     const present = [a, b, c].filter(x => brSet.has(x));
-    if (present.length === 3)
+    if (present.length === 3) {
       result.push({ type: '삼합', branches: present, element: el });
-    else if (present.length === 2)
-      result.push({ type: '반합', branches: present, element: el });
+    } else if (present.length === 2) {
+      // strict: 왕지 포함 여부 확인 (포스텔러 등 엄격 학파 설정용)
+      const wangji = SAMHAP_WANGJI[el];
+      const ok = school.halfHapRule === 'loose' || (wangji ? present.includes(wangji) : true);
+      if (ok) result.push({ type: '반합', branches: present, element: el });
+    }
   }
   return result;
 }
@@ -491,9 +511,10 @@ export interface YongSinResult {
   confidence: 'heuristic';
 }
 
-/** 종격 판단: 어느 오행이 70% 이상 지배하면 억부법 부적용 */
-function isJonggyeok(strengths: ElementStrengths): boolean {
-  return (Object.values(strengths.ratios) as number[]).some(r => r >= 0.70);
+/** 종격 판단: 한 오행이 school.jonggyeokThreshold 이상 지배하면 억부법 부적용 */
+function isJonggyeok(strengths: ElementStrengths, school: SchoolProfile): boolean {
+  const threshold = school.jonggyeokThreshold ?? 0.70;
+  return (Object.values(strengths.ratios) as number[]).some(r => r >= threshold);
 }
 
 function jonggyeokYongsin(strengths: ElementStrengths): YongSinResult {
@@ -514,9 +535,10 @@ export function determineYongSin(
   fp:           FourPillars,
   bodyStrength: BodyStrength,
   strengths:    ElementStrengths,
+  school:       SchoolProfile = DEFAULT_SCHOOL,
 ): YongSinResult {
   // 0) 종격 가드 — 억부 자체가 틀리는 케이스 선처리
-  if (isJonggyeok(strengths)) return jonggyeokYongsin(strengths);
+  if (isJonggyeok(strengths, school)) return jonggyeokYongsin(strengths);
 
   // 1) 중화 — 신약으로 흘리지 말고 별도 처리
   if (bodyStrength === 'neutral') {
@@ -605,12 +627,12 @@ export function analyzeAdvanced(
 
   const hapChung: HapChungResult = {
     stemCombines: detectStemCombines(stems, monthEl),
-    branchHaps:   detectBranchHaps(branches),
+    branchHaps:   detectBranchHaps(branches, school),
     branchChungs: detectBranchChungs(branches),
   };
 
   const geokGuk = determineGeokGuk(fp, daysFromJie);
-  const yongSin = determineYongSin(fp, bodyStrength, strengths);
+  const yongSin = determineYongSin(fp, bodyStrength, strengths, school);
 
   return { strengths, bodyStrength, hapChung, geokGuk, yongSin };
 }

@@ -67,22 +67,38 @@ export function latestJieBefore(index: SeolgiIndex, utc: Date): SeolgiRow {
   return best;
 }
 
-/** utc 이후 첫 번째 節 (대운 순행 계산용) */
+/** utc 이후 첫 번째 節 (대운 순행 계산용) — O(log n) */
 export function nextJieAfter(index: SeolgiIndex, utc: Date): SeolgiRow {
   const ts = utc.toISOString();
-  return index.jie.find(r => r.instant_utc > ts) ?? index.jie[index.jie.length - 1];
+  const arr = index.jie;
+  let lo = 0, hi = arr.length - 1, bestIdx = arr.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid].instant_utc > ts) { bestIdx = mid; hi = mid - 1; }
+    else lo = mid + 1;
+  }
+  return arr[bestIdx];
 }
 
-/** utc 이전 두 번째 節 (대운 역행 계산용: 직전 節) */
+/**
+ * utc 직전 節 (대운 역행 계산용).
+ *
+ * 역행 대운: birth → 직전 절기까지 일수 ÷ 3 = 교운나이.
+ * 직전 절기 = birthUTC보다 엄격히 이전(< ts)인 절기 중 가장 최근.
+ * (latestJieBefore는 ≤ 비교로 월주 판정에 쓰이고,
+ *  대운 역행에서는 출생 순간의 절기를 거리 0으로 처리하지 않기 위해 < 사용)
+ *
+ * 버그 수정: 이전 구현은 경로 추적형 second 변수를 써서
+ * 이진 탐색이 건너뛴 노드를 두 번째로 오인했음 → bestIdx - 1 방식으로 교체.
+ */
 export function prevJieBefore(index: SeolgiIndex, utc: Date): SeolgiRow {
   const ts = utc.toISOString();
   const arr = index.jie;
-  let lo = 0, hi = arr.length - 1;
-  let first: SeolgiRow | null = null, second: SeolgiRow | null = null;
+  let lo = 0, hi = arr.length - 1, bestIdx = 0;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (arr[mid].instant_utc < ts) { second = first; first = arr[mid]; lo = mid + 1; }
+    if (arr[mid].instant_utc < ts) { bestIdx = mid; lo = mid + 1; }
     else hi = mid - 1;
   }
-  return second ?? arr[0];
+  return arr[bestIdx];
 }

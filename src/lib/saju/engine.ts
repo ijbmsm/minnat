@@ -48,8 +48,11 @@ export interface BirthInput {
 }
 
 export interface Daeun {
-  startAge:    number;
-  startMonths: number;  // 소수 나이의 월 부분 (0~11) — "5년 8개월" 표기용
+  startAge:    number;  // 교운나이 (반올림, 학파 기본값)
+  /** 표시용 세: floor(exactYears). startAge와 기준 다름 — "5세 10개월" 표기에 사용 */
+  startDisplayYear:  number;
+  /** 표시용 월: 0~11. startDisplayYear 기준 나머지 개월 수 */
+  startMonths: number;
   startYear:   number;
   pillar:      Pillar;
 }
@@ -168,9 +171,14 @@ function calcDaeun(
   const prevJie = prevJieBefore(index, birthUTC);
   const refUTC    = forward ? new Date(nextJie.instant_utc) : new Date(prevJie.instant_utc);
   const days      = Math.abs(refUTC.getTime() - birthUTC.getTime()) / 86_400_000;
-  const exactYears = days / 3;
-  const startAge  = Math.round(exactYears);
-  const startMonths = Math.round((exactYears - Math.floor(exactYears)) * 12);
+  const exactYears  = days / 3;
+  // 교운나이: 사주 관습상 반올림 (학파별 ceil/floor 변형은 SchoolProfile.daeunRounding 참조)
+  const startAge    = Math.round(exactYears);
+  // 표시용 세/월: floor 기준 분리 (startAge와 기준점 다름 주의)
+  // "5세 10개월"처럼 표기 — 12개월 월이 생기면 +1년 0개월로 올림
+  let displayYear   = Math.floor(exactYears);
+  let startMonths   = Math.round((exactYears - displayYear) * 12);
+  if (startMonths === 12) { displayYear += 1; startMonths = 0; }
 
   const mStemIdx   = STEMS.indexOf(monthPillar.stem);
   const mBranchIdx = BRANCHES.indexOf(monthPillar.branch);
@@ -183,10 +191,11 @@ function calcDaeun(
     const stemI = STEMS.indexOf(stem);
     const branchI = BRANCHES.indexOf(branch);
     result.push({
-      startAge:    startAge + (n - 1) * 10,
-      startMonths: n === 1 ? startMonths : 0,
-      startYear:   sajuYear + startAge + (n - 1) * 10,
-      pillar:      { stem, branch, gz: mod(stemI * 6 - branchI * 5, 60) },
+      startAge:         startAge + (n - 1) * 10,
+      startDisplayYear: n === 1 ? displayYear : startAge + (n - 1) * 10,
+      startMonths:      n === 1 ? startMonths : 0,
+      startYear:        sajuYear + startAge + (n - 1) * 10,
+      pillar:           { stem, branch, gz: mod(stemI * 6 - branchI * 5, 60) },
     });
   }
   return result;
