@@ -154,14 +154,14 @@ export function buildFactSheet(
   fp: FourPillars,
   tier: 'free' | 'paid' = 'free',
   readingType: 'full' | 'today' | 'love' | 'career' = 'full',
-  opts: { name?: string; concern?: string; daysFromJie?: number } = {},
+  opts: { name?: string; concern?: string; daysFromJie?: number; applyHapHwa?: boolean } = {},
 ): SajuFactSheet {
   const dm       = fp.day.stem;
   const dmData   = STEM_DATA[dm];
   const dmProfile = DAY_MASTER_PROFILE[dm];
 
   // ── advanced 분석 ──
-  const adv = analyzeAdvanced(fp, opts.daysFromJie ?? 15);
+  const adv = analyzeAdvanced(fp, opts.daysFromJie ?? 15, undefined, opts.applyHapHwa ?? false);
 
   // ── 주 배열 ──
   const rawPillars: Array<[typeof fp.year, '년' | '월' | '일' | '시']> = [

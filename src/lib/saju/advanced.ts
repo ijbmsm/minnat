@@ -296,17 +296,51 @@ export function calcElementStrengths(
   fp:           FourPillars,
   daysFromJie:  number,
   school:       SchoolProfile = DEFAULT_SCHOOL,
+  applyHapHwa:  boolean = false,
 ): ElementStrengths {
   const monthEl = BRANCH_DATA[fp.month.branch].element;
   const scores: Record<Element, number> = { 목:0, 화:0, 토:0, 금:0, 수:0 };
   const salyeong = calcSalyeong(fp.month.branch, daysFromJie);
 
   const pillars = [fp.year, fp.month, fp.day, ...(fp.hour ? [fp.hour] : [])];
+  const stems   = pillars.map(p => p.stem) as Stem[];
   const branches = pillars.map(p => p.branch) as Branch[];
+
+  // 합화 적용 시: 성립한 합에 참여하는 천간/지지 추적
+  const hapStemOverride  = new Map<Stem, Element>(); // 천간합화 성립 시 오행 교체
+  const hapBranchBoost   = new Map<Branch, Element>(); // 지지합 성립 시 강화 오행
+
+  if (applyHapHwa) {
+    // 천간합화 — formed=true인 것만 적용
+    for (const [a, b, transformedEl] of STEM_COMBINE) {
+      const ai = stems.indexOf(a), bi = stems.indexOf(b);
+      if (ai === -1 || bi === -1 || Math.abs(ai - bi) > 2) continue;
+      if (getSeasonCoeff(transformedEl, monthEl) >= 1.2) {
+        hapStemOverride.set(a, transformedEl);
+        hapStemOverride.set(b, transformedEl);
+      }
+    }
+
+    // 지지합 — 육합/삼합(완전삼합만) 적용
+    const brSet = new Set(branches);
+    for (const [a, b, el] of BRANCH_YUKHAP) {
+      if (brSet.has(a) && brSet.has(b)) {
+        hapBranchBoost.set(a, el);
+        hapBranchBoost.set(b, el);
+      }
+    }
+    for (const [a, b, c, el] of BRANCH_SAMHAP) {
+      if (brSet.has(a) && brSet.has(b) && brSet.has(c)) {
+        hapBranchBoost.set(a, el);
+        hapBranchBoost.set(b, el);
+        hapBranchBoost.set(c, el);
+      }
+    }
+  }
 
   // 1) 천간 기여: w=1.0 × 왕상휴수 × 통근 × 사령
   for (const p of pillars) {
-    const el = STEM_DATA[p.stem].element;
+    const el = hapStemOverride.get(p.stem) ?? STEM_DATA[p.stem].element;
     const season   = getSeasonCoeff(el, monthEl);
     const root     = bestRootBonus(p.stem, branches);
     const salyeongB = salyeong.element === el ? 1.3 : 1.0;
@@ -315,6 +349,15 @@ export function calcElementStrengths(
 
   // 2) 지지 지장간 기여: 각 hidden stem 가중 × 왕상휴수 × 사령
   for (const branch of branches) {
+    // 합화 지지: 합화 오행으로 추가 점수 부여 (지장간 외 +0.5)
+    if (applyHapHwa) {
+      const boostEl = hapBranchBoost.get(branch);
+      if (boostEl) {
+        const season = getSeasonCoeff(boostEl, monthEl);
+        const salyeongB = salyeong.element === boostEl ? 1.3 : 1.0;
+        scores[boostEl] += 0.5 * season * salyeongB;
+      }
+    }
     for (const hs of JIJANGGAN[branch]) {
       const el = STEM_DATA[hs.stem].element;
       const season   = getSeasonCoeff(el, monthEl);
@@ -464,11 +507,12 @@ export interface AdvancedAnalysis {
 }
 
 export function analyzeAdvanced(
-  fp:          FourPillars,
-  daysFromJie: number = 15,
-  school:      SchoolProfile = DEFAULT_SCHOOL,
+  fp:           FourPillars,
+  daysFromJie:  number = 15,
+  school:       SchoolProfile = DEFAULT_SCHOOL,
+  applyHapHwa:  boolean = false,
 ): AdvancedAnalysis {
-  const strengths    = calcElementStrengths(fp, daysFromJie, school);
+  const strengths    = calcElementStrengths(fp, daysFromJie, school, applyHapHwa);
   const bodyStrength = calcBodyStrength(fp, strengths, school);
 
   const stems    = [fp.year.stem, fp.month.stem, fp.day.stem, ...(fp.hour ? [fp.hour.stem] : [])] as Stem[];

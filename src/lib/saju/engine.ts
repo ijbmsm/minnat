@@ -247,6 +247,7 @@ export function fromKST(
   kstHour: number | null,
   kstMinute = 0,
   longitudeE = 127.0,
+  dayBoundaryRule: DayBoundaryRule = 'midnight',
 ): BirthInput {
   // KST → UTC (KST = UTC+9)
   const birthUTC = new Date(Date.UTC(kstYear, kstMonth - 1, kstDay,
@@ -279,5 +280,6 @@ export function fromKST(
       day:   adjustedDate.getUTCDate(),
     },
     solarTime: { hour, minute },
+    dayBoundaryRule,
   };
 }

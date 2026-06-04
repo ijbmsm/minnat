@@ -27,8 +27,9 @@ export function calcSajuServer(
   sex: 'male' | 'female',
   longitudeE = 127.0,
   minute = 0,
+  dayBoundaryRule: 'midnight' | 'zi_hour' = 'midnight',
 ): FourPillars {
   const index = getSeolgiIndex();
-  const birth = fromKST(year, month, day, hour, minute, longitudeE);
+  const birth = fromKST(year, month, day, hour, minute, longitudeE, dayBoundaryRule);
   return computeFourPillars(index, birth, sex);
 }

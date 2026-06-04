@@ -25,9 +25,11 @@ const RequestSchema = z.object({
   year:        z.number().int().min(1880).max(2100),
   month:       z.number().int().min(1).max(12),
   day:         z.number().int().min(1).max(31),
-  hour:        z.number().int().min(0).max(23).nullable(),
-  minute:      z.number().int().min(0).max(59).default(0),
-  sex:         z.enum(['male', 'female']),
+  hour:             z.number().int().min(0).max(23).nullable(),
+  minute:           z.number().int().min(0).max(59).default(0),
+  dayBoundaryRule:  z.enum(['midnight', 'zi_hour']).default('midnight'),
+  applyHapHwa:      z.boolean().default(false),
+  sex:              z.enum(['male', 'female']),
   tier:        z.enum(['free', 'paid']).default('free'),
   type:        z.enum(['full', 'today', 'love', 'career']).default('full'),
   longitudeE:  z.number().min(-180).max(180).default(127.0),
@@ -352,12 +354,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: '잘못된 요청 형식' }, { status: 400 });
   }
 
-  const { year, month, day, hour, minute, sex, tier, type, longitudeE, name, concern } = body;
+  const { year, month, day, hour, minute, dayBoundaryRule, sex, tier, type, longitudeE, name, concern, applyHapHwa } = body;
 
   // 사주 계산 (서버, 파일시스템)
   let fp;
   try {
-    fp = calcSajuServer(year, month, day, hour, sex, longitudeE, minute);
+    fp = calcSajuServer(year, month, day, hour, sex, longitudeE, minute, dayBoundaryRule);
   } catch (err) {
     return NextResponse.json({ error: `사주 계산 오류: ${err instanceof Error ? err.message : err}` }, { status: 500 });
   }
@@ -366,7 +368,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const jieMs       = new Date(fp.trace.jieUTC).getTime();
   const birthApprox = Date.UTC(year, month - 1, day, hour ?? 12, minute, 0);
   const daysFromJie = Math.max(0, Math.round((birthApprox - jieMs) / 86_400_000));
-  const fs = buildFactSheet(fp, tier, type, { name, concern, daysFromJie });
+  const fs = buildFactSheet(fp, tier, type, { name, concern, daysFromJie, applyHapHwa: applyHapHwa ?? false });
 
   // 오늘의 사주: 일진 계산 (KST 기준)
   let todayPillar: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } | undefined;

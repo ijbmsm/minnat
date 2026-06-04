@@ -339,6 +339,8 @@ interface BirthParams {
   hour: number | null; minute: number;
   sex: 'male' | 'female';
   longitudeE: number;
+  dayBoundaryRule: 'midnight' | 'zi_hour';
+  applyHapHwa: boolean;
   name?: string;
   concern?: string;
 }
@@ -391,7 +393,7 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
   const jieMs   = new Date(fp.trace.jieUTC).getTime();
   const birthMs = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, birth.minute, 0);
   const daysFromJie = Math.max(0, Math.round((birthMs - jieMs) / 86_400_000));
-  const advanced = analyzeAdvanced(fp, daysFromJie);
+  const advanced = analyzeAdvanced(fp, daysFromJie, undefined, birth.applyHapHwa);
 
   return {
     pillars: fp,
@@ -506,6 +508,7 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
         body: JSON.stringify({
           year: birth.year, month: birth.month, day: birth.day,
           hour: birth.hour, minute: birth.minute, sex: birth.sex, longitudeE: birth.longitudeE,
+          dayBoundaryRule: birth.dayBoundaryRule, applyHapHwa: birth.applyHapHwa,
           name: birth.name, concern: birth.concern, tier: 'free', type: initialType,
         }),
       });
@@ -1496,6 +1499,8 @@ const FORM_DEFAULTS = {
   isLeapMonth: false,
   city: '서울',
   customLon: '',
+  dayBoundaryRule: 'midnight' as 'midnight' | 'zi_hour',
+  applyHapHwa: false,
 };
 
 // ── 메인 페이지 ──
@@ -1508,7 +1513,7 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
-    let pending: { year:number; month:number; day:number; hour:number|null; minute:number; sex:'male'|'female'; longitudeE:number; name?:string; concern?:string } | null = null;
+    let pending: { year:number; month:number; day:number; hour:number|null; minute:number; sex:'male'|'female'; longitudeE:number; dayBoundaryRule:'midnight'|'zi_hour'; applyHapHwa:boolean; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
       if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
@@ -1523,8 +1528,8 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
       const p = pending;
       setError(null); setLoading(true);
       loadSeolgi().then(index => {
-        const fp = computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, p.minute ?? 0, p.longitudeE), p.sex);
-        setResult(buildUIResult(fp, { year:p.year, month:p.month, day:p.day, hour:p.hour, minute:p.minute??0, sex:p.sex, longitudeE:p.longitudeE, name:p.name, concern:p.concern }));
+        const fp = computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, p.minute ?? 0, p.longitudeE, p.dayBoundaryRule ?? 'midnight'), p.sex);
+        setResult(buildUIResult(fp, { year:p.year, month:p.month, day:p.day, hour:p.hour, minute:p.minute??0, sex:p.sex, longitudeE:p.longitudeE, dayBoundaryRule:p.dayBoundaryRule??'midnight', applyHapHwa:p.applyHapHwa??false, name:p.name, concern:p.concern }));
       }).catch(err => {
         setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
       }).finally(() => setLoading(false));
@@ -1574,10 +1579,11 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
 
     try {
       const index = await loadSeolgi();
-      const fp = computeFourPillars(index, fromKST(y, m, d, h, min, longitudeE), form.sex);
+      const fp = computeFourPillars(index, fromKST(y, m, d, h, min, longitudeE, form.dayBoundaryRule), form.sex);
       setResult(buildUIResult(fp, {
         year: y, month: m, day: d, hour: h, minute: min, sex: form.sex,
-        longitudeE, name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
+        longitudeE, dayBoundaryRule: form.dayBoundaryRule, applyHapHwa: form.applyHapHwa,
+        name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
       }));
     } catch (err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
@@ -1720,6 +1726,44 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
               step="0.1" min="-180" max="180"
               className="mt-2 w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
           )}
+        </div>
+
+        {/* 고급 설정 */}
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+          <p className="text-xs text-white/30 mb-3">고급 설정 <span className="text-white/20">(선택)</span></p>
+
+          {/* 야자시/조자시 */}
+          <label className={`flex items-start gap-3 cursor-pointer ${form.unknownHour ? 'opacity-30 pointer-events-none' : ''}`}>
+            <div className="relative mt-0.5 flex-shrink-0">
+              <input type="checkbox"
+                checked={form.dayBoundaryRule === 'zi_hour'}
+                disabled={form.unknownHour}
+                onChange={e => set('dayBoundaryRule', e.target.checked ? 'zi_hour' : 'midnight')}
+                className="sr-only" />
+              <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'bg-white/30' : 'bg-white/10'}`} />
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'translate-x-4' : ''}`} />
+            </div>
+            <div>
+              <p className="text-sm text-white/60 leading-tight">자시 전체를 다음날 일주로</p>
+              <p className="text-xs text-white/25 mt-0.5 leading-snug">진태양시 23시 이후 출생 → 익일 일주 적용. 자시설(子時說).</p>
+            </div>
+          </label>
+
+          {/* 합화 오행 변화 */}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <div className="relative mt-0.5 flex-shrink-0">
+              <input type="checkbox"
+                checked={form.applyHapHwa}
+                onChange={e => set('applyHapHwa', e.target.checked)}
+                className="sr-only" />
+              <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.applyHapHwa ? 'bg-white/30' : 'bg-white/10'}`} />
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.applyHapHwa ? 'translate-x-4' : ''}`} />
+            </div>
+            <div>
+              <p className="text-sm text-white/60 leading-tight">합에 따른 오행 변화 반영</p>
+              <p className="text-xs text-white/25 mt-0.5 leading-snug">천간합화 성립 시 화신 오행으로 대체. 지지합 강화 오행 추가 반영.</p>
+            </div>
+          </label>
         </div>
 
         <div className="h-px bg-white/[0.06]" />
