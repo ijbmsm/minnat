@@ -8,9 +8,10 @@ import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/li
 import { STEM_DATA, BRANCH_DATA, ELEMENT_COLOR, SIPSHIN_DESC, getCompat } from "@/lib/saju";
 import { getSipshin, getBranchSipshin } from "@/lib/saju/sipshin";
 import { DAY_MASTER_PROFILE, ELEMENT_COMMENT } from "@/lib/saju/interpret";
-import type { Element, Stem } from "@/lib/saju/constants";
+import type { Element, Stem, Branch } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 import { lunarToSolar } from "@/lib/saju/lunar";
+import { analyzeAdvanced, findRoots, type AdvancedAnalysis } from "@/lib/saju/advanced";
 
 // ── 월운 계산용 상수 ──
 const TIGER_MONTH_STEM = [2, 4, 6, 8, 0] as const; // 오호둔
@@ -77,6 +78,7 @@ interface SajuUIResult {
   elements: { el: Element; count: number; color: string; comment: string | null }[];
   sipshinMap: Record<string, string | null>;
   birth: BirthParams;
+  advanced: AdvancedAnalysis;
 }
 
 function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
@@ -112,12 +114,19 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
     hourBranch:        fp.hour ? getBranchSipshin(dm, fp.hour.branch) : null,
   };
 
+  // advanced 분석 (사령·통근·격국·용신)
+  const jieMs    = new Date(fp.trace.jieUTC).getTime();
+  const birthMs  = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, 0, 0);
+  const daysFromJie = Math.max(0, Math.round((birthMs - jieMs) / 86_400_000));
+  const advanced = analyzeAdvanced(fp, daysFromJie);
+
   return {
     pillars: fp,
     dayMaster: { stem: dm, hanja: dmData.hanja, element: dmData.element, image: dmData.image, profile: DAY_MASTER_PROFILE[dm] },
     elements,
     sipshinMap,
     birth,
+    advanced,
   };
 }
 
@@ -439,10 +448,166 @@ const TYPE_TABS: Record<ReadingType, [TabKey, string][]> = {
   love:  [['reading','연애 해석'],['compat','궁합'],['pillars','내 사주']],
 };
 
+// ── 심층 분석 패널 (격국·용신·신강약·사령신·합충·통근) ──
+const ELEMENTS = ['목','화','토','금','수'] as const;
+const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as const;
+
+function AdvancedPanel({ advanced, fp }: { advanced: AdvancedAnalysis; fp: FourPillars }) {
+  const { geokGuk, yongSin, bodyStrength, strengths, hapChung } = advanced;
+  const dmEl   = STEM_DATA[fp.day.stem].element;
+  const branches = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+
+  const pillarsForRoot = [
+    { label: '년간', stem: fp.year.stem },
+    { label: '월간', stem: fp.month.stem },
+    { label: '일간', stem: fp.day.stem },
+    ...(fp.hour ? [{ label: '시간', stem: fp.hour.stem }] : []),
+  ];
+
+  const bodyLabel = bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화';
+  const bodyColor = bodyStrength === 'strong' ? '#fb923c' : bodyStrength === 'weak' ? '#60a5fa' : 'rgba(255,255,255,0.6)';
+  const selfRatio  = Math.round((strengths.ratios[dmEl] ?? 0) * 100);
+
+  const hasHapChung = hapChung.stemCombines.length + hapChung.branchHaps.length + hapChung.branchChungs.length > 0;
+
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden divide-y divide-white/5 text-sm">
+
+      {/* 격국 + 용신 */}
+      <div className="grid grid-cols-2 divide-x divide-white/5">
+        <div className="px-4 py-4">
+          <p className="text-[10px] text-white/30 tracking-widest mb-2">격국</p>
+          <p className="text-base font-bold text-white">{geokGuk.name}</p>
+          <p className="text-[11px] text-white/30 mt-1 leading-relaxed">
+            {geokGuk.projected ? '월령 투간 ✓' : '투간 미확인'} · {geokGuk.confidence === 'deterministic' ? '확정' : '추정'}
+          </p>
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-[10px] text-white/30 tracking-widest mb-2">용신 / 기신</p>
+          <div className="flex items-baseline gap-2">
+            <span className="text-base font-bold" style={{ color: ELEMENT_COLOR[yongSin.yongsin] }}>{yongSin.yongsin}</span>
+            <span className="text-white/20">/</span>
+            <span className="text-base font-semibold text-white/25 line-through decoration-white/20">{yongSin.gisin}</span>
+          </div>
+          <p className="text-[11px] text-white/30 mt-1">{yongSin.label}</p>
+        </div>
+      </div>
+
+      {/* 오행 세력 + 신강약 */}
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] text-white/30 tracking-widest">오행 세력 (가중 분석)</p>
+          <span className="text-xs font-semibold" style={{ color: bodyColor }}>{bodyLabel} — 자비 {selfRatio}%</span>
+        </div>
+        <div className="space-y-1.5">
+          {ELEMENTS.map(el => {
+            const ratio = Math.round((strengths.ratios[el] ?? 0) * 100);
+            const isDm  = el === dmEl;
+            return (
+              <div key={el} className="flex items-center gap-2">
+                <span className="w-4 text-[11px] font-bold shrink-0" style={{ color: ELEMENT_COLOR[el] }}>{el}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }} animate={{ width: `${ratio}%` }}
+                    transition={{ duration: 0.7, ease: 'easeOut' }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: ELEMENT_COLOR[el], opacity: isDm ? 1 : 0.55 }}
+                  />
+                </div>
+                <span className={`text-[11px] w-7 text-right shrink-0 ${isDm ? 'text-white/70 font-semibold' : 'text-white/30'}`}>{ratio}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 사령신 */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <p className="text-[10px] text-white/30 tracking-widest">사령신 (당령)</p>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold" style={{ color: ELEMENT_COLOR[strengths.salyeong.element] }}>
+            {strengths.salyeong.stem}({strengths.salyeong.element})
+          </span>
+          <span className="text-xs text-white/40">{POS_LABEL[strengths.salyeong.pos]}</span>
+          <span className="text-[11px] text-white/20">{strengths.salyeong.daysFromJie}일 경과</span>
+        </div>
+      </div>
+
+      {/* 합충 */}
+      {hasHapChung && (
+        <div className="px-4 py-4">
+          <p className="text-[10px] text-white/30 tracking-widest mb-2.5">합 · 충</p>
+          <div className="flex flex-wrap gap-1.5">
+            {hapChung.stemCombines.map((sc, i) => (
+              <div key={i} className={`rounded-lg px-2.5 py-1.5 border text-xs ${sc.formed ? 'border-white/15 bg-white/[0.04]' : 'border-white/7 bg-white/[0.02]'}`}>
+                <span className="text-white/40">천간합 </span>
+                <span className="font-semibold text-white/75">{sc.a}{sc.b}</span>
+                <span className="text-white/30"> → </span>
+                <span style={{ color: ELEMENT_COLOR[sc.transformed] }}>{sc.transformed}화</span>
+                {!sc.formed && <span className="text-white/20 ml-1">(합이불화)</span>}
+              </div>
+            ))}
+            {hapChung.branchHaps.map((bh, i) => (
+              <div key={i} className="rounded-lg px-2.5 py-1.5 border border-white/10 bg-white/[0.03] text-xs">
+                <span className="text-white/40">{bh.type} </span>
+                <span className="font-semibold text-white/75">{bh.branches.join('')}</span>
+                <span className="text-white/30"> → </span>
+                <span style={{ color: ELEMENT_COLOR[bh.element] }}>{bh.element}</span>
+                <span className="text-white/25"> 강화</span>
+              </div>
+            ))}
+            {hapChung.branchChungs.map(([a, b], i) => (
+              <div key={i} className="rounded-lg px-2.5 py-1.5 border border-red-500/15 bg-red-500/[0.04] text-xs">
+                <span className="text-red-400/50">충 </span>
+                <span className="font-semibold text-red-400/75">{a}{b}</span>
+                <span className="text-red-400/40"> — 변동</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 통근 */}
+      <div className="px-4 py-4">
+        <p className="text-[10px] text-white/30 tracking-widest mb-2.5">통근 (천간 뿌리)</p>
+        <div className="space-y-2">
+          {pillarsForRoot.map(({ label, stem }) => {
+            const roots = findRoots(stem, branches);
+            const el    = STEM_DATA[stem].element;
+            return (
+              <div key={label} className="flex items-center gap-2.5">
+                <span className="w-7 text-[11px] text-white/25 shrink-0">{label}</span>
+                <span className="text-sm font-bold w-5 shrink-0" style={{ color: ELEMENT_COLOR[el] }}>{stem}</span>
+                {roots.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {roots.map(r => (
+                      <span key={r.branch + r.pos} className="rounded px-1.5 py-0.5 bg-white/5 border border-white/8 text-[11px] text-white/50">
+                        {r.branch}
+                        <span className="text-white/20 ml-0.5">{POS_LABEL[r.pos][0]}</span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-white/20">통근 없음</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-[10px] text-white/15 leading-relaxed">
+          정(正) = 정기근 · 중 = 중기근 · 여 = 여기근. 뿌리가 많을수록 해당 오행의 힘이 안정적으로 발휘됨.
+        </p>
+      </div>
+
+    </div>
+  );
+}
+
 // ── 내 사주 패널 (사주풀이 + 8자 그리드) ──
-function MySajuPanel({ fp, dayMaster, sipshinMap, showPillarGrid = true, showSeun = false }: {
+function MySajuPanel({ fp, dayMaster, sipshinMap, advanced, showPillarGrid = true, showSeun = false }: {
   fp: FourPillars; dayMaster: SajuUIResult['dayMaster'];
-  sipshinMap: SajuUIResult['sipshinMap']; showPillarGrid?: boolean; showSeun?: boolean;
+  sipshinMap: SajuUIResult['sipshinMap']; advanced: AdvancedAnalysis;
+  showPillarGrid?: boolean; showSeun?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -462,6 +627,10 @@ function MySajuPanel({ fp, dayMaster, sipshinMap, showPillarGrid = true, showSeu
         </div>
       )}
       {showSeun && <SeyunRow dm={fp.day.stem} />}
+
+      {/* 심층 분석 (격국·용신·신강약·사령신·합충·통근) */}
+      <AdvancedPanel advanced={advanced} fp={fp} />
+
       <div className="rounded-2xl border border-white/8 bg-white/[0.02] overflow-hidden">
         <div className="px-5 py-5">
           <p className="text-sm font-semibold text-white/50 mb-2">강점</p>
@@ -600,14 +769,14 @@ function ResultView({ result, defaultType = 'full' }: { result: SajuUIResult; de
 
           {/* full 타입 사주풀이 탭: 강점/약점/십신 (그리드는 위에 항상 표시) */}
           {tab==='pillars' && defaultType === 'full' && (
-            <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} showPillarGrid={false} />
+            <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} advanced={result.advanced} showPillarGrid={false} />
           )}
 
           {/* today/love 타입 내 사주 탭: 아이덴티티 카드 + 그리드 + 풀이 + 세운 */}
           {tab==='pillars' && defaultType !== 'full' && (
             <div className="space-y-4">
               <SajuIdentityCard dayMaster={dayMaster} />
-              <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} showPillarGrid={true} showSeun={true} />
+              <MySajuPanel fp={fp} dayMaster={dayMaster} sipshinMap={sipshinMap} advanced={result.advanced} showPillarGrid={true} showSeun={true} />
             </div>
           )}
 
