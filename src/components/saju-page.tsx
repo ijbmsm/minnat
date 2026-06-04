@@ -843,6 +843,8 @@ function ManseTab({ result }: { result: SajuUIResult }) {
   hapChung.branchHaps.forEach(bh => hapParts.push(`${bh.branches.join('')}${bh.type}→${bh.element}`));
   hapChung.branchChungs.forEach(([a, b]) => hapParts.push(`${a}${b}충`));
 
+  const [showExpert, setShowExpert] = useState(false);
+
   const gutter = m ? 52 : 86;
   const cs = m ? 30 : 46;
   const rowGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: `${gutter}px repeat(4,1fr)` };
@@ -908,26 +910,7 @@ function ManseTab({ result }: { result: SajuUIResult }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 14 : 20 }}>
 
-      {/* ① 격국·용신·신강약 */}
-      <Panel style={{ padding: m ? '18px 0' : '22px 0' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
-          {[
-            { l: '격국',          v: geokGuk.name,                        s: geokGuk.confidence === 'deterministic' ? '확정' : '추정', c: INK.ink },
-            { l: '용신 / 기신',   v: yongSin.yongsin ? `${yongSin.yongsin} / ${yongSin.gisin}` : yongSin.label, s: yongSin.yongsin ? yongSin.label : '억부 부적용', c: yongSin.yongsin ? (OH[yongSin.yongsin]?.color ?? INK.ink) : INK.ink },
-            { l: '신강약',        v: bodyLabel,                            s: `자비 ${selfRatio}%`,              c: OH['화']?.color ?? INK.ink },
-          ].map((item, i) => (
-            <div key={item.l} style={{ padding: m ? '2px 12px' : '4px 24px', borderLeft: i ? `1px solid ${INK.hair}` : 'none' }}>
-              <Term termKey={item.l} onOpen={openDetail}>
-                <KoLabel style={{ fontSize: m ? 9 : 10, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>{item.l}</KoLabel>
-              </Term>
-              <div style={{ fontSize: m ? 18 : 26, fontWeight: 600, color: item.c, marginTop: 10, whiteSpace: 'nowrap' }}>{item.v}</div>
-              <div style={{ fontSize: m ? 11 : 12, color: INK.ink45, marginTop: 6 }}>{item.s}</div>
-            </div>
-          ))}
-        </div>
-      </Panel>
-
-      {/* ② 오행 분포 */}
+      {/* ① 오행 분포 */}
       <Panel style={{ padding: m ? 18 : 24 }}>
         <Term termKey="오행" onOpen={openDetail}>
           <KoLabel style={{ color: INK.ink45 }}>오행 분포 · 五行</KoLabel>
@@ -957,7 +940,7 @@ function ManseTab({ result }: { result: SajuUIResult }) {
         </div>
       </Panel>
 
-      {/* ③ 만세력 테이블 */}
+      {/* ② 만세력 테이블 — 천간·지지만 표시 */}
       <Panel style={{ overflow: 'hidden' }}>
         {/* 기둥 라벨 행 */}
         <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
@@ -990,7 +973,7 @@ function ManseTab({ result }: { result: SajuUIResult }) {
         </div>
 
         {/* 지지 행 */}
-        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+        <div style={{ ...rowGrid }}>
           <GutterTerm>지지</GutterTerm>
           {pillarsAll.map(p => (
             <Cell key={p.label} isSelf={p.isSelf}>
@@ -1003,78 +986,9 @@ function ManseTab({ result }: { result: SajuUIResult }) {
             </Cell>
           ))}
         </div>
-
-        {/* 운성 행 */}
-        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
-          <GutterTerm>운성</GutterTerm>
-          {pillarsAll.map(p => {
-            const u = getUnsung(p.stem as Stem, p.branch as Branch);
-            return (
-              <Cell key={p.label} isSelf={p.isSelf}>
-                <span style={{ fontSize: m ? 13 : 15, color: u === '장생' ? OH['목']?.color : INK.ink70 }}>{u}</span>
-              </Cell>
-            );
-          })}
-        </div>
-
-        {/* 지장간 행 */}
-        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
-          <GutterTerm>지장간</GutterTerm>
-          {pillarsAll.map(p => {
-            const jj = JIJANGGAN[p.branch as Branch] ?? [];
-            return (
-              <Cell key={p.label} isSelf={p.isSelf} style={{ padding: m ? '11px 4px' : '14px 8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                  {jj.map((hs, k) => (
-                    <div key={k} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                      <span style={{ fontSize: m ? 14 : 17, fontWeight: 500, color: INK.ink }}>{hs.stem}</span>
-                      <span style={{ fontSize: 10, color: INK.ink28, fontFamily: MONO }}>{POS_LABEL[hs.pos][0]}</span>
-                    </div>
-                  ))}
-                </div>
-              </Cell>
-            );
-          })}
-        </div>
-
-        {/* 통근 행 */}
-        <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
-          <GutterTerm>통근</GutterTerm>
-          {pillarsAll.map(p => {
-            const roots = findRoots(p.stem as Stem, allBranches);
-            return (
-              <Cell key={p.label} isSelf={p.isSelf}>
-                {roots.length > 0
-                  ? <span style={{ fontSize: m ? 12 : 14, color: INK.ink70 }}>{roots.map(r => r.branch).join(' ')}</span>
-                  : <span style={{ fontSize: m ? 12 : 14, color: INK.ink28 }}>—</span>}
-              </Cell>
-            );
-          })}
-        </div>
-
-        {/* 메타 행 */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: m ? 10 : 16,
-          padding: m ? '13px 16px' : '15px 18px',
-          borderTop: `1px solid ${INK.hair}`, fontSize: m ? 11.5 : 12.5,
-          color: INK.ink45, alignItems: 'baseline' }}>
-          <span>
-            <Term termKey="사령신" onOpen={openDetail}>사령신</Term>{' '}
-            <b style={{ color: OH['목']?.color }}>
-              {strengths.salyeong.stem}({strengths.salyeong.element}) {POS_LABEL[strengths.salyeong.pos]}
-            </b>
-          </span>
-          {hapParts.map((part, i) => <span key={i}>· {part}</span>)}
-          <span>· 공망 {gongmang.join(' · ')}</span>
-          {sinsal.length > 0 && (
-            <>
-              <span>· 신살</span>
-              {sinsal.map(s => <span key={s.name} title={s.desc}>{s.name}({s.branches.join('')})</span>)}
-            </>
-          )}
-        </div>
       </Panel>
 
-      {/* ④ 강점/주의 */}
+      {/* ③ 강점/주의 */}
       <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: m ? 12 : 16 }}>
         <Panel style={{ padding: 22, borderLeft: `2px solid ${OH['목']?.color}` }}>
           <KoLabel style={{ fontSize: 10, color: OH['목']?.color }}>강점</KoLabel>
@@ -1089,6 +1003,117 @@ function ManseTab({ result }: { result: SajuUIResult }) {
           </div>
         </Panel>
       </div>
+
+      {/* ④ 근거 더보기 토글 */}
+      <button
+        onClick={() => setShowExpert(v => !v)}
+        style={{ background: 'none', border: `1px solid ${INK.cardLine}`, borderRadius: 6,
+          padding: m ? '9px 16px' : '10px 20px', cursor: 'pointer', width: '100%',
+          fontFamily: MONO, fontSize: m ? 11 : 12, letterSpacing: 1,
+          color: INK.ink45, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        {showExpert ? '▲ 전문 정보 접기' : '▼ 격국 · 용신 · 지장간 · 운성 — 전문 정보'}
+      </button>
+
+      {/* ⑤ 전문 정보 (접힘) */}
+      {showExpert && (
+        <>
+          {/* 격국·용신·신강약 */}
+          <Panel style={{ padding: m ? '18px 0' : '22px 0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
+              {[
+                { l: '격국', v: geokGuk.name, s: geokGuk.confidence === 'deterministic' ? '확정' : '추정', c: INK.ink },
+                { l: '용신 / 기신',
+                  v: yongSin.yongsin
+                    ? `${yongSin.yongsin}${yongSin.present ? '' : '(원국 부재)'} / ${yongSin.gisin}`
+                    : yongSin.label,
+                  s: yongSin.yongsin ? yongSin.label : '억부 부적용',
+                  c: yongSin.yongsin ? (OH[yongSin.yongsin]?.color ?? INK.ink) : INK.ink },
+                { l: '신강약', v: bodyLabel, s: `일간 세력 ${selfRatio}%`, c: OH['화']?.color ?? INK.ink },
+              ].map((item, i) => (
+                <div key={item.l} style={{ padding: m ? '2px 12px' : '4px 24px', borderLeft: i ? `1px solid ${INK.hair}` : 'none' }}>
+                  <Term termKey={item.l} onOpen={openDetail}>
+                    <KoLabel style={{ fontSize: m ? 9 : 10, letterSpacing: 1.5, whiteSpace: 'nowrap' }}>{item.l}</KoLabel>
+                  </Term>
+                  <div style={{ fontSize: m ? 18 : 22, fontWeight: 600, color: item.c, marginTop: 10, whiteSpace: 'nowrap' }}>{item.v}</div>
+                  <div style={{ fontSize: m ? 11 : 12, color: INK.ink45, marginTop: 6 }}>{item.s}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          {/* 운성·지장간·통근·사령신·합충·공망·신살 */}
+          <Panel style={{ overflow: 'hidden' }}>
+            {/* 운성 행 */}
+            <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+              <GutterTerm>운성</GutterTerm>
+              {pillarsAll.map(p => {
+                const u = getUnsung(p.stem as Stem, p.branch as Branch);
+                return (
+                  <Cell key={p.label} isSelf={p.isSelf}>
+                    <span style={{ fontSize: m ? 13 : 15, color: u === '장생' ? OH['목']?.color : INK.ink70 }}>{u}</span>
+                  </Cell>
+                );
+              })}
+            </div>
+
+            {/* 지장간 행 */}
+            <div style={{ ...rowGrid, borderBottom: `1px solid ${INK.hair}` }}>
+              <GutterTerm>지장간</GutterTerm>
+              {pillarsAll.map(p => {
+                const jj = JIJANGGAN[p.branch as Branch] ?? [];
+                return (
+                  <Cell key={p.label} isSelf={p.isSelf} style={{ padding: m ? '11px 4px' : '14px 8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                      {jj.map((hs, k) => (
+                        <div key={k} style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                          <span style={{ fontSize: m ? 14 : 17, fontWeight: 500, color: INK.ink }}>{hs.stem}</span>
+                          <span style={{ fontSize: 10, color: INK.ink28, fontFamily: MONO }}>{POS_LABEL[hs.pos][0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Cell>
+                );
+              })}
+            </div>
+
+            {/* 통근 행 */}
+            <div style={{ ...rowGrid }}>
+              <GutterTerm>통근</GutterTerm>
+              {pillarsAll.map(p => {
+                const roots = findRoots(p.stem as Stem, allBranches);
+                return (
+                  <Cell key={p.label} isSelf={p.isSelf}>
+                    {roots.length > 0
+                      ? <span style={{ fontSize: m ? 12 : 14, color: INK.ink70 }}>{roots.map(r => r.branch).join(' ')}</span>
+                      : <span style={{ fontSize: m ? 12 : 14, color: INK.ink28 }}>—</span>}
+                  </Cell>
+                );
+              })}
+            </div>
+
+            {/* 사령신·합충·공망·신살 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: m ? 10 : 16,
+              padding: m ? '13px 16px' : '15px 18px',
+              borderTop: `1px solid ${INK.hair}`, fontSize: m ? 11.5 : 12.5,
+              color: INK.ink45, alignItems: 'baseline' }}>
+              <span>
+                <Term termKey="사령신" onOpen={openDetail}>사령신</Term>{' '}
+                <b style={{ color: OH['목']?.color }}>
+                  {strengths.salyeong.stem}({strengths.salyeong.element}) {POS_LABEL[strengths.salyeong.pos]}
+                </b>
+              </span>
+              {hapParts.map((part, i) => <span key={i}>· {part}</span>)}
+              <span>· 공망 {gongmang.join(' · ')}</span>
+              {sinsal.length > 0 && (
+                <>
+                  <span>· 신살</span>
+                  {sinsal.map(s => <span key={s.name} title={s.desc}>{s.name}({s.branches.join('')})</span>)}
+                </>
+              )}
+            </div>
+          </Panel>
+        </>
+      )}
     </div>
   );
 }
@@ -1382,7 +1407,8 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
   onShare: () => void;
 }) {
   const m = useIsMobile();
-  const [tab, setTab] = useState<TabId>(defaultType === 'love' ? 'ai' : 'manse');
+  const isLeanType = defaultType === 'love' || defaultType === 'today';
+  const [tab, setTab] = useState<TabId>(isLeanType ? 'ai' : 'manse');
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const { birth, dayMaster } = result;
 
@@ -1439,7 +1465,9 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
             borderRadius: 10, border: `1px solid ${INK.cardLine}`,
             background: 'rgba(232,223,200,0.02)',
             overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none' }}>
-            {(defaultType === 'love' ? TABS.filter(t => t.id === 'ai' || t.id === 'gunghap') : TABS).map(t => {
+            {(defaultType === 'today' ? TABS.filter(t => t.id === 'ai') :
+              defaultType === 'love'  ? TABS.filter(t => t.id === 'ai' || t.id === 'gunghap') :
+              TABS).map(t => {
               const on = tab === t.id;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)}

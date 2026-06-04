@@ -568,7 +568,7 @@ export function determineYongSin(
     const candidates: [Element, string][] = [
       [siksangEl, '식상(설기)'],
       [jaeEl,     '재성'],
-      [gwanEl,    '관살'],
+      [gwanEl,    '관살(극제)'],
     ];
     [best, bestLabel] = candidates.reduce((a, b) =>
       strengths.scores[a[0]] <= strengths.scores[b[0]] ? a : b
