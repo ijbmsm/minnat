@@ -48,9 +48,10 @@ export interface BirthInput {
 }
 
 export interface Daeun {
-  startAge:  number;
-  startYear: number;
-  pillar:    Pillar;
+  startAge:    number;
+  startMonths: number;  // 소수 나이의 월 부분 (0~11) — "5년 8개월" 표기용
+  startYear:   number;
+  pillar:      Pillar;
 }
 
 export interface FourPillars {
@@ -67,6 +68,8 @@ export interface CalcTrace {
   ipchunUTC:       string;
   monthTermName:   string;
   jieUTC:          string;
+  /** 출생 UTC 인스턴트 (ISO 문자열) — daysFromJie 계산의 canonical 소스 */
+  birthUTC:        string;
   dayBoundaryRule: DayBoundaryRule;
   dayRolled:       boolean;
   effectiveSolarDate: { year: number; month: number; day: number };
@@ -120,7 +123,8 @@ function calcDay(input: BirthInput): { pillar: Pillar; effectiveDate: { year: nu
   let { year, month, day } = input.solarDate;
   let rolled = false;
 
-  // 子시설: 23:00 이후면 일주를 익일로
+  // 子시설: 진태양시 23:00 이후(야자시)만 익일로 전환.
+  // 조자시(00:00~00:59)는 당일 유지 — dayOffset이 이미 +1이면 solarTime.hour는 0~1대이므로 여기서 재전환 안 함.
   if (rule === 'zi_hour' && input.solarTime && input.solarTime.hour >= 23) {
     const d = new Date(Date.UTC(year, month - 1, day + 1));
     year = d.getUTCFullYear(); month = d.getUTCMonth() + 1; day = d.getUTCDate();
@@ -158,11 +162,15 @@ function calcDaeun(
   const forward  = (sex === 'male' && yearYang) || (sex === 'female' && !yearYang);
 
   // 대운 시작 나이 = 절기까지 일수 ÷ 3
+  // 소수 부분 → 월로 변환해 "N년 M개월" 표기 가능하게 저장
+  // 라운딩 규약: 자평 기본값 Math.round (학파별로 ceil/floor 사용 가능)
   const nextJie = nextJieAfter(index, birthUTC);
   const prevJie = prevJieBefore(index, birthUTC);
-  const refUTC  = forward ? new Date(nextJie.instant_utc) : new Date(prevJie.instant_utc);
-  const days    = Math.abs(refUTC.getTime() - birthUTC.getTime()) / 86_400_000;
-  const startAge = Math.round(days / 3);
+  const refUTC    = forward ? new Date(nextJie.instant_utc) : new Date(prevJie.instant_utc);
+  const days      = Math.abs(refUTC.getTime() - birthUTC.getTime()) / 86_400_000;
+  const exactYears = days / 3;
+  const startAge  = Math.round(exactYears);
+  const startMonths = Math.round((exactYears - Math.floor(exactYears)) * 12);
 
   const mStemIdx   = STEMS.indexOf(monthPillar.stem);
   const mBranchIdx = BRANCHES.indexOf(monthPillar.branch);
@@ -175,9 +183,10 @@ function calcDaeun(
     const stemI = STEMS.indexOf(stem);
     const branchI = BRANCHES.indexOf(branch);
     result.push({
-      startAge: startAge + (n - 1) * 10,
-      startYear: sajuYear + startAge + (n - 1) * 10,
-      pillar: { stem, branch, gz: mod(stemI * 6 - branchI * 5, 60) },
+      startAge:    startAge + (n - 1) * 10,
+      startMonths: n === 1 ? startMonths : 0,
+      startYear:   sajuYear + startAge + (n - 1) * 10,
+      pillar:      { stem, branch, gz: mod(stemI * 6 - branchI * 5, 60) },
     });
   }
   return result;
@@ -217,6 +226,7 @@ export function computeFourPillars(
       ipchunUTC,
       monthTermName:   termName,
       jieUTC,
+      birthUTC:        birth.birthUTC.toISOString(),
       dayBoundaryRule: birth.dayBoundaryRule ?? 'midnight',
       dayRolled:       rolled,
       effectiveSolarDate: effectiveDate,
@@ -261,8 +271,8 @@ export function fromKST(
     };
   }
 
-  // 진태양시 계산
-  const doy = dayOfYear(kstYear, kstMonth, kstDay);
+  // 진태양시 계산 — Spencer 균시차는 UTC 날짜 기준으로 계산해야 개념 일치
+  const doy = dayOfYear(birthUTC.getUTCFullYear(), birthUTC.getUTCMonth() + 1, birthUTC.getUTCDate());
   // UTC 기준으로 진태양시 계산
   const utcH = birthUTC.getUTCHours();
   const utcM = birthUTC.getUTCMinutes();

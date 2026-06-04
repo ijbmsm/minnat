@@ -25,21 +25,27 @@ function makeSeyunPillar(year: number): Pillar {
 const FACTSHEET_VERSION = '2.0.0';
 
 // ── 신살 테이블 ──
+
+// 역마살: 연지 기준
 const YEOKMA_MAP: Partial<Record<Branch, Branch>> = {
   인:'신', 오:'신', 술:'신', 신:'인', 자:'인', 진:'인',
   사:'해', 유:'해', 축:'해', 해:'사', 묘:'사', 미:'사',
 };
+// 도화살: 연지 기준
 const DOHWA_MAP: Partial<Record<Branch, Branch>> = {
   인:'묘', 오:'묘', 술:'묘', 사:'오', 유:'오', 축:'오',
   신:'유', 자:'유', 진:'유', 해:'자', 묘:'자', 미:'자',
 };
-const YANGIN_MAP: Partial<Record<Stem, Branch>> = {
+// 양인살: 일간 기준 (신살용 — 건록격 판정과 동일 테이블 활용)
+const YANGIN_SINSAL_MAP: Partial<Record<Stem, Branch>> = {
   갑:'묘', 병:'오', 무:'오', 경:'유', 임:'자',
 };
+// 화개살: 연지 기준
 const HWAGAE_MAP: Partial<Record<Branch, Branch>> = {
   인:'술', 오:'술', 술:'술', 사:'축', 유:'축', 축:'축',
   신:'진', 자:'진', 진:'진', 해:'미', 묘:'미', 미:'미',
 };
+// 천을귀인: 일간 기준
 const GUI_MAP: Partial<Record<Stem, Branch[]>> = {
   갑:['축','미'], 무:['축','미'], 경:['축','미'],
   을:['자','신'], 기:['자','신'],
@@ -47,23 +53,69 @@ const GUI_MAP: Partial<Record<Stem, Branch[]>> = {
   신:['인','오'],
   임:['묘','사'], 계:['묘','사'],
 };
+// 백호대살: 일주(day pillar) 간지 조합 — 특정 간지 자체가 백호대살
+const BAEKHO_PILLARS = new Set<string>([
+  '갑진','을미','병술','정축','무진','임술','계축',
+]);
+// 원진살: 지지 쌍 (양방향)
+const WONJIN_PAIRS: [Branch, Branch][] = [
+  ['자','미'], ['축','오'], ['인','유'], ['묘','신'], ['진','해'], ['사','술'],
+];
+// 귀문관살: 지지 쌍 (양방향) — 자평진전 계열
+const GWIMUN_PAIRS: [Branch, Branch][] = [
+  ['자','유'], ['축','오'], ['인','미'], ['묘','신'], ['진','해'], ['사','술'],
+];
 
 function computeSinsal(fp: FourPillars): SinsalResult[] {
   const result: SinsalResult[] = [];
-  const all = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
+  const allBranches = [
+    fp.year.branch, fp.month.branch, fp.day.branch,
+    ...(fp.hour ? [fp.hour.branch] : []),
+  ] as Branch[];
   const yb = fp.year.branch;
   const dm = fp.day.stem;
+
+  // 역마살
   const ym = YEOKMA_MAP[yb];
-  if (ym) { const f = all.filter(b => b === ym); if (f.length) result.push({ name: '역마살', desc: '이동·변화·활동성', branches: f }); }
+  if (ym) { const f = allBranches.filter(b => b === ym); if (f.length) result.push({ name: '역마살', desc: '이동·변화·활동성', branches: f }); }
+
+  // 도화살
   const dh = DOHWA_MAP[yb];
-  if (dh) { const f = all.filter(b => b === dh); if (f.length) result.push({ name: '도화살', desc: '매력·인기·예술성', branches: f }); }
+  if (dh) { const f = allBranches.filter(b => b === dh); if (f.length) result.push({ name: '도화살', desc: '매력·인기·예술성', branches: f }); }
+
+  // 천을귀인
   const gt = (GUI_MAP[dm] ?? []) as Branch[];
-  const gf = all.filter(b => gt.includes(b));
+  const gf = allBranches.filter(b => gt.includes(b));
   if (gf.length) result.push({ name: '천을귀인', desc: '귀인 도움·위기 극복', branches: gf });
-  const yi = YANGIN_MAP[dm];
-  if (yi) { const f = all.filter(b => b === yi); if (f.length) result.push({ name: '양인살', desc: '강한 의지·공격성', branches: f }); }
+
+  // 양인살
+  const yi = YANGIN_SINSAL_MAP[dm];
+  if (yi) { const f = allBranches.filter(b => b === yi); if (f.length) result.push({ name: '양인살', desc: '강한 의지·공격성', branches: f }); }
+
+  // 화개살
   const hg = HWAGAE_MAP[yb];
-  if (hg) { const f = all.filter(b => b === hg); if (f.length) result.push({ name: '화개살', desc: '예술·학문·종교 기질', branches: f }); }
+  if (hg) { const f = allBranches.filter(b => b === hg); if (f.length) result.push({ name: '화개살', desc: '예술·학문·종교 기질', branches: f }); }
+
+  // 백호대살: 일주 간지 조합 체크
+  const dayKey = `${fp.day.stem}${fp.day.branch}` as string;
+  if (BAEKHO_PILLARS.has(dayKey)) {
+    result.push({ name: '백호대살', desc: '강렬한 에너지·돌발 변수 (일주 기준)', branches: [fp.day.branch] });
+  }
+
+  // 원진살: 모든 지지 쌍 조합 검사
+  for (const [a, b] of WONJIN_PAIRS) {
+    if (allBranches.includes(a) && allBranches.includes(b)) {
+      result.push({ name: '원진살', desc: '갈등·반목·소원 관계', branches: [a, b] });
+    }
+  }
+
+  // 귀문관살: 모든 지지 쌍 조합 검사
+  for (const [a, b] of GWIMUN_PAIRS) {
+    if (allBranches.includes(a) && allBranches.includes(b)) {
+      result.push({ name: '귀문관살', desc: '직관·예민함·집착 성향', branches: [a, b] });
+    }
+  }
+
   return result;
 }
 
@@ -154,14 +206,23 @@ export function buildFactSheet(
   fp: FourPillars,
   tier: 'free' | 'paid' = 'free',
   readingType: 'full' | 'today' | 'love' | 'career' = 'full',
-  opts: { name?: string; concern?: string; daysFromJie?: number; applyHapHwa?: boolean } = {},
+  opts: { name?: string; concern?: string; applyHapHwa?: boolean } = {},
 ): SajuFactSheet {
   const dm       = fp.day.stem;
   const dmData   = STEM_DATA[dm];
   const dmProfile = DAY_MASTER_PROFILE[dm];
 
+  // ── daysFromJie: trace의 canonical birthUTC 사용 (KST 재입력 금지)
+  // Math.floor = 사령신은 "완성된 일수" 기준
+  const daysFromJie = Math.max(
+    0,
+    Math.floor(
+      (new Date(fp.trace.birthUTC).getTime() - new Date(fp.trace.jieUTC).getTime()) / 86_400_000
+    ),
+  );
+
   // ── advanced 분석 ──
-  const adv = analyzeAdvanced(fp, opts.daysFromJie ?? 15, undefined, opts.applyHapHwa ?? false);
+  const adv = analyzeAdvanced(fp, daysFromJie, undefined, opts.applyHapHwa ?? false);
 
   // ── 주 배열 ──
   const rawPillars: Array<[typeof fp.year, '년' | '월' | '일' | '시']> = [
@@ -226,10 +287,18 @@ export function buildFactSheet(
     ` [${adv.geokGuk.confidence}]`
   );
 
-  // 용신/기신
-  notableSignals.push(
-    `용신: ${adv.yongSin.yongsin}(${adv.yongSin.label}) — 기신: ${adv.yongSin.gisin} [억부법, heuristic]`
-  );
+  // 용신/기신 (중화·종격은 null)
+  if (adv.yongSin.yongsin) {
+    const presentFlag = adv.yongSin.present ? '' : ' ⚠️원국부재';
+    notableSignals.push(
+      `용신: ${adv.yongSin.yongsin}(${adv.yongSin.label})${presentFlag} — 기신: ${adv.yongSin.gisin} [억부법, heuristic]`
+    );
+  } else {
+    notableSignals.push(`용신: ${adv.yongSin.label} — ${adv.yongSin.reason}`);
+  }
+  if (adv.yongSin.note) {
+    notableSignals.push(`[용신 메모] ${adv.yongSin.note}`);
+  }
 
   // 신강/신약 (정량화 기반)
   const strengthLabel = {

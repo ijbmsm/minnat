@@ -11,7 +11,7 @@
 
 import type { FourPillars } from './engine';
 import {
-  STEM_DATA, BRANCH_DATA, GENERATES, CONTROLS,
+  BRANCHES, STEM_DATA, BRANCH_DATA, GENERATES, CONTROLS,
   type Element, type Stem, type Branch,
 } from './constants';
 import { getSipshin } from './sipshin';
@@ -22,14 +22,20 @@ import { getSipshin } from './sipshin';
 
 export interface SchoolProfile {
   name: string;
-  strongThreshold: number;   // e.g. 0.58
-  weakThreshold:   number;   // e.g. 0.42
+  strongThreshold: number;     // e.g. 0.58
+  weakThreshold:   number;     // e.g. 0.42
+  /** 대운 시작나이 라운딩 규약: 'round'(자평기본) | 'ceil' | 'floor' */
+  daeunRounding:   'round' | 'ceil' | 'floor';
+  /** 午未합 화신: '토'(자평진전) | '화'(협기변방서 등 일부) */
+  yukhapOhMi:      '토' | '화';
 }
 
 export const DEFAULT_SCHOOL: SchoolProfile = {
-  name: '자평',
+  name:            '자평',
   strongThreshold: 0.58,
   weakThreshold:   0.42,
+  daeunRounding:   'round',
+  yukhapOhMi:      '토',   // 자평진전 기준
 };
 
 /* ─────────────────────────────────────────
@@ -146,7 +152,8 @@ export function getSeasonCoeff(e: Element, M: Element): number {
   if (GENERATES[e] === M)    return 1.0;  // 休: e가 월령을 生
   if (CONTROLS[e]  === M)    return 0.8;  // 囚: e가 월령을 克
   if (CONTROLS[M]  === e)    return 0.6;  // 死: 월령이 e를 克
-  return 1.0;
+  // 5오행 상생/상극은 완전 그래프 — 여기 도달하면 입력 버그
+  throw new Error(`getSeasonCoeff: 오행 관계 미분류 (e=${e}, M=${M}) — 도달 불가`);
 }
 
 /* ─────────────────────────────────────────
@@ -196,14 +203,17 @@ const STEM_COMBINE: readonly [Stem, Stem, Element][] = [
   ['무', '계', '화'],
 ] as const;
 
-// 육합 (子丑→土 / 寅亥→木 / 卯戌→火 / 辰酉→金 / 巳申→水 / 午未→火)
+// 육합 화신 — 자평진전 기준 (학파별 이견 있음)
+// 子丑→土 / 寅亥→木 / 卯戌→火 / 辰酉→金 / 巳申→水
+// 午未→土 (자평진전·명리정종) ← 午未합 화신 논쟁: 협기변방서 등 일부는 火로 보지만 자평진전은 土
+// DEFAULT_SCHOOL.yukhapOhMi 로 학파별 전환 가능
 const BRANCH_YUKHAP: readonly [Branch, Branch, Element][] = [
   ['자', '축', '토'],
   ['인', '해', '목'],
   ['묘', '술', '화'],
   ['진', '유', '금'],
   ['사', '신', '수'],
-  ['오', '미', '화'],
+  ['오', '미', '토'],  // 자평진전 기준 土 (협기변방서 등 火 주장도 있음)
 ] as const;
 
 // 삼합 (申子辰→水 / 寅午戌→火 / 巳酉丑→金 / 亥卯未→木)
@@ -226,6 +236,10 @@ export interface StemCombineResult {
   transformed: Element;
   /** 합화 성립 여부 (化神이 월령에서 旺·相이면 성립) */
   formed: boolean;
+  /** 사주 내 위치 인덱스 [연0, 월1, 일2, 시3] */
+  positions: [number, number];
+  /** 인접 강도 — dist=1 강합 / dist=2 약합 / dist=3 원격(불성립 가능성 높음) */
+  strength: '강' | '약' | '원격';
 }
 
 export interface BranchHapResult {
@@ -242,13 +256,30 @@ export interface HapChungResult {
 
 function detectStemCombines(stems: Stem[], monthEl: Element): StemCombineResult[] {
   const result: StemCombineResult[] = [];
-  for (const [a, b, transformedEl] of STEM_COMBINE) {
-    const ai = stems.indexOf(a), bi = stems.indexOf(b);
-    if (ai === -1 || bi === -1) continue;
-    // 인접(거리 ≤ 2) 체크
-    if (Math.abs(ai - bi) > 2) continue;
-    const formed = getSeasonCoeff(transformedEl, monthEl) >= 1.2;
-    result.push({ a, b, transformed: transformedEl, formed });
+
+  // 전수 탐색: indexOf 대신 모든 위치 쌍을 확인해 중복 천간도 정확히 처리
+  for (let i = 0; i < stems.length; i++) {
+    for (let j = i + 1; j < stems.length; j++) {
+      const sa = stems[i], sb = stems[j];
+      const match = STEM_COMBINE.find(
+        ([a, b]) => (sa === a && sb === b) || (sa === b && sb === a)
+      );
+      if (!match) continue;
+      const [a, b, transformedEl] = match;
+      const dist = j - i;
+      const strength: StemCombineResult['strength'] =
+        dist === 1 ? '강' : dist === 2 ? '약' : '원격';
+      // 쟁합(爭合)/투합(妬合): 같은 천간이 두 곳 이상 있으면 합력 약화 (탐지만, formed에 영향 없음)
+      const formed = dist <= 2 && getSeasonCoeff(transformedEl, monthEl) >= 1.2;
+      result.push({
+        a: sa === a ? a : b,
+        b: sa === a ? b : a,
+        transformed: transformedEl,
+        formed,
+        positions: [i, j],
+        strength,
+      });
+    }
   }
   return result;
 }
@@ -411,22 +442,29 @@ export interface GeokGukResult {
   confidence: 'deterministic' | 'heuristic';
 }
 
+// 일간 → 록지(建祿) / 양인지(羊刃) 지지 인덱스 (子=0..亥=11)
+// 양인 = 록지에서 지지 순행 +1 (단 음간은 학파별 논쟁 있음 — 여기서는 자평진전식 적용)
+const ROK_IDX: Partial<Record<Stem, number>> = {
+  갑:2, 을:3, 병:5, 무:5, 정:6, 기:6, 경:8, 신:9, 임:11, 계:0,
+};
+const YANGIN_IDX: Partial<Record<Stem, number>> = {
+  갑:3, 을:4, 병:6, 무:6, 정:7, 기:7, 경:9, 신:10, 임:0, 계:1,
+};
+
 export function determineGeokGuk(fp: FourPillars, daysFromJie: number): GeokGukResult {
   const dm      = fp.day.stem;
   const salyeong = calcSalyeong(fp.month.branch, daysFromJie);
   const stems   = [fp.year.stem, fp.month.stem, fp.day.stem, ...(fp.hour ? [fp.hour.stem] : [])];
   const projected = stems.includes(salyeong.stem);
   const sipshin = getSipshin(dm, salyeong.stem);
+  const mbIdx   = BRANCHES.indexOf(fp.month.branch);
 
-  if (sipshin === '비견' || sipshin === '겁재') {
-    const dmEl = STEM_DATA[dm].element;
-    const brEl = BRANCH_DATA[fp.month.branch].element;
-    return {
-      name:       dmEl === brEl ? '건록격' : '양인격',
-      sipshin,
-      projected,
-      confidence: 'deterministic',
-    };
+  // 건록·양인은 오행 비교가 아닌 정확한 지지 룩업으로 판정
+  if (mbIdx === ROK_IDX[dm]) {
+    return { name: '건록격', sipshin, projected, confidence: 'deterministic' };
+  }
+  if (mbIdx === YANGIN_IDX[dm]) {
+    return { name: '양인격', sipshin, projected, confidence: 'deterministic' };
   }
 
   return {
@@ -442,11 +480,34 @@ export function determineGeokGuk(fp: FourPillars, daysFromJie: number): GeokGukR
 ───────────────────────────────────────── */
 
 export interface YongSinResult {
-  yongsin:  Element;      // 용신 오행
-  gisin:    Element;      // 기신 오행 (용신을 克하는 것)
-  label:    string;       // 용신 역할 이름
+  yongsin:  Element | null;  // null = 중화(억부 부적용)
+  gisin:    Element | null;  // null = 중화
+  label:    string;
   reason:   string;
+  /** 용신 오행이 원국에 실제로 존재하는지 — false면 운에서 보충 필요 */
+  present:  boolean;
+  /** 종격·중화·부재 등 부가 메모 */
+  note?:    string;
   confidence: 'heuristic';
+}
+
+/** 종격 판단: 어느 오행이 70% 이상 지배하면 억부법 부적용 */
+function isJonggyeok(strengths: ElementStrengths): boolean {
+  return (Object.values(strengths.ratios) as number[]).some(r => r >= 0.70);
+}
+
+function jonggyeokYongsin(strengths: ElementStrengths): YongSinResult {
+  const dominant = (Object.entries(strengths.ratios) as [Element, number][])
+    .sort((a, b) => b[1] - a[1])[0][0];
+  return {
+    yongsin: dominant,
+    gisin:   CONTROLS[dominant],
+    label:   '종격(지배 오행)',
+    reason:  `${dominant} 세력 ${Math.round(strengths.ratios[dominant] * 100)}% 압도 → 억부 부적용, 종격 추정`,
+    present: true,
+    note:    '종격(종왕/종강/종아/종재/종살) 추정 — 지배 오행을 따라가는 용신 적용, heuristic',
+    confidence: 'heuristic',
+  };
 }
 
 export function determineYongSin(
@@ -454,44 +515,67 @@ export function determineYongSin(
   bodyStrength: BodyStrength,
   strengths:    ElementStrengths,
 ): YongSinResult {
+  // 0) 종격 가드 — 억부 자체가 틀리는 케이스 선처리
+  if (isJonggyeok(strengths)) return jonggyeokYongsin(strengths);
+
+  // 1) 중화 — 신약으로 흘리지 말고 별도 처리
+  if (bodyStrength === 'neutral') {
+    return {
+      yongsin:    null,
+      gisin:      null,
+      label:      '중화',
+      reason:     '중화 사주 — 억부 기준 모호, 통관용신·병약법 권장',
+      present:    false,
+      note:       '원국이 중화에 가까워 억부법 적용 어려움. 부족 오행 보충(통관) 또는 병약법 권장',
+      confidence: 'heuristic',
+    };
+  }
+
   const dmEl = STEM_DATA[fp.day.stem].element;
-
   const els = ['목','화','토','금','수'] as Element[];
-  const parentEl = els.find(e => GENERATES[e] === dmEl)!;   // 인성
-  const siksangEl = GENERATES[dmEl];                         // 식상
-  const jaeEl = CONTROLS[dmEl];                             // 재성
-  const gwanEl = els.find(e => CONTROLS[e] === dmEl)!;      // 관살
+  const parentEl   = els.find(e => GENERATES[e] === dmEl)!;  // 인성
+  const siksangEl  = GENERATES[dmEl];                         // 식상
+  const jaeEl      = CONTROLS[dmEl];                          // 재성
+  const gwanEl     = els.find(e => CONTROLS[e] === dmEl)!;    // 관살
 
-  let yongsin: Element;
-  let label: string;
+  let best: Element;
+  let bestLabel: string;
 
   if (bodyStrength === 'strong') {
-    // 설기(식상) / 재 / 관 중 가장 약한 것 = 용신
+    // 2a) 신강: 식상·재·관 중 균형 기여 최대 오행 (= 가장 부족한 것)
     const candidates: [Element, string][] = [
       [siksangEl, '식상(설기)'],
       [jaeEl,     '재성'],
       [gwanEl,    '관살'],
     ];
-    const [best, bestLabel] = candidates.reduce((a, b) =>
+    [best, bestLabel] = candidates.reduce((a, b) =>
       strengths.scores[a[0]] <= strengths.scores[b[0]] ? a : b
     );
-    yongsin = best; label = bestLabel;
   } else {
-    // 인성 / 비겁 중 가장 약한 것 = 용신
+    // 2b) 신약: 인성·비겁 중 가장 부족한 것
     const candidates: [Element, string][] = [
       [parentEl, '인성(부조)'],
       [dmEl,     '비겁(부조)'],
     ];
-    const [best, bestLabel] = candidates.reduce((a, b) =>
+    [best, bestLabel] = candidates.reduce((a, b) =>
       strengths.scores[a[0]] <= strengths.scores[b[0]] ? a : b
     );
-    yongsin = best; label = bestLabel;
   }
 
-  const gisin = CONTROLS[yongsin]; // 용신을 克하는 것
-  const reason = bodyStrength === 'strong' ? '신강 → 설기·극제로 균형' : '신약 → 인성·비겁으로 부조';
+  const present = strengths.scores[best] > 0;
+  const reason  = bodyStrength === 'strong'
+    ? '신강 → 설기·극제로 균형'
+    : '신약 → 인성·비겁으로 부조';
 
-  return { yongsin, gisin, label, reason, confidence: 'heuristic' };
+  return {
+    yongsin:    best,
+    gisin:      CONTROLS[best],
+    label:      bestLabel,
+    reason,
+    present,
+    note:       present ? undefined : '원국에 용신 오행 부재 — 대운·세운에서 보충 필요',
+    confidence: 'heuristic',
+  };
 }
 
 /* ─────────────────────────────────────────

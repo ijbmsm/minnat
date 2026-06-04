@@ -364,11 +364,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: `사주 계산 오류: ${err instanceof Error ? err.message : err}` }, { status: 500 });
   }
 
-  // 팩트시트
-  const jieMs       = new Date(fp.trace.jieUTC).getTime();
-  const birthApprox = Date.UTC(year, month - 1, day, hour ?? 12, minute, 0);
-  const daysFromJie = Math.max(0, Math.round((birthApprox - jieMs) / 86_400_000));
-  const fs = buildFactSheet(fp, tier, type, { name, concern, daysFromJie, applyHapHwa: applyHapHwa ?? false });
+  // 팩트시트 — daysFromJie는 buildFactSheet가 fp.trace.birthUTC(canonical UTC)로 직접 계산
+  const fs = buildFactSheet(fp, tier, type, { name, concern, applyHapHwa: applyHapHwa ?? false });
 
   // 오늘의 사주: 일진 계산 (KST 기준)
   let todayPillar: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } | undefined;

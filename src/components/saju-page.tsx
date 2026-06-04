@@ -390,9 +390,13 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
     hourBranch:  fp.hour ? getBranchSipshin(dm, fp.hour.branch) : null,
   };
 
-  const jieMs   = new Date(fp.trace.jieUTC).getTime();
-  const birthMs = Date.UTC(birth.year, birth.month - 1, birth.day, birth.hour ?? 12, birth.minute, 0);
-  const daysFromJie = Math.max(0, Math.round((birthMs - jieMs) / 86_400_000));
+  // daysFromJie: trace의 canonical birthUTC 사용 (KST 재조립 금지 — 9시간 오차 방지)
+  const daysFromJie = Math.max(
+    0,
+    Math.floor(
+      (new Date(fp.trace.birthUTC).getTime() - new Date(fp.trace.jieUTC).getTime()) / 86_400_000
+    ),
+  );
   const advanced = analyzeAdvanced(fp, daysFromJie, undefined, birth.applyHapHwa);
 
   return {
@@ -909,7 +913,7 @@ function ManseTab({ result }: { result: SajuUIResult }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)' }}>
           {[
             { l: '격국',          v: geokGuk.name,                        s: geokGuk.confidence === 'deterministic' ? '확정' : '추정', c: INK.ink },
-            { l: '용신 / 기신',   v: `${yongSin.yongsin} / ${yongSin.gisin}`, s: yongSin.label,               c: OH[yongSin.yongsin]?.color ?? INK.ink },
+            { l: '용신 / 기신',   v: yongSin.yongsin ? `${yongSin.yongsin} / ${yongSin.gisin}` : yongSin.label, s: yongSin.yongsin ? yongSin.label : '억부 부적용', c: yongSin.yongsin ? (OH[yongSin.yongsin]?.color ?? INK.ink) : INK.ink },
             { l: '신강약',        v: bodyLabel,                            s: `자비 ${selfRatio}%`,              c: OH['화']?.color ?? INK.ink },
           ].map((item, i) => (
             <div key={item.l} style={{ padding: m ? '2px 12px' : '4px 24px', borderLeft: i ? `1px solid ${INK.hair}` : 'none' }}>
@@ -1140,8 +1144,10 @@ function OhaengTab({ result }: { result: SajuUIResult }) {
         <p style={{ marginTop: 22, fontSize: m ? 14 : 15, lineHeight: 1.75, color: INK.ink70 }}>
           <span style={{ color: OH[topEl.el]?.color, fontWeight: 600 }}>{topEl.el}</span>이{' '}
           {total > 0 ? Math.round((topEl.count / total) * 100) : 0}%로 두드러져.{' '}
-          용신 <span style={{ color: OH[yongSin.yongsin]?.color, fontWeight: 600 }}>{yongSin.yongsin}</span>이{' '}
-          살아야 흐름이 풀리니 이 기운을 의식적으로 키워봐.
+          {yongSin.yongsin
+            ? <>용신 <span style={{ color: OH[yongSin.yongsin]?.color, fontWeight: 600 }}>{yongSin.yongsin}</span>이{' '}살아야 흐름이 풀리니 이 기운을 의식적으로 키워봐.</>
+            : <>{yongSin.label} — {yongSin.reason}</>
+          }
         </p>
       </Panel>
       <Panel style={{ overflow: 'hidden' }}>
