@@ -1230,13 +1230,31 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // sessionStorage에서 마지막 입력값 복원
+  // sessionStorage 복원 + 히스토리에서 온 경우 즉시 계산
   useEffect(() => {
+    let pending: { year:number; month:number; day:number; hour:number|null; sex:'male'|'female'; longitudeE:number; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
       if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
+
+      const raw = sessionStorage.getItem('saju:pending-compute');
+      if (raw) {
+        sessionStorage.removeItem('saju:pending-compute');
+        pending = JSON.parse(raw);
+      }
     } catch { /* ignore */ }
-  }, []);
+
+    if (pending) {
+      const p = pending;
+      setError(null); setLoading(true);
+      loadSeolgi().then(index => {
+        const fp = computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, 0, p.longitudeE), p.sex);
+        setResult(buildUIResult(fp, { year:p.year, month:p.month, day:p.day, hour:p.hour, sex:p.sex, longitudeE:p.longitudeE, name:p.name, concern:p.concern }));
+      }).catch(err => {
+        setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      }).finally(() => setLoading(false));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 

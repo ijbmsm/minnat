@@ -63,6 +63,19 @@ export function SajuHistory() {
       formState.city = '__custom__';
     }
     sessionStorage.setItem('saju:form', JSON.stringify(formState));
+
+    // 계산에 필요한 파라미터를 별도 키로 저장 — 페이지 마운트 시 즉시 계산 트리거
+    sessionStorage.setItem('saju:pending-compute', JSON.stringify({
+      year:       item.birth_year,
+      month:      item.birth_month,
+      day:        item.birth_day,
+      hour:       item.birth_hour,
+      sex:        item.birth_sex,
+      longitudeE: item.birth_longitude,
+      name:       item.birth_name ?? undefined,
+      concern:    item.concern ?? undefined,
+    }));
+
     router.push(`/saju/${item.type}`);
   }
 
