@@ -23,6 +23,11 @@ const CARDS = [
     title: "연애운",
     lines: ["내 연애 패턴과", "잘 맞는 상대 유형."],
   },
+  {
+    href: "/saju/career",
+    title: "직업·재물운",
+    lines: ["어울리는 일의 방향과", "재물 성향."],
+  },
 ];
 
 export default function SajuLandingPage() {
@@ -43,7 +48,7 @@ export default function SajuLandingPage() {
         </div>
 
         {/* 카드 */}
-        <div className="grid grid-cols-3 gap-3 w-full max-w-[500px]">
+        <div className="grid grid-cols-2 gap-3 w-full max-w-[420px]">
           {CARDS.map(({ href, title, lines }) => (
             <Link
               key={href}

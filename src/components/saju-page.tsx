@@ -490,24 +490,14 @@ const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as con
 // ── 타입 탭 ──
 type ReadingType = 'full' | 'today' | 'love' | 'career';
 
-const READING_TABS: { id: ReadingType; label: string; sub: string }[] = [
-  { id: 'full',   label: '종합',   sub: '성격·연애·직업·운' },
-  { id: 'today',  label: '오늘',   sub: '오늘 일진 흐름' },
-  { id: 'love',   label: '연애',   sub: '연애 패턴·스타일' },
-  { id: 'career', label: '직업',   sub: '직업·재물 성향' },
-];
-
 // ── AI 해석 컴포넌트 ──
 function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
-  const { m } = useContext(SajuUICtx);
-  const [readings, setReadings] = useState<Partial<Record<ReadingType, ReadingResponse>>>({});
-  const [activeType, setActiveType] = useState<ReadingType>(initialType);
-  const [loadingType, setLoadingType] = useState<ReadingType | null>(null);
+  const [reading, setReading] = useState<ReadingResponse | null>(null);
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const load = useCallback(async (type: ReadingType) => {
-    if (readings[type]) return;
-    setLoadingType(type); setErr(null);
+  const load = useCallback(async () => {
+    setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
         method: 'POST',
@@ -515,58 +505,25 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
         body: JSON.stringify({
           year: birth.year, month: birth.month, day: birth.day,
           hour: birth.hour, sex: birth.sex, longitudeE: birth.longitudeE,
-          name: birth.name, concern: birth.concern, tier: 'free', type,
+          name: birth.name, concern: birth.concern, tier: 'free', type: initialType,
         }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
       }
-      const data = await res.json() as ReadingResponse;
-      setReadings(prev => ({ ...prev, [type]: data }));
+      setReading(await res.json() as ReadingResponse);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '알 수 없는 오류');
-    } finally { setLoadingType(null); }
+    } finally { setLoading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [birth]);
+  }, []);
 
-  useEffect(() => { load(initialType); }, []); // eslint-disable-line
-
-  function selectType(type: ReadingType) {
-    setActiveType(type);
-    setErr(null);
-    load(type);
-  }
-
-  const current = readings[activeType];
-  const isLoading = loadingType === activeType;
+  useEffect(() => { load(); }, []); // eslint-disable-line
 
   return (
     <div>
-      {/* 렌즈 선택 */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20,
-        borderBottom: `1px solid ${INK.hair}`, paddingBottom: 16 }}>
-        {READING_TABS.map(t => {
-          const on = activeType === t.id;
-          const isThisLoading = loadingType === t.id;
-          return (
-            <button key={t.id} onClick={() => selectType(t.id)}
-              style={{ flex: 1, padding: m ? '8px 4px' : '10px 8px', border: 'none',
-                borderRadius: 6, cursor: 'pointer', transition: 'background-color .15s, color .15s',
-                backgroundColor: on ? 'rgba(232,223,200,0.10)' : 'rgba(0,0,0,0)',
-                color: on ? INK.ink : INK.ink45,
-                boxShadow: on ? `inset 0 0 0 1px ${INK.cardLine}` : 'none' }}>
-              <div style={{ fontSize: m ? 13 : 14, fontFamily: SERIF, fontWeight: on ? 600 : 400 }}>
-                {isThisLoading ? '...' : t.label}
-              </div>
-              {!m && <div style={{ fontSize: 10, color: on ? INK.ink45 : INK.ink28, fontFamily: MONO, marginTop: 2 }}>{t.sub}</div>}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 콘텐츠 */}
-      {isLoading && (
+      {loading && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0' }}>
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
             style={{ width: 20, height: 20, borderRadius: '50%',
@@ -574,26 +531,26 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
           <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO }}>해석 중...</span>
         </div>
       )}
-      {err && !isLoading && (
+      {err && !loading && (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
           <p style={{ fontSize: 13, color: '#c4685a', marginBottom: 12 }}>{err}</p>
-          <button onClick={() => load(activeType)}
+          <button onClick={load}
             style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
               borderRadius: 4, padding: '8px 20px', cursor: 'pointer', fontFamily: MONO, fontSize: 12 }}>
             다시 시도
           </button>
         </div>
       )}
-      {current && !isLoading && (
-        <motion.div key={activeType} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      {reading && !loading && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {current.cautions.length > 0 && (
+          {reading.cautions.length > 0 && (
             <p style={{ fontSize: 11, color: 'rgba(251,191,36,0.7)', border: '1px solid rgba(251,191,36,0.2)',
               borderRadius: 6, padding: '8px 12px', margin: 0 }}>
-              ⚠ {current.cautions.join(' · ')}
+              ⚠ {reading.cautions.join(' · ')}
             </p>
           )}
-          {current.sections.map((s: ReadingSection, i: number) => (
+          {reading.sections.map((s: ReadingSection, i: number) => (
             <Panel key={i} style={{ padding: 20 }}>
               <p style={{ fontSize: 10, color: INK.ink45, letterSpacing: 3, fontFamily: MONO,
                 textTransform: 'uppercase', marginBottom: 8 }}>{s.title}</p>
