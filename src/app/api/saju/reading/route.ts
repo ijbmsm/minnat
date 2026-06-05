@@ -58,6 +58,7 @@ export interface ReadingResponse {
   tier:         'free' | 'paid';
   cautions:     string[];
   todayPillar?: TodayPillar;
+  readingId?:   string;
 }
 
 // ── Redis 캐시 (Upstash — 영구, serverless 친화적) ──
@@ -514,9 +515,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (hit) {
       try {
         const sections = parsesections(hit);
-        // 캐시 히트도 DB에 last_viewed_at 갱신 (fire-and-forget)
-        saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp });
-        const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
+        const readingId = await saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp, sections });
+        const response: ReadingResponse = { cacheKey, cached: true, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}), ...(readingId ? { readingId } : {}) };
         return NextResponse.json(response);
       } catch {
         // 캐시 손상 → 재생성
@@ -550,26 +550,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // DB 저장 (fire-and-forget)
-  saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp });
+  // DB 저장
+  const readingId = await saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp, sections });
 
-  const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}) };
+  const response: ReadingResponse = { cacheKey, cached: false, sections, tier, cautions: fs.cautions, ...(todayPillar ? { todayPillar } : {}), ...(readingId ? { readingId } : {}) };
   return NextResponse.json(response);
 }
 
-// ── DB 저장 헬퍼 (비차단) ──
-function saveReading(args: {
+// ── DB 저장 헬퍼 ──
+async function saveReading(args: {
   supabaseGetter: typeof createClient;
   year: number; month: number; day: number; hour: number | null; minute: number;
   sex: string; longitudeE: number; name?: string; concern?: string;
   type: string; cacheKey: string;
   fp: ReturnType<typeof calcSajuServer>;
-}) {
-  const { supabaseGetter, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp } = args;
-  supabaseGetter().then(async supabase => {
+  sections?: ReadingSection[];
+}): Promise<string | null> {
+  const { supabaseGetter, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp, sections } = args;
+  try {
+    const supabase = await supabaseGetter();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('saju_readings').upsert({
+    if (!user) return null;
+    const { data, error } = await supabase.from('saju_readings').upsert({
       user_id:        user.id,
       type,
       birth_year:     year,
@@ -585,6 +587,9 @@ function saveReading(args: {
       day_stem:       fp.day.stem,
       day_element:    STEM_DATA[fp.day.stem].element,
       last_viewed_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,cache_key' });
-  }).catch(() => { /* non-critical */ });
+      ...(sections ? { ai_sections: sections } : {}),
+    }, { onConflict: 'user_id,cache_key' }).select('id').single();
+    if (error || !data) return null;
+    return (data as { id: string }).id;
+  } catch { return null; }
 }

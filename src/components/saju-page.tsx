@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, createContext, useContext, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
 import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/lib/saju/engine";
@@ -498,8 +499,15 @@ const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as con
 type ReadingType = 'full' | 'today' | 'love' | 'career';
 
 // ── AI 해석 컴포넌트 ──
-function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initialType?: ReadingType }) {
-  const [reading, setReading] = useState<ReadingResponse | null>(null);
+function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }: {
+  birth: BirthParams;
+  initialType?: ReadingType;
+  cachedSections?: ReadingSection[] | null;
+  onReadingId?: (id: string) => void;
+}) {
+  const [reading, setReading] = useState<ReadingResponse | null>(
+    cachedSections ? { cacheKey: '', cached: true, sections: cachedSections, tier: 'free', cautions: [] } : null
+  );
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -520,14 +528,18 @@ function ReadingTab({ birth, initialType = 'full' }: { birth: BirthParams; initi
         const j = await res.json().catch(() => ({}));
         throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
       }
-      setReading(await res.json() as ReadingResponse);
+      const data = await res.json() as ReadingResponse;
+      setReading(data);
+      if (data.readingId) onReadingId?.(data.readingId);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '알 수 없는 오류');
     } finally { setLoading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { load(); }, []); // eslint-disable-line
+  useEffect(() => {
+    if (!cachedSections) load();
+  }, []); // eslint-disable-line
 
   return (
     <div>
@@ -1508,9 +1520,11 @@ const TABS: { id: TabId; ko: string; mark?: string }[] = [
   { id: 'gunghap', ko: '궁합' },
 ];
 
-function ResultView({ result, defaultType = 'full', onReset, onShare }: {
+function ResultView({ result, defaultType = 'full', cachedSections, onReadingId, onReset, onShare }: {
   result: SajuUIResult;
   defaultType?: ReadingType;
+  cachedSections?: ReadingSection[] | null;
+  onReadingId?: (id: string) => void;
   onReset: () => void;
   onShare: () => void;
 }) {
@@ -1604,7 +1618,8 @@ function ResultView({ result, defaultType = 'full', onReset, onShare }: {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <OhaengAccordion result={result} />
                     <Panel style={{ padding: m ? 20 : 28 }}>
-                      <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'} />
+                      <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
+                        cachedSections={cachedSections} onReadingId={onReadingId} />
                     </Panel>
                   </div>
                 )}
@@ -1650,16 +1665,43 @@ const FORM_DEFAULTS = {
 };
 
 // ── 메인 페이지 ──
-export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
+export function SajuPage({ fixedType, readingId: initialReadingId }: { fixedType?: ReadingType; readingId?: string }) {
+  const router = useRouter();
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
+  const [cachedSections, setCachedSections] = useState<ReadingSection[] | null>(null);
   const [expandedInfo, setExpandedInfo] = useState<'zi_hour' | 'hapHwa' | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
+  // readingId로 진입 시 DB에서 결과 복원
   useEffect(() => {
+    if (!initialReadingId) return;
+    setLoading(true);
+    fetch(`/api/saju/readings/${initialReadingId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(async d => {
+        if (!d?.birth_year) { setLoading(false); return; }
+        const index = await loadSeolgi();
+        const lon = d.birth_longitude ?? 127.0;
+        const fp = computeFourPillars(index, fromKST(d.birth_year, d.birth_month, d.birth_day, d.birth_hour, d.birth_minute ?? 0, lon, 'midnight'), d.birth_sex);
+        const birthParams = {
+          year: d.birth_year, month: d.birth_month, day: d.birth_day,
+          hour: d.birth_hour, minute: d.birth_minute ?? 0, sex: d.birth_sex as 'male' | 'female',
+          longitudeE: lon, dayBoundaryRule: 'midnight' as const, applyHapHwa: false,
+          name: d.birth_name ?? undefined, concern: d.concern ?? undefined,
+        };
+        setResult(buildUIResult(fp, birthParams));
+        if (d.ai_sections) setCachedSections(d.ai_sections);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [initialReadingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialReadingId) return; // readingId 있으면 폼 복원 불필요
     let pending: { year:number; month:number; day:number; hour:number|null; minute:number; sex:'male'|'female'; longitudeE:number; dayBoundaryRule:'midnight'|'zi_hour'; applyHapHwa:boolean; name?:string; concern?:string } | null = null;
     try {
       const saved = sessionStorage.getItem('saju:form');
@@ -1772,6 +1814,11 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
     } finally { setLoading(false); }
   }
 
+  function handleReadingId(id: string) {
+    if (initialReadingId === id) return;
+    if (fixedType) router.replace(`/saju/${fixedType}/${id}`);
+  }
+
   if (result) {
     const shareParams: ShareParams = {
       stem:     result.dayMaster.stem,
@@ -1788,7 +1835,9 @@ export function SajuPage({ fixedType }: { fixedType?: ReadingType }) {
         <ResultView
           result={result}
           defaultType={selectedType}
-          onReset={() => setResult(null)}
+          cachedSections={cachedSections}
+          onReadingId={handleReadingId}
+          onReset={() => { setResult(null); setCachedSections(null); if (fixedType && initialReadingId) router.replace(`/saju/${fixedType}`); }}
           onShare={() => setShowShare(true)}
         />
         <AnimatePresence>
