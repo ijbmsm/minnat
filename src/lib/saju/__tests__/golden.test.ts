@@ -49,13 +49,13 @@ function calc(
 // ────────────────────────────────────────────────────────
 describe('사주 4주 — 핵심 케이스', () => {
 
-  it('1999-04-04 05:00 KST 수원(127°E) 남 — fromKST UTC날짜 버그 수정 후 검증', () => {
+  it('1999-04-04 05:00 KST 수원(127°E) 남 — 병술(丙戌) 일주 (복수 플랫폼 교차검증)', () => {
     // 계산 근거:
     //   UTC = 1999-04-03 20:00
     //   doy(UTC Apr 3) = 93
     //   apparentMin = 1200 + 508 + eot(93) ≈ 1200 + 508 - 1.9 ≈ 1706 > 1440 → dayOffset=+1
-    //   solarDate = UTC(Apr 3) + 1 = Apr 4 → gz=(JDN(Apr 4)+59)%60 = 32 → 丙申
-    //   (32%12=8=申=신, 32%10=2=丙=병)
+    //   solarDate = UTC(Apr 3) + 1 = Apr 4 → gz=(JDN(Apr 4)+49)%60 = 22 → 丙戌
+    //   (22%12=10=戌=술, 22%10=2=丙=병)
     //   dayStemIdx=2(丙) → RAT_HOUR[2%5]=RAT_HOUR[2]=4(戊) → 戊子起
     //   solarTime ≈ 04:24 → 寅時(03~05) branch=2 → stem=(4+2)%10=6(庚) → 庚寅
     const fp = calc(1999, 4, 4, 5, 'male', { longitude: 127.0 });
@@ -64,17 +64,17 @@ describe('사주 4주 — 핵심 케이스', () => {
     expect(fp.month.stem).toBe('정');
     expect(fp.month.branch).toBe('묘');
     expect(fp.day.stem).toBe('병');
-    expect(fp.day.branch).toBe('신');
+    expect(fp.day.branch).toBe('술');
     expect(fp.hour?.stem).toBe('경');
     expect(fp.hour?.branch).toBe('인');
   });
 
-  it('2024-01-01 기준점 — 甲戌日 (DAY_PILLAR_OFFSET=59 검증)', () => {
-    // 근거: engine.ts 주석 "2024-01-01 = 甲戌(gz=10), KASI 교차검증"
+  it('2024-01-01 기준점 — 甲子日 (DAY_PILLAR_OFFSET=49 검증)', () => {
+    // 근거: offset=49 → JDN(2024-01-01)=2460311, (2460311+49)%60=0 → 甲子(gz=0)
     const fp = calc(2024, 1, 1, 12, 'male');
     expect(fp.day.stem).toBe('갑');
-    expect(fp.day.branch).toBe('술');
-    expect(fp.day.gz).toBe(10);
+    expect(fp.day.branch).toBe('자');
+    expect(fp.day.gz).toBe(0);
   });
 
   it('60년 주기 — 1924·1984·2044 모두 甲子年', () => {
@@ -95,10 +95,10 @@ describe('사주 4주 — 핵심 케이스', () => {
     // JDN(2000-03-05) = 2451605+64 = 2451669-ish... 직접 계산 생략, 일간만 확인
     const fp = calc(2000, 3, 5, 1, 'male');
     // 수정 전이면 Mar 6 일주, 수정 후면 Mar 5 일주
-    // Mar 5: JDN(2000-01-01)=2451545+64=2451609, (2451609+59)%60 = 2451668%60
-    // 2451668/60 = 40861.13... 40861*60=2451660, 나머지=8 → gz=8 → 壬(임)申(신)
+    // Mar 5: JDN(2000-03-05)=2451609, (2451609+49)%60 = 2451658%60
+    // 2451658/60 = 40860.96... 40860*60=2451600, 나머지=58 → gz=58 → 壬(임)戌(술)
     expect(fp.day.stem).toBe('임');
-    expect(fp.day.branch).toBe('신');
+    expect(fp.day.branch).toBe('술');
   });
 
 });
@@ -159,7 +159,7 @@ describe('월주 — 절기 경계', () => {
 describe('시주 — 진태양시 경계', () => {
 
   it('오서둔 — 甲日 子時(진태양시) → 甲子 시주', () => {
-    // 2024-01-01 = 甲戌日 (dayStemIdx=0, 甲).
+    // 2024-01-01 = 甲子日 (dayStemIdx=0, 甲).
     // 23:45 KST → UTC 14:45 → apparentMin = 885+508+eot(1) ≈ 885+508-3.7 = 1389.3
     // → solarTime.hour=23, dayOffset=0, solarDate=Jan 1 → branch=子(0)
     // RAT[0%5]=0(甲), stem=(0+0)%10=0 → 甲子
