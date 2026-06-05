@@ -12,21 +12,31 @@ const CARDS = [
     href: "/saju/full",
     title: "종합 사주",
     lines: ["성격, 연애, 직업,", "올해 운세까지 전부."],
+    span: false,
   },
   {
     href: "/saju/today",
     title: "오늘의 사주",
     lines: ["오늘 일진으로 보는", "하루 에너지 흐름."],
+    span: false,
   },
   {
     href: "/saju/love",
     title: "연애운",
     lines: ["내 연애 패턴과", "잘 맞는 상대 유형."],
+    span: false,
   },
   {
     href: "/saju/career",
     title: "직업·재물운",
     lines: ["어울리는 일의 방향과", "재물 성향."],
+    span: false,
+  },
+  {
+    href: "/saju/compat",
+    title: "궁합",
+    lines: ["두 사주로 보는 케미.", "끌리는 이유, 부딪히는 이유."],
+    span: true,
   },
 ];
 
@@ -50,12 +60,12 @@ export default function SajuLandingPage() {
 
           {/* 카드 */}
           <div className="grid grid-cols-2 gap-3 w-full max-w-[420px]">
-            {CARDS.map(({ href, title, lines }) => (
+            {CARDS.map(({ href, title, lines, span }) => (
               <Link
                 key={href}
                 href={href}
                 className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] p-5 min-h-[180px] transition-all duration-300 hover:border-white/[0.16]"
-                style={{ background: "rgba(255,255,255,0.018)" }}
+                style={{ background: "rgba(255,255,255,0.018)", gridColumn: span ? "span 2" : undefined }}
               >
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                 <div className="pointer-events-none absolute inset-0 bg-white/[0.015] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

@@ -66,6 +66,71 @@ const GWIMUN_PAIRS: [Branch, Branch][] = [
   ['자','유'], ['축','오'], ['인','미'], ['묘','신'], ['진','해'], ['사','술'],
 ];
 
+// ── 12신살(十二神煞) 삼합 기반 사이클 ──
+// 삼합국 계열별 12살 순서 (겁살→재살→천살→지살→년살→월살→망신살→장성살→반안살→역마살→육해살→화개살)
+// 인오술(火局): 겁=亥 재=子 천=丑 지=寅 년(도화)=卯 월=辰 망신=巳 장성=午 반안=未 역마=申 육해=酉 화개=戌
+// 신자진(水局): 겁=巳 재=午 천=未 지=申 년=酉 월=戌 망신=亥 장성=子 반안=丑 역마=寅 육해=卯 화개=辰
+// 사유축(金局): 겁=寅 재=卯 천=辰 지=巳 년=午 월=未 망신=申 장성=酉 반안=戌 역마=亥 육해=子 화개=丑
+// 해묘미(木局): 겁=申 재=酉 천=戌 지=亥 년=子 월=丑 망신=寅 장성=卯 반안=辰 역마=巳 육해=午 화개=未
+
+type ShinsalName12 =
+  | '겁살' | '재살' | '천살' | '지살' | '망신살'
+  | '장성살' | '반안살' | '육해살';
+
+interface ShinsalDef12 {
+  name: ShinsalName12;
+  desc: string;
+  idx: number;  // 12신살 순서 인덱스 (0=겁살..11=화개살)
+}
+
+const SINSAL12_DEFS: readonly ShinsalDef12[] = [
+  { name: '겁살',   desc: '외부 충격·횡재·사고 변수',    idx: 0  },
+  { name: '재살',   desc: '관재·구설·법적 분쟁 위험',     idx: 1  },
+  { name: '천살',   desc: '예기치 않은 재난·하늘의 시련', idx: 2  },
+  { name: '지살',   desc: '이동·출장·지방 이민 기질',      idx: 3  },
+  // 년살(도화) = idx 4 → 기존 도화살과 통합
+  // 월살(고초살) = idx 5 → 별도 추가하지 않음 (실용성 낮음)
+  { name: '망신살', desc: '명예 손상·수치심 사건 경향',   idx: 6  },
+  { name: '장성살', desc: '권위·강한 의지·리더 기질',     idx: 7  },
+  { name: '반안살', desc: '안정 추구·현실 안주·보수 성향', idx: 8  },
+  // 역마살 = idx 9 → 기존 역마살과 통합
+  { name: '육해살', desc: '인간관계 갈등·배신·악연 경향', idx: 10 },
+  // 화개살 = idx 11 → 기존 화개살과 통합
+] as const;
+
+// 삼합 계열별 겁살 시작지지 (年支 기준)
+const SAMHAP_GEOP_START: Partial<Record<Branch, Branch>> = {
+  인: '해', 오: '해', 술: '해',   // 인오술 계열 → 겁살=亥
+  신: '사', 자: '사', 진: '사',   // 신자진 계열 → 겁살=巳
+  사: '인', 유: '인', 축: '인',   // 사유축 계열 → 겁살=寅
+  해: '신', 묘: '신', 미: '신',   // 해묘미 계열 → 겁살=申
+};
+
+function compute12Sinsal(fp: FourPillars): SinsalResult[] {
+  const result: SinsalResult[] = [];
+  const allBranches = [
+    fp.year.branch, fp.month.branch, fp.day.branch,
+    ...(fp.hour ? [fp.hour.branch] : []),
+  ] as Branch[];
+
+  const yb = fp.year.branch;
+  const geopStart = SAMHAP_GEOP_START[yb];
+  if (!geopStart) return result;
+
+  const startIdx = BRANCHES.indexOf(geopStart);
+  if (startIdx === -1) return result;
+
+  for (const def of SINSAL12_DEFS) {
+    const targetBranch = BRANCHES[(startIdx + def.idx) % 12] as Branch;
+    const found = allBranches.filter(b => b === targetBranch);
+    if (found.length) {
+      result.push({ name: def.name, desc: def.desc, branches: found });
+    }
+  }
+
+  return result;
+}
+
 function computeSinsal(fp: FourPillars): SinsalResult[] {
   const result: SinsalResult[] = [];
   const allBranches = [
@@ -115,6 +180,9 @@ function computeSinsal(fp: FourPillars): SinsalResult[] {
       result.push({ name: '귀문관살', desc: '직관·예민함·집착 성향', branches: [a, b] });
     }
   }
+
+  // 12신살 사이클 (겁살·재살·천살·지살·망신살·장성살·반안살·육해살)
+  result.push(...compute12Sinsal(fp));
 
   return result;
 }
@@ -271,8 +339,9 @@ export function buildFactSheet(
   // ── 신강/신약 — advanced 정량화 결과 사용 ──
   const bodyStrength = adv.bodyStrength;
 
-  // ── 세운 (올해 + 내년) ──
-  const currentYear = new Date().getFullYear();
+  // ── 세운 (올해 + 내년) — KST 기준 (UTC+9)
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const currentYear = kstNow.getUTCFullYear();
   const seyun = [currentYear, currentYear + 1].map(y => {
     const p = makeSeyunPillar(y);
     return {
@@ -366,11 +435,37 @@ export function buildFactSheet(
   // 시주 미상
   if (!fp.hour) notableSignals.push('시주 미입력 — 시간 관련 궁(직업·노년) 해석 불가');
 
+  // 방합
+  for (const bh of adv.hapChung.banghaps) {
+    const completeness = bh.complete ? '완전방합' : '반방합(2지)';
+    notableSignals.push(`방합 ${bh.branches.join('')} → ${bh.element}기운 결집 (${completeness})`);
+  }
+
   // 신살
   const sinsal = computeSinsal(fp);
   for (const s of sinsal) {
     notableSignals.push(`${s.name}(${s.branches.join('')}): ${s.desc}`);
   }
+
+  // ── 도메인 렌즈 — readingType별 notableSignals 필터 ──
+  // love/career는 route.ts의 전용 focusSignals가 대체하므로 minimal만 유지
+  // today는 일진×원국 작용에 집중 → 핵심 팩트만
+  const filteredSignals = (() => {
+    if (readingType === 'today') {
+      // 오늘의 운세: 신강약·격국·용신·사령신·합충·대운 이른/늦음만 (신살·십신집중 제외)
+      return notableSignals.filter(s =>
+        s.startsWith('격국') ||
+        s.startsWith('용신') ||
+        s.startsWith('[용신 메모]') ||
+        s.startsWith('신강') || s.startsWith('신약') || s.startsWith('중화') ||
+        s.startsWith('사령신') ||
+        s.startsWith('천간합') || s.startsWith('지지 ') || s.startsWith('지지충') ||
+        s.startsWith('대운 ')
+      );
+    }
+    // full: 모든 신호 유지
+    return notableSignals;
+  })();
 
   // ── 주의사항 ──
   const cautions: string[] = [];
@@ -413,7 +508,7 @@ export function buildFactSheet(
     advanced: adv,
     name:    opts.name    || undefined,
     concern: opts.concern || undefined,
-    notableSignals,
+    notableSignals: filteredSignals,
     cautions,
     sinsal,
   };

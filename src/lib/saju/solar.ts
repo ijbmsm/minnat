@@ -1,3 +1,7 @@
+/**
+ * @deprecated 레거시 절기 계산. pillars.ts에서만 사용됨. 프로덕션 미사용.
+ * 프로덕션에서는 seolgi-loader.ts(seolgi.json 이진탐색)를 사용할 것.
+ */
 // 태양 황경 계산 → 절기 날짜 산출 (Jean Meeus 근사 알고리즘)
 
 const D2R = Math.PI / 180;

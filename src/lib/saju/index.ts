@@ -1,7 +1,12 @@
 export * from './constants';
+/**
+ * @deprecated pillars.ts 기반 레거시 API. 프로덕션에서는 server.ts calcSajuServer() 사용.
+ * buildSajuResult / calcSaju / SajuPillars 전부 deprecated.
+ */
 export * from './pillars';
 export * from './sipshin';
 export * from './interpret';
+/** @deprecated 레거시. seolgi-loader.ts 사용 권장. */
 export { getSolarTermKST, getIpchunKST } from './solar';
 
 import { STEM_DATA, BRANCH_DATA, ELEMENT_COLOR, type Element } from './constants';

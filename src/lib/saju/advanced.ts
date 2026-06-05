@@ -240,6 +240,15 @@ const BRANCH_CHUNG: readonly [Branch, Branch][] = [
   ['묘', '유'], ['진', '술'], ['사', '해'],
 ] as const;
 
+// 방합 (方合): 방위별 삼지(三支) — 계절 기운 결집
+// 寅卯辰 木局 / 巳午未 火局 / 申酉戌 金局 / 亥子丑 水局
+const BRANCH_BANGHAP: readonly [Branch, Branch, Branch, Element][] = [
+  ['인', '묘', '진', '목'],
+  ['사', '오', '미', '화'],
+  ['신', '유', '술', '금'],
+  ['해', '자', '축', '수'],
+] as const;
+
 export interface StemCombineResult {
   a: Stem; b: Stem;
   /** 화신(化神) 오행 */
@@ -258,10 +267,18 @@ export interface BranchHapResult {
   element:  Element;
 }
 
+export interface BanghapResult {
+  branches: [Branch, Branch, Branch];
+  element:  Element;
+  /** 세 지지 모두 존재하면 완전방합, 두 개면 반방합 */
+  complete: boolean;
+}
+
 export interface HapChungResult {
   stemCombines: StemCombineResult[];
   branchHaps:   BranchHapResult[];
   branchChungs: [Branch, Branch][];
+  banghaps:     BanghapResult[];
 }
 
 function detectStemCombines(stems: Stem[], monthEl: Element): StemCombineResult[] {
@@ -327,6 +344,22 @@ function detectBranchChungs(branches: Branch[]): [Branch, Branch][] {
   for (const [a, b] of BRANCH_CHUNG) {
     if (branches.includes(a) && branches.includes(b))
       result.push([a, b]);
+  }
+  return result;
+}
+
+function detectBranchBanghap(branches: Branch[]): BanghapResult[] {
+  const result: BanghapResult[] = [];
+  const brSet = new Set(branches);
+  for (const [a, b, c, el] of BRANCH_BANGHAP) {
+    const present = [a, b, c].filter(x => brSet.has(x));
+    if (present.length >= 2) {
+      result.push({
+        branches: [a, b, c],
+        element:  el,
+        complete: present.length === 3,
+      });
+    }
   }
   return result;
 }
@@ -540,8 +573,46 @@ export function determineYongSin(
   // 0) 종격 가드 — 억부 자체가 틀리는 케이스 선처리
   if (isJonggyeok(strengths, school)) return jonggyeokYongsin(strengths);
 
-  // 1) 중화 — 신약으로 흘리지 말고 별도 처리
+  // 1) 중화 — 통관법(通關法) 적용
   if (bodyStrength === 'neutral') {
+    // 통관법: 가장 강한 두 충돌 오행 사이를 중재하는 오행을 용신으로
+    // 상극쌍: 목극토, 토극수, 수극화, 화극금, 금극목
+    // 통관: 목토→화, 토수→금, 수화→목, 화금→토, 금목→수
+    const TONGGWAN: readonly [Element, Element, Element][] = [
+      ['목', '토', '화'],  // 목극토 → 화 통관
+      ['토', '수', '금'],  // 토극수 → 금 통관
+      ['수', '화', '목'],  // 수극화 → 목 통관
+      ['화', '금', '토'],  // 화극금 → 토 통관
+      ['금', '목', '수'],  // 금극목 → 수 통관
+    ] as const;
+
+    // 가장 강한 충돌 쌍 찾기 (강한 쪽 × 약한 쪽 합산이 큰 것)
+    let bestTonggwan: Element | null = null;
+    let bestScore = -1;
+    for (const [attacker, defender, mediator] of TONGGWAN) {
+      const conflictScore = strengths.scores[attacker] + strengths.scores[defender];
+      // 두 오행이 모두 어느 정도 존재해야 통관이 의미 있음
+      if (strengths.scores[attacker] > 0 && strengths.scores[defender] > 0 && conflictScore > bestScore) {
+        bestScore = conflictScore;
+        bestTonggwan = mediator;
+      }
+    }
+
+    if (bestTonggwan) {
+      const present = strengths.scores[bestTonggwan] > 0;
+      return {
+        yongsin:    bestTonggwan,
+        gisin:      CONTROLS[bestTonggwan],
+        label:      '통관용신(通關用神)',
+        reason:     '중화 사주 — 최강 충돌 쌍의 중재 오행을 통관용신으로',
+        present,
+        note:       present
+          ? '통관 오행이 원국에 존재. 이 오행 강화 시기에 흐름이 풀림.'
+          : '통관 오행이 원국 부재 — 대운·세운에서 보충될 때 흐름 호전.',
+        confidence: 'heuristic',
+      };
+    }
+
     return {
       yongsin:    null,
       gisin:      null,
@@ -629,6 +700,7 @@ export function analyzeAdvanced(
     stemCombines: detectStemCombines(stems, monthEl),
     branchHaps:   detectBranchHaps(branches, school),
     branchChungs: detectBranchChungs(branches),
+    banghaps:     detectBranchBanghap(branches),
   };
 
   const geokGuk = determineGeokGuk(fp, daysFromJie);

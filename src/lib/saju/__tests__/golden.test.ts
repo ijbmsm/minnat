@@ -22,6 +22,7 @@ import {
 } from '../seolgi-loader';
 import { computeFourPillars, fromKST } from '../engine';
 import { equationOfTimeMinutes } from '../eot';
+import { lunarToSolar } from '../lunar';
 import type { FourPillars } from '../engine';
 
 // ── 절기 인덱스 로드 ──
@@ -315,6 +316,195 @@ describe('EOT (균시차) 수치 범위', () => {
     // B=0일 때: 9.87*sin(0) - 7.53*cos(0) - 1.5*sin(0) = -7.53
     const eot = equationOfTimeMinutes(81);
     expect(eot).toBeCloseTo(-7.53, 0); // 소수점 0자리까지 (±0.5min)
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('연주 입춘 경계 — ±30분 정밀 케이스', () => {
+
+  it('입춘 -30분 KST 16:56 → 癸卯年 (이전 사주년)', () => {
+    // 2024 입춘 = 2024-02-04 17:26 KST = UTC 08:26
+    // 16:56 KST = UTC 07:56 < 입춘 UTC 08:26 → 전년(2023) = 癸卯
+    const fp = calc(2024, 2, 4, 16, 'male', { minute: 56 });
+    expect(fp.year.stem).toBe('계');
+    expect(fp.year.branch).toBe('묘');
+  });
+
+  it('입춘 +30분 KST 17:56 → 甲辰年 (당해 사주년)', () => {
+    // 17:56 KST = UTC 08:56 > 입춘 UTC 08:26 → 당해(2024) = 甲辰
+    const fp = calc(2024, 2, 4, 17, 'male', { minute: 56 });
+    expect(fp.year.stem).toBe('갑');
+    expect(fp.year.branch).toBe('진');
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('월주 — 子月·丑月 오호둔 10케이스', () => {
+
+  // 子月 = 대설(~12/7) 이후, 소한(~1/5) 이전. 12/10 사용.
+  // monthOrder(子=0) = (0-2+12)%12=10. stem=(startStem+10)%10.
+  // TIGER=[2,4,6,8,0] (甲己·乙庚·丙辛·丁壬·戊癸 → 2·4·6·8·0)
+
+  it('甲年(1984) 子月 → 丙子', () => {
+    // 1984: gz=0=甲, TIGER[0%5=0]=2. stem=(2+10)%10=2=병
+    const fp = calc(1984, 12, 10, 12, 'male');
+    expect(fp.year.stem).toBe('갑');
+    expect(fp.month.branch).toBe('자');
+    expect(fp.month.stem).toBe('병');
+  });
+
+  it('乙年(1985) 子月 → 戊子', () => {
+    // 1985: gz=1=乙, TIGER[1%5=1]=4. stem=(4+10)%10=4=무
+    const fp = calc(1985, 12, 10, 12, 'male');
+    expect(fp.year.stem).toBe('을');
+    expect(fp.month.branch).toBe('자');
+    expect(fp.month.stem).toBe('무');
+  });
+
+  it('丙年(1986) 子月 → 庚子', () => {
+    // 1986: gz=2=丙, TIGER[2%5=2]=6. stem=(6+10)%10=6=경
+    const fp = calc(1986, 12, 10, 12, 'male');
+    expect(fp.year.stem).toBe('병');
+    expect(fp.month.branch).toBe('자');
+    expect(fp.month.stem).toBe('경');
+  });
+
+  it('丁年(1987) 子月 → 壬子', () => {
+    // 1987: gz=3=丁, TIGER[3%5=3]=8. stem=(8+10)%10=8=임
+    const fp = calc(1987, 12, 10, 12, 'male');
+    expect(fp.year.stem).toBe('정');
+    expect(fp.month.branch).toBe('자');
+    expect(fp.month.stem).toBe('임');
+  });
+
+  it('戊年(1988) 子月 → 甲子', () => {
+    // 1988: gz=4=戊, TIGER[4%5=4]=0. stem=(0+10)%10=0=갑
+    const fp = calc(1988, 12, 10, 12, 'male');
+    expect(fp.year.stem).toBe('무');
+    expect(fp.month.branch).toBe('자');
+    expect(fp.month.stem).toBe('갑');
+  });
+
+  // 丑月 = 소한(~1/5) 이후, 입춘(~2/4) 이전. 1/10 사용.
+  // monthOrder(丑=1) = (1-2+12)%12=11. stem=(startStem+11)%10.
+  // Jan 10은 입춘 이전 → 사주년 = 전 캘린더 연도.
+
+  it('甲年(1984) 丑月 → 丁丑 (1985년 1월 사주년=甲)', () => {
+    // 1985-01-10 → 입춘(~2/4) 이전 → 사주년=1984(甲). stem=(2+11)%10=3=정
+    const fp = calc(1985, 1, 10, 12, 'male');
+    expect(fp.year.stem).toBe('갑');
+    expect(fp.month.branch).toBe('축');
+    expect(fp.month.stem).toBe('정');
+  });
+
+  it('乙年(1985) 丑月 → 己丑 (1986년 1월 사주년=乙)', () => {
+    // stem=(4+11)%10=5=기
+    const fp = calc(1986, 1, 10, 12, 'male');
+    expect(fp.year.stem).toBe('을');
+    expect(fp.month.branch).toBe('축');
+    expect(fp.month.stem).toBe('기');
+  });
+
+  it('丙年(1986) 丑月 → 辛丑 (1987년 1월 사주년=丙)', () => {
+    // stem=(6+11)%10=7=신
+    const fp = calc(1987, 1, 10, 12, 'male');
+    expect(fp.year.stem).toBe('병');
+    expect(fp.month.branch).toBe('축');
+    expect(fp.month.stem).toBe('신');
+  });
+
+  it('丁年(1987) 丑月 → 癸丑 (1988년 1월 사주년=丁)', () => {
+    // stem=(8+11)%10=9=계
+    const fp = calc(1988, 1, 10, 12, 'male');
+    expect(fp.year.stem).toBe('정');
+    expect(fp.month.branch).toBe('축');
+    expect(fp.month.stem).toBe('계');
+  });
+
+  it('戊年(1988) 丑月 → 乙丑 (1989년 1월 사주년=戊)', () => {
+    // stem=(0+11)%10=1=을
+    const fp = calc(1989, 1, 10, 12, 'male');
+    expect(fp.year.stem).toBe('무');
+    expect(fp.month.branch).toBe('축');
+    expect(fp.month.stem).toBe('을');
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('경도 차이 — 진태양시 시주 분파', () => {
+
+  it('서울(127°E) vs 부산(129°E) — 동일 KST 05:30에서 시주 분파', () => {
+    // 1999-04-04 05:30 KST, doy(UTC Apr3)=93, EOT(93)≈-3.7min
+    // 127°E: apparentMin=1230+508-3.7=1734.3 → solar=294.3min=4:54 → 寅時(branch=2) → 庚寅
+    // 129°E: apparentMin=1230+516-3.7=1742.3 → solar=302.3min=5:02 → 卯時(branch=3) → 辛卯
+    const seoul = calc(1999, 4, 4, 5, 'male', { minute: 30, longitude: 127.0 });
+    const busan = calc(1999, 4, 4, 5, 'male', { minute: 30, longitude: 129.0 });
+    expect(seoul.hour?.branch).toBe('인');  // 寅時
+    expect(busan.hour?.branch).toBe('묘');  // 卯時
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('seolgi.json 범위 — 1880년 조기 생년', () => {
+
+  it('1880-03-15 → 庚辰年 己卯月 (seolgi 최초 경계 정상 처리)', () => {
+    // seolgi.json 시작: 1880-01-05 21:40 UTC (소한).
+    // 경칩 1880-03-05 04:02 UTC 이후, 청명 이전 → 卯月(branch=3).
+    // 사주년: 입춘 1880-02-04 09:29 UTC 이후 → 1880년 = 庚辰(gz=16).
+    // 庚年 TIGER[6%5=1]=4(戊), 卯月order=(3-2)%12=1, stem=(4+1)%10=5=己 → 己卯月.
+    const fp = calc(1880, 3, 15, 12, 'male');
+    expect(fp.year.stem).toBe('경');
+    expect(fp.year.branch).toBe('진');
+    expect(fp.month.branch).toBe('묘');
+    expect(fp.month.stem).toBe('기');
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('절기 boundary_caution 플래그', () => {
+
+  it('boundary_caution=true 절기 직후 출생 → trace.boundaryCaution=true', () => {
+    // seolgi.json: 1881-04-04T15:30:00Z 청명이 boundary_caution=true
+    // 1881-04-05 12:00 KST = UTC 03:00 → latestJieBefore = 청명(boundary=true)
+    const fp = calc(1881, 4, 5, 12, 'male');
+    expect(fp.trace.boundaryCaution).toBe(true);
+  });
+
+  it('일반 출생 → trace.boundaryCaution=false', () => {
+    // 1999-04-04: 정묘월(boundary_caution=false)
+    const fp = calc(1999, 4, 4, 5, 'male');
+    expect(fp.trace.boundaryCaution).toBe(false);
+  });
+
+});
+
+// ────────────────────────────────────────────────────────
+describe('음력 입력 — lunarToSolar 변환 후 4주 검증', () => {
+
+  it('음력 1999년 2월 18일 = 양력 4월 4일 → 丙戌日', () => {
+    // 음력 → 양력 변환 후 동일 일주 결과 확인
+    const solar = lunarToSolar(1999, 2, 18);
+    expect(solar).toMatchObject({ year: 1999, month: 4, day: 4 });
+    const fp = calc(solar.year, solar.month, solar.day, 5, 'male', { longitude: 127.0 });
+    expect(fp.day.stem).toBe('병');
+    expect(fp.day.branch).toBe('술');
+  });
+
+  it('음력 2024년 1월 1일 = 양력 2월 10일 → 甲辰年 丙寅月', () => {
+    // 2024 설날 = 양력 2024-02-10. 입춘 이후(2/4) → 甲辰年.
+    // 입춘 이후 경칩(3/5) 이전 → 寅月. 甲年 寅月 = 丙寅.
+    const solar = lunarToSolar(2024, 1, 1);
+    expect(solar).toMatchObject({ year: 2024, month: 2, day: 10 });
+    const fp = calc(solar.year, solar.month, solar.day, 12, 'male');
+    expect(fp.year.stem).toBe('갑');
+    expect(fp.year.branch).toBe('진');
+    expect(fp.month.branch).toBe('인');
+    expect(fp.month.stem).toBe('병');
   });
 
 });

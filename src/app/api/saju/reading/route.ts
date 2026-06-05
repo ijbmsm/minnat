@@ -80,6 +80,28 @@ const ratelimit = redis
     })
   : null;
 
+// ── 무료 차트 캡 (로그인 유저 기준 일일 3회) ──
+const FREE_DAILY_CAP = 3;
+
+async function checkDailyChartCap(userId: string): Promise<{ allowed: boolean; remaining: number }> {
+  if (!redis) return { allowed: true, remaining: FREE_DAILY_CAP };
+  // KST 기준 오늘 날짜 키 (UTC+9)
+  const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const dateStr = `${kstNow.getUTCFullYear()}${String(kstNow.getUTCMonth()+1).padStart(2,'0')}${String(kstNow.getUTCDate()).padStart(2,'0')}`;
+  const key = `saju:cap:free:${userId}:${dateStr}`;
+  const count = await redis.incr(key);
+  if (count === 1) {
+    // 자정(KST) 지나면 만료 — 내일 KST 자정까지 남은 초 계산
+    const tomorrow = new Date(kstNow);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    tomorrow.setUTCHours(0, 0, 0, 0);
+    const ttl = Math.ceil((tomorrow.getTime() - Date.now()) / 1000);
+    await redis.expire(key, ttl);
+  }
+  const remaining = Math.max(0, FREE_DAILY_CAP - count);
+  return { allowed: count <= FREE_DAILY_CAP, remaining };
+}
+
 // ── Anthropic 클라이언트 ──
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -337,6 +359,17 @@ function buildPrompt(
     today:  '오늘 하루 에너지 전문가. 일진×원국 작용을 짧고 명확하게.',
   };
 
+  // 신강약 기반 모순 방지 규칙 동적 생성
+  const contradictionRule = (() => {
+    if (bodyStrength === 'strong') {
+      return '9. [신강 모순 금지] 이 차트는 신강이다. 인성(정인/편인) 강화·인성 오행 보완 권장 금지 — 신강에게 인성 추가는 더 강하게 만들어 불균형 심화. 식상·재성·관살로 설기·극제하는 방향만 권장.';
+    }
+    if (bodyStrength === 'weak') {
+      return '9. [신약 모순 금지] 이 차트는 신약이다. 식상(식신/상관) 활성·재성 강화 권장 금지 — 신약에게 식상은 일간을 더 약하게 만듦. 인성·비겁으로 보강하는 방향만 권장.';
+    }
+    return '9. [중화 모순 금지] 이 차트는 중화다. 특정 오행 편향적 강화 권장 금지. 통관·균형 방향으로만.';
+  })();
+
   const system = `너는 한국 전통 사주명리 전문가야. ${PERSONA[type]}
 ${name ? `참고: "${name}"이라는 이름을 가진 사람. 이름은 직접 호칭하지 말고(이름 금지), 사주 해석에만 참고.` : ''}
 ${currentDaeunInfo ? `[현재 대운]\n${currentDaeunInfo}` : ''}
@@ -348,7 +381,11 @@ ${currentDaeunInfo ? `[현재 대운]\n${currentDaeunInfo}` : ''}
 5. 각 섹션 4~6문장.
 6. 구체적으로 써 — "좋다/나쁘다" 뭉뚱그리기 금지. 어떤 상황에서 어떻게 나타나는지.
 7. 연도·나이대를 반드시 쓸 것 — 대운/세운 타이밍이 있는 섹션은 "20XX년", "XX세 이후" 식으로 1개 이상 명시.
-8. 신살·격국은 팩트시트에 없으면 언급 금지.${cautionNote}${concernRef}`;
+8. 신살·격국은 팩트시트에 없으면 언급 금지.
+${contradictionRule}
+10. [궁위 교차 금지] 연주=조상·초년(~20대), 월주=부모·직업환경·청년(20~40대), 일주=배우자·자아·중년(40~60대), 시주=자식·노년(60대~). 궁을 섞어서 해석하거나 뛰어넘어 적용 금지.
+11. [generic 표현 금지] "좋은 기회가 온다", "힘든 시기가 지나간다", "운이 좋다/나쁘다", "분명 잘 될 거야", "걱정 마" 같은 근거 없는 위로·단정 금지. 반드시 대운/세운 팩트 근거 명시.
+12. [오행 용어 남발 금지] 팩트시트에 없는 합충·신살 추론 금지. 있는 것만 해석.${cautionNote}${concernRef}`;
 
   // 타입별 섹션 정의
   const tp = opts.todayPillar;
@@ -367,10 +404,11 @@ ${currentDaeunInfo ? `[현재 대운]\n${currentDaeunInfo}` : ''}
 5. 맞는 환경 / 피해야 할 일 — 용신 오행 기반 빛나는 환경, 기신 오행 기반 소진되는 직무·조직 유형 (구체적 직업명·상황)`
     ) : type === 'today' ? (
 `오늘 일진: ${tp ? `${tp.stem}${tp.branch} (천간 ${tp.sipshinStem} · 지지 ${tp.sipshinBranch})` : '(정보 없음 — 오늘 날짜 기준 추론)'}
-1. 오늘 하루 전반 — 일진이 이 차트에 어떻게 작용하는지, 에너지 방향
-2. 오늘 집중할 것 — 유리한 행동 방향, 잘 흘러가는 영역
-3. 오늘 조심할 것 — 마찰이 생기기 쉬운 부분
-4. 오늘의 한 마디 — 솔직하게 해주고 싶은 말 한 문장`
+주의: 오늘 일진이 원국·대운·세운 위에 얹혀서 작용함. 일진만 보지 말고 현재 대운·세운 흐름 위에서 오늘이 어떤 날인지 맥락 있게 봐줘.
+1. 오늘 하루 전반 — 오늘 일진이 현재 대운·세운 흐름과 어떻게 맞물리는지, 오늘 에너지 방향 (대운 타이밍 1줄 포함)
+2. 오늘 집중할 것 — 이 차트에서 일진의 오행·십신이 유리하게 작용하는 구체적 행동 방향
+3. 오늘 조심할 것 — 일진과 원국 충돌로 마찰이 생기기 쉬운 구체적 상황
+4. 오늘의 한 마디 — 이 차트에 딱 맞는 솔직한 말 한 문장 (generic 위로 금지, 팩트 기반으로)`
     ) : /* full */ (
 `1. 나는 어떤 사람 — ${dm.stem} 일간의 본질 + 이 차트만의 특징 (오행·십신 조합)
 2. 연애 스타일 — 어떻게 사랑하고, 어떤 패턴이 반복되는지
@@ -476,6 +514,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { year, month, day, hour, minute, dayBoundaryRule, sex, tier, type, longitudeE, name, concern, applyHapHwa } = body;
+
+  // 무료 차트 일일 캡 (free tier + 로그인 유저)
+  if (tier === 'free' && redis) {
+    const supabase = await createClient();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const { allowed, remaining } = await checkDailyChartCap(authUser.id);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: '오늘 무료 풀이 횟수(3회)를 모두 사용했습니다. 내일 다시 시도해주세요.', remaining: 0 },
+          { status: 429, headers: { 'X-Daily-Cap-Remaining': '0' } },
+        );
+      }
+      // 남은 횟수 헤더로 응답에 포함 (UI에서 카운터 표시용)
+      req.headers.set('x-cap-remaining', String(remaining));
+    }
+  }
 
   // 사주 계산 (서버, 파일시스템)
   let fp;

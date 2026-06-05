@@ -1,3 +1,8 @@
+/**
+ * @deprecated 레거시 엔진. 프로덕션 미사용.
+ * 절기 계산이 Jean Meeus 근사(solar.ts)에 의존하고 진태양시(EOT) 보정 없음.
+ * 프로덕션에서는 server.ts → engine.ts 파이프라인을 사용할 것.
+ */
 import { STEMS, BRANCHES, STEM_DATA, BRANCH_DATA, type Stem, type Branch } from './constants';
 import { getMonthTerm, getIpchunKST, daysToNextTerm, daysToPrevTerm } from './solar';
 
