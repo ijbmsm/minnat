@@ -590,9 +590,9 @@ interface ShareParams {
   image: string; name: string; keywords: string; core: string;
 }
 
-function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => void }) {
+function ShareModal({ params, shareLink, onClose }: { params: ShareParams; shareLink?: string; onClose: () => void }) {
   const [downloading, setDownloading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'link'|'card'|null>(null);
 
   const ogUrl = `/api/saju/og?${new URLSearchParams(
     Object.fromEntries(Object.entries(params).filter(([, v]) => v))
@@ -611,16 +611,26 @@ function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => v
     } finally { setDownloading(false); }
   }
 
-  async function share() {
+  async function copyLink() {
+    if (!shareLink) return;
     try {
+      const url = `${window.location.origin}${shareLink}`;
       if (navigator.share) {
-        await navigator.share({ title: '내 사주', text: `${params.name ? params.name + '님의 ' : ''}사주 카드`, url: window.location.href });
+        await navigator.share({ title: '내 사주 결과', url });
       } else {
-        await navigator.clipboard.writeText(window.location.href);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        await navigator.clipboard.writeText(url);
+        setCopied('link');
+        setTimeout(() => setCopied(null), 2000);
       }
-    } catch { /* user cancelled */ }
+    } catch { /* cancelled */ }
+  }
+
+  async function copyCard() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied('card');
+      setTimeout(() => setCopied(null), 2000);
+    } catch { /* cancelled */ }
   }
 
   return (
@@ -638,24 +648,38 @@ function ShareModal({ params, onClose }: { params: ShareParams; onClose: () => v
         className="rounded-2xl border border-white/10 bg-zinc-950 p-4 w-full max-w-sm"
       >
         <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-medium text-white">사주 카드 공유</p>
+          <p className="text-sm font-medium text-white">공유하기</p>
           <button onClick={onClose} className="text-white/40 hover:text-white text-lg leading-none">×</button>
         </div>
+
+        {/* 링크 공유 — 로그인 없이 볼 수 있는 공개 URL */}
+        {shareLink && (
+          <button onClick={copyLink}
+            className="w-full flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-3 mb-2 text-left hover:bg-white/[0.09] transition-colors">
+            <span className="text-lg">🔗</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white font-medium">{copied === 'link' ? '링크 복사됨!' : '링크로 공유'}</p>
+              <p className="text-xs text-white/35 truncate">{window.location.origin}{shareLink}</p>
+            </div>
+          </button>
+        )}
+
+        {/* 이미지 카드 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={ogUrl} alt="사주 카드"
-          className="w-full rounded-xl mb-3 border border-white/8"
+          className="w-full rounded-xl mb-2 border border-white/8"
           style={{ aspectRatio: '1 / 1', objectFit: 'cover' }} />
         <div className="flex gap-2">
           <button onClick={download} disabled={downloading}
             className="flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm text-white hover:bg-white/10 transition-colors disabled:opacity-50">
             {downloading ? '저장 중...' : '이미지 저장'}
           </button>
-          <button onClick={share}
+          <button onClick={copyCard}
             className="flex-1 rounded-xl bg-white/10 py-2.5 text-sm text-white hover:bg-white/15 transition-colors">
-            {copied ? '복사됨!' : (typeof navigator !== 'undefined' && 'share' in navigator ? '공유' : 'URL 복사')}
+            {copied === 'card' ? '복사됨!' : 'URL 복사'}
           </button>
         </div>
-        <p className="mt-2 text-[10px] text-white/25 text-center">카드를 저장해서 카카오톡·인스타에 공유해봐</p>
+        <p className="mt-2 text-[10px] text-white/25 text-center">링크를 받은 사람은 로그인 없이 볼 수 있어</p>
       </motion.div>
     </motion.div>
   );
@@ -1332,60 +1356,154 @@ function OhaengTab({ result }: { result: SajuUIResult }) {
 function DaeunTab({ result }: { result: SajuUIResult }) {
   const { m, openDetail } = useContext(SajuUICtx);
   const { pillars: fp } = result;
+  const dm = fp.day.stem;
   const currentYear = new Date().getFullYear();
-
-  // 현재 대운 찾기 (출생년도 기반)
   const birthYear = fp.trace.sajuYear;
   const currentAge = currentYear - birthYear;
 
+  const daeunList = fp.daeun;
+  const currentIdx = daeunList.findIndex(d => currentAge >= d.startAge && currentAge < d.startAge + 10);
+  const currentDaeun = currentIdx >= 0 ? daeunList[currentIdx] : null;
+
   return (
-    <Panel style={{ padding: m ? 20 : 28 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        marginBottom: 22, gap: 8, flexWrap: 'wrap' }}>
-        <Term termKey="대운" onOpen={openDetail}>
-          <KoLabel style={{ color: INK.ink45, whiteSpace: 'nowrap' }}>대운 · 大運 — 10년의 흐름</KoLabel>
-        </Term>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: INK.ink45, whiteSpace: 'nowrap' }}>
-          {fp.daeun.length > 0 ? `대운수 ${fp.daeun[0].startAge}` : ''}
-        </span>
-      </div>
-      <div style={{ display: m ? 'flex' : 'grid',
-        gridTemplateColumns: `repeat(${fp.daeun.length}, 1fr)`,
-        gap: 10, overflowX: m ? 'auto' : 'visible', scrollbarWidth: 'none', paddingBottom: m ? 4 : 0 }}>
-        {fp.daeun.map(d => {
+    <div style={{ display: 'flex', flexDirection: 'column', gap: m ? 10 : 12 }}>
+      {/* 헤더 */}
+      <Panel style={{ padding: m ? '16px 18px' : '18px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <Term termKey="대운" onOpen={openDetail}>
+            <KoLabel style={{ color: INK.ink45 }}>대운 · 大運 — 10년의 흐름</KoLabel>
+          </Term>
+          {daeunList.length > 0 && (
+            <span style={{ fontFamily: MONO, fontSize: 10, color: INK.ink28 }}>
+              대운수 {daeunList[0].startAge}세 시작
+            </span>
+          )}
+        </div>
+        {currentDaeun && (() => {
+          const se = STEM_DATA[currentDaeun.pillar.stem];
+          const be = BRANCH_DATA[currentDaeun.pillar.branch];
+          const ss = getSipshin(dm, currentDaeun.pillar.stem);
+          const bs = getBranchSipshin(dm, currentDaeun.pillar.branch);
+          const ageInDaeun = currentAge - currentDaeun.startAge;
+          const progress = Math.round((ageInDaeun / 10) * 100);
+          return (
+            <div style={{ marginTop: 16, padding: m ? '14px 16px' : '16px 18px',
+              borderRadius: 10, border: `1px solid ${INK.gold}44`,
+              background: 'rgba(194,163,91,0.055)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 9, fontFamily: MONO, color: INK.gold, letterSpacing: 2,
+                  border: `1px solid ${INK.gold}55`, borderRadius: 3, padding: '2px 6px' }}>지금</span>
+                <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO }}>
+                  {currentDaeun.startAge}~{currentDaeun.startAge + 9}세 · {birthYear + currentDaeun.startAge}~{birthYear + currentDaeun.startAge + 9}년
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: m ? 14 : 18 }}>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  <span style={{ fontSize: m ? 36 : 42, fontWeight: 500, fontFamily: SERIF, lineHeight: 1,
+                    color: OH[se.element]?.color ?? INK.ink }}>{currentDaeun.pillar.stem}</span>
+                  <span style={{ fontSize: m ? 36 : 42, fontWeight: 500, fontFamily: SERIF, lineHeight: 1,
+                    color: OH[be.element]?.color ?? INK.ink }}>{currentDaeun.pillar.branch}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, fontFamily: MONO, color: OH[se.element]?.color ?? INK.ink45,
+                      border: `1px solid ${OH[se.element]?.color ?? INK.ink28}55`, borderRadius: 4,
+                      padding: '2px 7px' }}>{ss}</span>
+                    <span style={{ fontSize: 11, fontFamily: MONO, color: OH[be.element]?.color ?? INK.ink45,
+                      border: `1px solid ${OH[be.element]?.color ?? INK.ink28}55`, borderRadius: 4,
+                      padding: '2px 7px' }}>{bs}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(232,223,200,0.08)', overflow: 'hidden' }}>
+                      <div style={{ width: `${progress}%`, height: '100%', background: INK.gold, borderRadius: 2, opacity: 0.7 }} />
+                    </div>
+                    <span style={{ fontSize: 11, fontFamily: MONO, color: INK.gold, opacity: 0.7 }}>{progress}%</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: INK.ink28, marginTop: 4, fontFamily: MONO }}>
+                    {birthYear + currentAge}년 기준 · {ageInDaeun}년 경과
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </Panel>
+
+      {/* 전체 타임라인 */}
+      <Panel style={{ overflow: 'hidden' }}>
+        {daeunList.map((d, i) => {
           const se = STEM_DATA[d.pillar.stem];
           const be = BRANCH_DATA[d.pillar.branch];
-          const isCurrent = currentAge >= d.startAge && currentAge < d.startAge + 10;
+          const ss = getSipshin(dm, d.pillar.stem);
+          const bs = getBranchSipshin(dm, d.pillar.branch);
+          const isCurrent = i === currentIdx;
+          const isPast = currentAge >= d.startAge + 10;
+          const startYear = birthYear + d.startAge;
+
           return (
             <div key={d.startAge}
               onClick={() => openDetail({
                 head: `${d.pillar.stem}${d.pillar.branch}`, han: null, oh: se.element,
-                chips: [`${d.startAge}세 ~ ${d.startAge + 9}세`, isCurrent ? '현재 대운' : '대운'],
+                chips: [`${d.startAge}~${d.startAge + 9}세`, `${startYear}~${startYear + 9}년`, isCurrent ? '현재 대운' : isPast ? '지난 대운' : '다가올 대운'],
                 blocks: [
-                  { label: `천간 ${d.pillar.stem}`, text: CHEONGAN_DATA[d.pillar.stem]?.img ?? se.image },
-                  { label: `지지 ${d.pillar.branch}`, text: `${be.element} · ${be.animal}` },
+                  { label: `천간 ${d.pillar.stem} (${ss})`, text: CHEONGAN_DATA[d.pillar.stem]?.img ?? se.image },
+                  { label: `지지 ${d.pillar.branch} (${bs})`, text: `${be.element} · ${be.animal}` },
                 ],
               })}
-              style={{ borderRadius: 6, overflow: 'hidden', textAlign: 'center', cursor: 'pointer',
-                flex: m ? '0 0 96px' : 'auto',
-                border: `1px solid ${isCurrent ? INK.gold + '88' : INK.hair}`,
-                background: isCurrent ? 'rgba(194,163,91,0.07)' : 'transparent' }}>
-              <div style={{ padding: '8px 0', borderBottom: `1px solid ${INK.hair}` }}>
-                <span style={{ fontSize: 13, fontFamily: MONO, color: isCurrent ? INK.gold : INK.ink45 }}>{d.startAge}세</span>
-                {isCurrent && <div style={{ fontSize: 9, color: INK.gold, letterSpacing: 1, marginTop: 1 }}>현재</div>}
+              style={{
+                display: 'flex', alignItems: 'center', gap: m ? 12 : 16, cursor: 'pointer',
+                padding: m ? '14px 18px' : '16px 24px',
+                borderTop: i ? `1px solid ${INK.hair}` : 'none',
+                opacity: isPast ? 0.45 : 1,
+                background: isCurrent ? 'rgba(194,163,91,0.04)' : 'transparent',
+                transition: 'background 0.15s',
+              }}>
+              {/* 타임라인 도트 */}
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <div style={{
+                  width: isCurrent ? 10 : 7, height: isCurrent ? 10 : 7, borderRadius: '50%',
+                  background: isCurrent ? INK.gold : isPast ? INK.ink28 : INK.ink45,
+                  boxShadow: isCurrent ? `0 0 8px ${INK.gold}88` : 'none',
+                  flexShrink: 0,
+                }} />
               </div>
-              <div style={{ padding: '12px 0 6px' }}>
-                <div style={{ fontSize: 34, fontWeight: 500, fontFamily: SERIF, lineHeight: 1.2, color: OH[se.element]?.color ?? INK.ink }}>{d.pillar.stem}</div>
-                <div style={{ fontSize: 34, fontWeight: 500, fontFamily: SERIF, lineHeight: 1.2, color: OH[be.element]?.color ?? INK.ink }}>{d.pillar.branch}</div>
+
+              {/* 연도/나이 */}
+              <div style={{ flexShrink: 0, width: m ? 72 : 88, textAlign: 'right' }}>
+                <div style={{ fontSize: m ? 11 : 12, fontFamily: MONO,
+                  color: isCurrent ? INK.gold : INK.ink45 }}>
+                  {startYear}~{startYear + 9}
+                </div>
+                <div style={{ fontSize: 10, color: INK.ink28, fontFamily: MONO, marginTop: 1 }}>
+                  {d.startAge}~{d.startAge + 9}세
+                </div>
               </div>
+
+              {/* 천간·지지 */}
+              <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                <span style={{ fontSize: m ? 26 : 30, fontWeight: 500, fontFamily: SERIF, lineHeight: 1,
+                  color: isCurrent ? (OH[se.element]?.color ?? INK.ink) : (OH[se.element]?.color ?? INK.ink45),
+                  opacity: isPast ? 1 : 1 }}>{d.pillar.stem}</span>
+                <span style={{ fontSize: m ? 26 : 30, fontWeight: 500, fontFamily: SERIF, lineHeight: 1,
+                  color: isCurrent ? (OH[be.element]?.color ?? INK.ink) : (OH[be.element]?.color ?? INK.ink45) }}>{d.pillar.branch}</span>
+              </div>
+
+              {/* 십신 뱃지 */}
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontFamily: MONO,
+                  color: OH[se.element]?.color ?? INK.ink45, opacity: 0.8 }}>{ss}</span>
+                <span style={{ fontSize: 10, color: INK.ink28 }}>·</span>
+                <span style={{ fontSize: 10, fontFamily: MONO,
+                  color: OH[be.element]?.color ?? INK.ink45, opacity: 0.8 }}>{bs}</span>
+              </div>
+
+              {/* 화살표 */}
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: INK.ink28, flexShrink: 0 }}>›</span>
             </div>
           );
         })}
-      </div>
-      <p style={{ marginTop: 22, fontSize: m ? 14 : 14.5, lineHeight: 1.75, color: INK.ink70 }}>
-        대운은 10년 단위로 바뀌는 큰 흐름. 어떤 기운이 들어오는지에 따라 인생의 계절이 달라져.
-      </p>
-    </Panel>
+      </Panel>
+    </div>
   );
 }
 
@@ -1520,11 +1638,12 @@ const TABS: { id: TabId; ko: string; mark?: string }[] = [
   { id: 'gunghap', ko: '궁합' },
 ];
 
-function ResultView({ result, defaultType = 'full', cachedSections, onReadingId, onReset, onShare }: {
+function ResultView({ result, defaultType = 'full', cachedSections, onReadingId, currentReadingId, onReset, onShare }: {
   result: SajuUIResult;
   defaultType?: ReadingType;
   cachedSections?: ReadingSection[] | null;
   onReadingId?: (id: string) => void;
+  currentReadingId?: string | null;
   onReset: () => void;
   onShare: () => void;
 }) {
@@ -1665,12 +1784,13 @@ const FORM_DEFAULTS = {
 };
 
 // ── 메인 페이지 ──
-export function SajuPage({ fixedType, readingId: initialReadingId }: { fixedType?: ReadingType; readingId?: string }) {
+export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = false }: { fixedType?: ReadingType; readingId?: string; publicApi?: boolean }) {
   const router = useRouter();
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
   const [cachedSections, setCachedSections] = useState<ReadingSection[] | null>(null);
+  const [currentReadingId, setCurrentReadingId] = useState<string | null>(initialReadingId ?? null);
   const [expandedInfo, setExpandedInfo] = useState<'zi_hour' | 'hapHwa' | null>(null);
   const [error, setError]   = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1680,7 +1800,10 @@ export function SajuPage({ fixedType, readingId: initialReadingId }: { fixedType
   useEffect(() => {
     if (!initialReadingId) return;
     setLoading(true);
-    fetch(`/api/saju/readings/${initialReadingId}`)
+    const endpoint = publicApi
+      ? `/api/saju/public/${initialReadingId}`
+      : `/api/saju/readings/${initialReadingId}`;
+    fetch(endpoint)
       .then(r => r.ok ? r.json() : null)
       .then(async d => {
         if (!d?.birth_year) { setLoading(false); return; }
@@ -1815,8 +1938,10 @@ export function SajuPage({ fixedType, readingId: initialReadingId }: { fixedType
   }
 
   function handleReadingId(id: string) {
-    if (initialReadingId === id) return;
-    if (fixedType) router.replace(`/saju/${fixedType}/${id}`);
+    setCurrentReadingId(id);
+    if (!publicApi && fixedType && initialReadingId !== id) {
+      router.replace(`/saju/${fixedType}/${id}`);
+    }
   }
 
   if (result) {
@@ -1837,11 +1962,18 @@ export function SajuPage({ fixedType, readingId: initialReadingId }: { fixedType
           defaultType={selectedType}
           cachedSections={cachedSections}
           onReadingId={handleReadingId}
+          currentReadingId={currentReadingId}
           onReset={() => { setResult(null); setCachedSections(null); if (fixedType && initialReadingId) router.replace(`/saju/${fixedType}`); }}
           onShare={() => setShowShare(true)}
         />
         <AnimatePresence>
-          {showShare && <ShareModal params={shareParams} onClose={() => setShowShare(false)} />}
+          {showShare && (
+            <ShareModal
+              params={shareParams}
+              shareLink={currentReadingId ? `/saju/view/${currentReadingId}` : undefined}
+              onClose={() => setShowShare(false)}
+            />
+          )}
         </AnimatePresence>
       </>
     );

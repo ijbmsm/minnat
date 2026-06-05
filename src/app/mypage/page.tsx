@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
 import { SajuHistory } from "@/components/saju-history";
+import { TodayButton } from "@/components/today-button";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,23 @@ export default async function MyPage() {
               <p className="text-white/30 text-xs mt-0.5">마이페이지</p>
             </div>
           </div>
+
+          {/* 오늘의 사주 빠른 접근 */}
+          {hasBirth && profile && (
+            <section>
+              <p className="text-[10px] text-white/25 tracking-widest mb-3">오늘</p>
+              <TodayButton profile={{
+                birth_year: profile.birth_year!,
+                birth_month: profile.birth_month!,
+                birth_day: profile.birth_day!,
+                birth_hour: profile.birth_hour ?? null,
+                birth_minute: profile.birth_minute ?? 0,
+                birth_sex: profile.birth_sex ?? 'male',
+                birth_longitude: profile.birth_longitude ?? 127.0,
+                birth_name: profile.birth_name ?? null,
+              }} />
+            </section>
+          )}
 
           {/* 내 사주 정보 */}
           <section>

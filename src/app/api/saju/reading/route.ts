@@ -317,8 +317,16 @@ function buildPrompt(
     ? `\n[주의사항 — 이 항목은 단정 해석 금지]\n${cautions.map(c => `- ${c}`).join('\n')}`
     : '';
 
+  // 현재 대운 정보
+  const currentYear = new Date().getFullYear();
+  const currentDaeunInfo = (() => {
+    const cur = fs.daeun.find(d => d.startYear <= currentYear && currentYear < d.startYear + 10);
+    if (!cur) return '';
+    return `현재 대운: ${cur.stem}${cur.branch} (천간 ${cur.sipshinStem}·지지 ${cur.sipshinBranch}) — ${cur.startYear}~${cur.startYear + 9}년 / ${cur.startAge}~${cur.startAge + 9}세`;
+  })();
+
   const concernRef = concern
-    ? `\n\n[사용자 고민/질문]\n"${concern}"\n→ 이 고민에 연결해서 해석해. 관련 섹션에서 직접 언급하고 사주 관점으로 답해.`
+    ? `\n\n[사용자 고민/질문]\n"${concern}"\n→ 이 고민을 풀이 전반에 녹여. 첫 번째 섹션 포함 최소 2개 섹션에서 직접 이 고민의 사주적 원인과 방향을 짚어줘.`
     : '';
 
   // 타입별 페르소나
@@ -330,15 +338,17 @@ function buildPrompt(
   };
 
   const system = `너는 한국 전통 사주명리 전문가야. ${PERSONA[type]}
-${name ? `참고 이름: ${name} (이름 직접 사용 금지).` : ''}
+${name ? `참고: "${name}"이라는 이름을 가진 사람. 이름은 직접 호칭하지 말고(이름 금지), 사주 해석에만 참고.` : ''}
+${currentDaeunInfo ? `[현재 대운]\n${currentDaeunInfo}` : ''}
 규칙:
-1. 상대방은 반드시 '너'로만 불러. 이름·3인칭('그', '이 사람') 표현 절대 금지.
+1. 상대방은 반드시 '너'로만 불러. 이름·3인칭('그', '이 사람') 절대 금지.
 2. [초점 신호]에 나온 팩트만 근거로 써. 없는 사실 지어내지 마.
 3. "~할 것이다" 단정 금지. "~하는 경향", "~를 경계할 만하다" 식으로.
 4. 반말, 친근하게. 점집 말투 금지.
-5. 각 섹션 4~6문장. 너무 짧거나 너무 길지 않게.
-6. 구체적으로 써. "좋다" "나쁘다" 같은 뭉뚱그린 표현 말고, 어떤 상황에서 어떻게 나타나는지.
-7. 신살·격국은 팩트시트에 없으면 언급 금지.${cautionNote}${concernRef}`;
+5. 각 섹션 4~6문장.
+6. 구체적으로 써 — "좋다/나쁘다" 뭉뚱그리기 금지. 어떤 상황에서 어떻게 나타나는지.
+7. 연도·나이대를 반드시 쓸 것 — 대운/세운 타이밍이 있는 섹션은 "20XX년", "XX세 이후" 식으로 1개 이상 명시.
+8. 신살·격국은 팩트시트에 없으면 언급 금지.${cautionNote}${concernRef}`;
 
   // 타입별 섹션 정의
   const tp = opts.todayPillar;
