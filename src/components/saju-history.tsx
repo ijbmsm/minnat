@@ -59,9 +59,33 @@ export function SajuHistory({ maxItems = 5, variant = 'standalone' }: SajuHistor
       .catch(() => {});
   }, []);
 
-  if (!items || items.length === 0) return null;
-
   const isSidebar = variant === 'sidebar';
+
+  // Loading skeleton
+  if (items === null) {
+    const skRows = isSidebar ? 4 : 3;
+    const rowPad = isSidebar ? '15px 6px' : '13px 4px';
+    return (
+      <div style={!isSidebar ? { marginTop: 40 } : {}}>
+        {Array.from({ length: skRows }).map((_, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: isSidebar ? 14 : 12,
+            padding: rowPad,
+            borderTop: i === 0 ? 'none' : `1px solid ${INK.hair}`,
+          }}>
+            <div className="saju-skeleton" style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div className="saju-skeleton" style={{ width: `${55 + i * 10}%`, height: 13, borderRadius: 4 }} />
+              <div className="saju-skeleton" style={{ width: `${35 + i * 8}%`, height: 11, borderRadius: 4 }} />
+            </div>
+            <div className="saju-skeleton" style={{ width: 36, height: 11, borderRadius: 4, flexShrink: 0 }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) return null;
   const rowGap = isSidebar ? 14 : 12;
   const rowPadV = isSidebar ? 15 : 13;
   const rowPadH = isSidebar ? 6 : 4;
