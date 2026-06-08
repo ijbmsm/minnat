@@ -80,8 +80,8 @@ const ratelimit = redis
     })
   : null;
 
-// ── 무료 차트 캡 (로그인 유저 기준 일일 3회) ──
-const FREE_DAILY_CAP = 3;
+// ── 무료 차트 캡 (로그인 유저 기준 일일 4회) ──
+const FREE_DAILY_CAP = 4;
 
 async function checkDailyChartCap(userId: string): Promise<{ allowed: boolean; remaining: number }> {
   if (!redis) return { allowed: true, remaining: FREE_DAILY_CAP };
@@ -529,7 +529,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const { allowed, remaining } = await checkDailyChartCap(authUser.id);
       if (!allowed) {
         return NextResponse.json(
-          { error: '오늘 무료 풀이 횟수(3회)를 모두 사용했습니다. 내일 다시 시도해주세요.', remaining: 0 },
+          { error: '오늘 무료 풀이 횟수(4회)를 모두 사용했습니다. 내일 다시 시도해주세요.', remaining: 0 },
           { status: 429, headers: { 'X-Daily-Cap-Remaining': '0' } },
         );
       }

@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
 import type { ReadingType } from "@/components/saju-page";
+import { createClient } from "@/lib/supabase/server";
 
 const TYPE_META: Record<ReadingType, { title: string; description: string }> = {
   full:   { title: "종합 풀이 · 술자리",   description: "성격부터 올해 세운까지. 사주팔자 종합 풀이." },
@@ -22,6 +23,10 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
 export default async function SajuTypePage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
   if (!["full", "today", "love", "career"].includes(type)) notFound();
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect(`/auth/login?next=/saju/${type}`);
 
   return (
     <>

@@ -126,9 +126,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const ttl = Math.ceil((tomorrow.getTime() - Date.now()) / 1000);
       await redis.expire(capKey, ttl);
     }
-    if (count > 3) {
+    if (count > 4) {
       return NextResponse.json(
-        { error: '오늘 무료 풀이 횟수(3회)를 모두 사용했습니다. 내일 다시 시도해주세요.' },
+        { error: '오늘 무료 풀이 횟수(4회)를 모두 사용했습니다. 내일 다시 시도해주세요.' },
         { status: 429 },
       );
     }

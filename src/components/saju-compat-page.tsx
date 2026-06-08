@@ -327,7 +327,7 @@ export function SajuCompatPage() {
             </button>
 
             <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0 }}>
-              무료 3회/일
+              무료 4회/일
             </p>
           </div>
         ) : (
