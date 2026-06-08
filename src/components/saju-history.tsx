@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { SajuHistoryItem } from "@/app/api/saju/history/route";
 import { ELEMENT_COLOR } from "@/lib/saju";
 
@@ -30,7 +30,6 @@ function relativeTime(iso: string): string {
 }
 
 export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
-  const router = useRouter();
   const [items, setItems] = useState<SajuHistoryItem[] | null>(null);
 
   useEffect(() => {
@@ -42,51 +41,14 @@ export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
 
   if (!items || items.length === 0) return null;
 
-  function open(item: SajuHistoryItem) {
-    // 폼 상태를 sessionStorage에 저장 후 해당 타입 페이지로 이동
-    const formState = {
-      year:        String(item.birth_year),
-      month:       String(item.birth_month),
-      day:         String(item.birth_day),
-      hour:        item.birth_hour !== null ? String(item.birth_hour) : '',
-      unknownHour: item.birth_hour === null,
-      sex:         item.birth_sex,
-      name:        item.birth_name ?? '',
-      concern:     item.concern ?? '',
-      city:        '서울',        // longitude로 역매핑은 생략, 그냥 서울 기본
-      customLon:   String(item.birth_longitude),
-      calType:     'solar',
-      isLeapMonth: false,
-    };
-    // longitude가 서울(127)이 아니면 직접입력 모드
-    if (Math.abs(item.birth_longitude - 127.0) > 0.5) {
-      formState.city = '__custom__';
-    }
-    sessionStorage.setItem('saju:form', JSON.stringify(formState));
-
-    // 계산에 필요한 파라미터를 별도 키로 저장 — 페이지 마운트 시 즉시 계산 트리거
-    sessionStorage.setItem('saju:pending-compute', JSON.stringify({
-      year:       item.birth_year,
-      month:      item.birth_month,
-      day:        item.birth_day,
-      hour:       item.birth_hour,
-      sex:        item.birth_sex,
-      longitudeE: item.birth_longitude,
-      name:       item.birth_name ?? undefined,
-      concern:    item.concern ?? undefined,
-    }));
-
-    router.push(`/saju/${item.type}`);
-  }
-
   return (
     <div className="w-full max-w-[500px] mt-8">
       <p className="text-[10px] text-white/25 tracking-widest mb-3 px-1">최근 열람</p>
       <div className="space-y-2">
         {items.slice(0, maxItems).map(item => (
-          <button
+          <Link
             key={item.id}
-            onClick={() => open(item)}
+            href={`/saju/${item.type}/${item.id}`}
             className="w-full flex items-center gap-3 rounded-xl border border-white/[0.07] px-4 py-3 text-left transition-all hover:border-white/[0.14] hover:bg-white/[0.02]"
             style={{ background: 'rgba(255,255,255,0.012)' }}
           >
@@ -120,7 +82,7 @@ export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
 
             {/* 시간 */}
             <span className="shrink-0 text-[11px] text-white/25">{relativeTime(item.last_viewed_at)}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </div>
