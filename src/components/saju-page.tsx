@@ -1890,7 +1890,8 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
   const [currentReadingId, setCurrentReadingId] = useState<string | null>(initialReadingId ?? null);
   const [expandedInfo, setExpandedInfo] = useState<'zi_hour' | 'hapHwa' | null>(null);
   const [error, setError]   = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // readingId로 직접 진입 시 첫 렌더부터 loading=true — 폼 flash 방지
+  const [loading, setLoading] = useState(!!initialReadingId);
   const [showShare, setShowShare] = useState(false);
 
   // readingId로 진입 시 DB에서 결과 복원
@@ -2041,6 +2042,15 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     if (!publicApi && fixedType && !initialReadingId) {
       router.replace(`/saju/${fixedType}/${id}`);
     }
+  }
+
+  // readingId 복원 중 — 폼 대신 스피너
+  if (!result && initialReadingId && loading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-white/30 tracking-widest">불러오는 중...</p>
+      </div>
+    );
   }
 
   if (result) {
