@@ -544,21 +544,17 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   return (
     <div>
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{
-              padding: 20, borderRadius: 8,
-              background: 'rgba(250,248,243,0.06)',
-              border: '1px solid rgba(232,223,200,0.08)',
-              display: 'flex', flexDirection: 'column', gap: 10,
-            }}>
-              <div className="saju-skeleton" style={{ width: 80 + i * 12, height: 10, borderRadius: 3 }} />
-              <div className="saju-skeleton" style={{ width: '100%', height: 14, borderRadius: 4 }} />
-              <div className="saju-skeleton" style={{ width: '88%', height: 14, borderRadius: 4 }} />
-              <div className="saju-skeleton" style={{ width: `${72 - i * 3}%`, height: 14, borderRadius: 4 }} />
-              {i < 2 && <div className="saju-skeleton" style={{ width: '60%', height: 14, borderRadius: 4 }} />}
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '60px 0' }}>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+            style={{
+              width: 28, height: 28, borderRadius: '50%',
+              border: `2px solid ${INK.hair}`,
+              borderTopColor: INK.gold,
+            }}
+          />
+          <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO, letterSpacing: 1 }}>해석 중</span>
         </div>
       )}
       {err && !loading && (
