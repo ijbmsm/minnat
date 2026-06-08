@@ -100,18 +100,26 @@ export function SajuCards() {
   const isSmall = useBp(760);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  // 마운트 시 auth 상태 미리 로드 — 클릭 시 즉시 반응하기 위해
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   const handleClick = useCallback(
-    async (href: string) => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+    (href: string) => {
+      if (isLoggedIn === null) return; // 아직 로드 중
+      if (isLoggedIn) {
         router.push(href);
       } else {
         setPendingHref(href);
       }
     },
-    [router],
+    [router, isLoggedIn],
   );
 
   const sealSize = isSmall ? 42 : 48;
