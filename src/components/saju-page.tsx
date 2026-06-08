@@ -2095,207 +2095,460 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     );
   }
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const isMobile = useIsMobile(880);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const isSmall = useIsMobile(560);
+
+  const inputBase: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box',
+    background: INK.card, border: `1px solid ${INK.cardLine}`,
+    borderRadius: 9, color: INK.ink,
+    fontFamily: SERIF, fontSize: 16,
+    padding: '14px 16px', outline: 'none',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontFamily: SERIF, fontSize: 14.5, fontWeight: 500,
+    color: INK.ink70, letterSpacing: 0.3, display: 'block', marginBottom: 11,
+  };
+
+  const fieldGap = isMobile ? 22 : 26;
+
+  const DISPLAY_FONT = '"Shilla", var(--font-noto-serif-kr), serif';
+
   return (
-    <main className="mx-auto max-w-xl px-5 pt-20 pb-24">
+    <div style={{ background: INK.bg, minHeight: '100dvh', color: INK.ink, fontFamily: SERIF }}>
+      <div style={{
+        width: '100%',
+        maxWidth: isMobile ? 560 : 880,
+        margin: '0 auto',
+        boxSizing: 'border-box',
+        padding: isSmall ? '34px 18px 60px' : (isMobile ? '40px 24px 60px' : '56px 40px 80px'),
+      }}>
 
-      <div className="pt-6 pb-10">
-        <Link href="/saju" className="inline-flex items-center gap-1.5 text-sm text-white/35 hover:text-white/60 transition-colors mb-6">
-          <span>←</span><span>사주팔자</span>
-        </Link>
-        <h1 className="text-4xl font-bold tracking-tight text-white">
-          {TYPE_META[selectedType]?.title ?? '사주팔자'}
-        </h1>
-        <p className="mt-2 text-sm text-white/35">
-          {TYPE_META[selectedType]?.sub}
-        </p>
+        {/* FormHead */}
+        <div style={{ marginBottom: isMobile ? 30 : 40 }}>
+          <Link href="/saju" style={{
+            fontFamily: MONO, fontSize: 12, letterSpacing: 1,
+            color: INK.ink45, display: 'inline-flex', alignItems: 'center',
+            gap: 8, cursor: 'pointer', textDecoration: 'none',
+          }}>
+            ← 사주팔자
+          </Link>
+          <h1 style={{
+            fontFamily: DISPLAY_FONT,
+            fontSize: isMobile ? '38px' : '50px',
+            color: INK.ink, margin: '16px 0 0',
+            letterSpacing: 1, fontWeight: 400, lineHeight: 1.1,
+          }}>
+            {TYPE_META[selectedType]?.title ?? '사주팔자'}
+          </h1>
+          <p style={{
+            fontFamily: SERIF,
+            fontSize: isMobile ? '14.5px' : '16px',
+            color: INK.ink45, margin: '12px 0 0',
+          }}>
+            {TYPE_META[selectedType]?.sub}
+          </p>
+        </div>
+
+        {/* Form card */}
+        <div style={{
+          background: INK.card,
+          border: `1px solid ${INK.cardLine}`,
+          borderRadius: 16,
+          padding: isMobile ? '24px 20px' : '36px 40px',
+        }}>
+          <form onSubmit={submit}>
+
+            {/* Inner grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1px 1fr',
+              gap: isMobile ? 0 : 44,
+            }}>
+              {/* LEFT col */}
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: 11, color: INK.ink28, marginBottom: 4 }}>01 누구</p>
+                <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK.ink70, marginBottom: isMobile ? 20 : 24 }}>이름과 성별</p>
+
+                {/* 이름 */}
+                <div>
+                  <label style={labelStyle}>
+                    이름{' '}
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: 1, color: INK.ink28 }}>선택</span>
+                  </label>
+                  <input
+                    type="text" placeholder="홍길동" maxLength={20} value={form.name}
+                    onChange={e => set('name', e.target.value)}
+                    style={inputBase}
+                  />
+                </div>
+
+                {/* 성별 */}
+                <div style={{ marginTop: fieldGap }}>
+                  <label style={labelStyle}>성별</label>
+                  <div style={{
+                    display: 'inline-flex', width: '100%', padding: 4, gap: 4,
+                    borderRadius: 9, border: `1px solid ${INK.cardLine}`, background: INK.card,
+                    boxSizing: 'border-box',
+                  }}>
+                    {(['male', 'female'] as const).map(s => (
+                      <button
+                        key={s} type="button" onClick={() => set('sex', s)}
+                        style={{
+                          flex: 1, textAlign: 'center', cursor: 'pointer',
+                          padding: '11px 20px', borderRadius: 6, border: 'none',
+                          fontFamily: SERIF, fontSize: 15, transition: 'all 0.15s',
+                          fontWeight: form.sex === s ? 600 : 400,
+                          color: form.sex === s ? INK.ink : INK.ink45,
+                          background: form.sex === s ? 'rgba(232,223,200,0.11)' : 'transparent',
+                          boxShadow: form.sex === s ? `inset 0 0 0 1px ${INK.cardLine}` : 'none',
+                        }}
+                      >
+                        {s === 'male' ? '남자' : '여자'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Vertical divider (desktop) / horizontal divider (mobile) */}
+              {isMobile ? (
+                <div style={{ height: 1, background: INK.hair, margin: `${fieldGap}px 0` }} />
+              ) : (
+                <div style={{ background: INK.hair }} />
+              )}
+
+              {/* RIGHT col */}
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: 11, color: INK.ink28, marginBottom: 4 }}>02 언제·어디서</p>
+                <p style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK.ink70, marginBottom: isMobile ? 20 : 24 }}>생년월일 · 시간 · 장소</p>
+
+                {/* 생년월일 */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 11 }}>
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>생년월일</label>
+                    {/* Cal toggle */}
+                    <div style={{
+                      display: 'inline-flex', padding: '3px', gap: 3,
+                      borderRadius: 7, border: `1px solid ${INK.cardLine}`, background: INK.card,
+                    }}>
+                      {(['solar', 'lunar'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => set('calType', t)}
+                          style={{
+                            padding: '7px 16px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
+                            border: 'none', fontFamily: SERIF, transition: 'all 0.15s',
+                            fontWeight: form.calType === t ? 600 : 400,
+                            color: form.calType === t ? INK.ink : INK.ink45,
+                            background: form.calType === t ? 'rgba(232,223,200,0.11)' : 'transparent',
+                          }}
+                        >
+                          {t === 'solar' ? '양력' : '음력'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 10 }}>
+                    {[
+                      { key: 'year', placeholder: '년도', unit: '년', val: form.year },
+                      { key: 'month', placeholder: '월', unit: '월', val: form.month },
+                      { key: 'day', placeholder: '일', unit: '일', val: form.day },
+                    ].map(({ key, placeholder, unit, val }) => (
+                      <div key={key} style={{ position: 'relative' }}>
+                        <input
+                          type="text" inputMode="numeric" pattern="[0-9]*"
+                          placeholder={placeholder} value={val}
+                          onChange={e => set(key, e.target.value)}
+                          style={{ ...inputBase, paddingRight: 36 }}
+                        />
+                        <span style={{
+                          position: 'absolute', right: 14, top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontFamily: MONO, fontSize: 12, color: INK.ink28,
+                          pointerEvents: 'none',
+                        }}>
+                          {unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {form.calType === 'lunar' && (
+                    <label style={{
+                      marginTop: 10, display: 'flex', alignItems: 'center', gap: 8,
+                      fontFamily: SERIF, fontSize: 14, color: INK.ink45, cursor: 'pointer',
+                    }}>
+                      <input
+                        type="checkbox" checked={form.isLeapMonth}
+                        onChange={e => set('isLeapMonth', e.target.checked)}
+                        style={{ accentColor: INK.gold, width: 16, height: 16 }}
+                      />
+                      윤달
+                    </label>
+                  )}
+                </div>
+
+                {/* 태어난 시간 */}
+                <div style={{ marginTop: fieldGap }}>
+                  <label style={labelStyle}>태어난 시간</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                    {/* 시 */}
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text" inputMode="numeric" pattern="[0-9]*"
+                        placeholder="0~23" value={form.hour} disabled={form.unknownHour}
+                        onChange={e => set('hour', e.target.value)}
+                        style={{
+                          ...inputBase, width: 110, paddingRight: 36,
+                          opacity: form.unknownHour ? 0.35 : 1,
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute', right: 14, top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontFamily: MONO, fontSize: 12, color: INK.ink28,
+                        pointerEvents: 'none',
+                      }}>시</span>
+                    </div>
+                    <span style={{ fontFamily: MONO, color: INK.ink28, fontSize: 16 }}>:</span>
+                    {/* 분 */}
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text" inputMode="numeric" pattern="[0-9]*"
+                        placeholder="0~59" value={form.minute} disabled={form.unknownHour}
+                        onChange={e => set('minute', e.target.value)}
+                        style={{
+                          ...inputBase, width: 110, paddingRight: 36,
+                          opacity: form.unknownHour ? 0.35 : 1,
+                        }}
+                      />
+                      <span style={{
+                        position: 'absolute', right: 14, top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontFamily: MONO, fontSize: 12, color: INK.ink28,
+                        pointerEvents: 'none',
+                      }}>분</span>
+                    </div>
+                    {/* 모름 */}
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      fontFamily: SERIF, fontSize: 14.5, color: INK.ink70, cursor: 'pointer',
+                    }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                        border: `1px solid ${form.unknownHour ? INK.gold : INK.cardLine}`,
+                        background: form.unknownHour ? INK.gold : 'transparent',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}>
+                        {form.unknownHour && (
+                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                            <path d="M1 4l3 3 5-6" stroke="#1a140c" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </span>
+                      <input
+                        type="checkbox" checked={form.unknownHour}
+                        onChange={e => set('unknownHour', e.target.checked)}
+                        style={{ display: 'none' }}
+                      />
+                      모름
+                    </label>
+                  </div>
+                </div>
+
+                {/* 태어난 곳 */}
+                <div style={{ marginTop: fieldGap }}>
+                  <label style={labelStyle}>태어난 곳</label>
+                  <select
+                    value={form.city} onChange={e => set('city', e.target.value)}
+                    style={{ ...inputBase, appearance: 'none', WebkitAppearance: 'none' }}
+                  >
+                    <option value="" style={{ background: '#1a140c' }}>도시 선택</option>
+                    {DOMESTIC_CITIES.map(c => (
+                      <option key={c.label} value={c.label} style={{ background: '#1a140c' }}>{c.label}</option>
+                    ))}
+                    <option value="__overseas__" disabled style={{ background: '#1a140c' }}>── 해외 ──</option>
+                    {OVERSEAS_CITIES.map(c => (
+                      <option key={c.label} value={c.label} style={{ background: '#1a140c' }}>{c.label}</option>
+                    ))}
+                    <option value="__custom__" style={{ background: '#1a140c' }}>직접 입력 (경도)</option>
+                  </select>
+                  {form.city === '__custom__' && (
+                    <input
+                      type="number" placeholder="경도 (예: 127.0 = 서울, -118.2 = LA)"
+                      value={form.customLon} onChange={e => set('customLon', e.target.value)}
+                      step="0.1" min="-180" max="180"
+                      style={{ ...inputBase, marginTop: 10 }}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 고급 설정 */}
+            <div style={{
+              marginTop: isMobile ? 22 : 28,
+              border: `1px solid ${INK.cardLine}`, borderRadius: 12,
+              background: INK.card, padding: '16px 18px',
+            }}>
+              <p style={{ fontFamily: MONO, fontSize: 11, color: INK.ink45, marginBottom: 16 }}>
+                고급 설정
+              </p>
+
+              {/* 야자시/조자시 */}
+              <div style={{ opacity: form.unknownHour ? 0.3 : 1, pointerEvents: form.unknownHour ? 'none' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={form.dayBoundaryRule === 'zi_hour'}
+                      disabled={form.unknownHour}
+                      onChange={e => set('dayBoundaryRule', e.target.checked ? 'zi_hour' : 'midnight')}
+                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                    />
+                    <div style={{
+                      width: 36, height: 20, borderRadius: 10,
+                      background: form.dayBoundaryRule === 'zi_hour' ? 'rgba(232,223,200,0.3)' : 'rgba(232,223,200,0.1)',
+                      transition: 'background 0.2s', position: 'relative',
+                    }}>
+                      <div style={{
+                        position: 'absolute', top: 2, left: 2, width: 16, height: 16,
+                        borderRadius: '50%', background: '#fff',
+                        transition: 'transform 0.2s',
+                        transform: form.dayBoundaryRule === 'zi_hour' ? 'translateX(16px)' : 'translateX(0)',
+                      }} />
+                    </div>
+                  </label>
+                  <span style={{ fontFamily: SERIF, fontSize: 14, color: INK.ink70, flex: 1 }}>
+                    자시(子時) 전체를 다음날 일주로
+                  </span>
+                  <button type="button"
+                    onClick={() => setExpandedInfo(v => v === 'zi_hour' ? null : 'zi_hour')}
+                    style={{
+                      color: INK.ink28, fontSize: 11, border: `1px solid ${INK.cardLine}`,
+                      borderRadius: '50%', width: 20, height: 20, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      background: 'transparent', cursor: 'pointer', fontFamily: MONO,
+                    }}>
+                    ?
+                  </button>
+                </div>
+                {expandedInfo === 'zi_hour' && (
+                  <div style={{ marginTop: 10, marginLeft: 48, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}>사주에서 하루가 언제 바뀌는지에 대한 두 가지 관법이 있어요.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}><span style={{ color: INK.ink70 }}>기본 (진태양시 자정 기준)</span> — 태양이 정확히 자정을 넘는 순간 날짜가 바뀝니다.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}><span style={{ color: INK.ink70 }}>이 옵션 ON (자시설)</span> — 자시(23:00~01:00 진태양시) 전체를 다음날로 봅니다.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink28, lineHeight: 1.7, margin: 0 }}>모르겠으면 그냥 꺼두세요. 자정 전후 출생이 아니면 결과가 같아요.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* 합화 오행 변화 */}
+              <div style={{ marginTop: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <label style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}>
+                    <input type="checkbox"
+                      checked={form.applyHapHwa}
+                      onChange={e => set('applyHapHwa', e.target.checked)}
+                      style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                    />
+                    <div style={{
+                      width: 36, height: 20, borderRadius: 10,
+                      background: form.applyHapHwa ? 'rgba(232,223,200,0.3)' : 'rgba(232,223,200,0.1)',
+                      transition: 'background 0.2s', position: 'relative',
+                    }}>
+                      <div style={{
+                        position: 'absolute', top: 2, left: 2, width: 16, height: 16,
+                        borderRadius: '50%', background: '#fff',
+                        transition: 'transform 0.2s',
+                        transform: form.applyHapHwa ? 'translateX(16px)' : 'translateX(0)',
+                      }} />
+                    </div>
+                  </label>
+                  <span style={{ fontFamily: SERIF, fontSize: 14, color: INK.ink70, flex: 1 }}>
+                    합(合)에 따른 오행 변화 반영
+                  </span>
+                  <button type="button"
+                    onClick={() => setExpandedInfo(v => v === 'hapHwa' ? null : 'hapHwa')}
+                    style={{
+                      color: INK.ink28, fontSize: 11, border: `1px solid ${INK.cardLine}`,
+                      borderRadius: '50%', width: 20, height: 20, display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      background: 'transparent', cursor: 'pointer', fontFamily: MONO,
+                    }}>
+                    ?
+                  </button>
+                </div>
+                {expandedInfo === 'hapHwa' && (
+                  <div style={{ marginTop: 10, marginLeft: 48, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}>사주 여덟 글자가 서로 만나 오행이 바뀌는 현상을 강도 계산에 반영해요.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}><span style={{ color: INK.ink70 }}>천간합화</span> — 甲·己가 만나면 둘 다 土로, 乙·庚은 金으로 바뀌는 식.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45, lineHeight: 1.7, margin: 0 }}><span style={{ color: INK.ink70 }}>지지합</span> — 子·丑(土), 寅·亥(木) 같은 짝이 나란히 있으면 합쳐진 오행의 힘이 강해져요.</p>
+                    <p style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink28, lineHeight: 1.7, margin: 0 }}>학파마다 적용 방식이 달라 정답은 없고, 비교해보고 더 잘 맞는 쪽을 쓰세요.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 고민/질문 */}
+            <div style={{ marginTop: isMobile ? 22 : 28 }}>
+              <label style={labelStyle}>
+                지금 가장 궁금한 것{' '}
+                <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: 1, color: INK.ink28 }}>선택</span>
+              </label>
+              <textarea
+                placeholder={
+                  selectedType === 'today' ? '오늘 중요한 일정이 있어 / 오늘 기분이 왜 이럴까?' :
+                  selectedType === 'love'  ? '지금 만나는 사람이랑 잘 맞는지 궁금해 / 내가 왜 항상 이런 사람만 만날까?' :
+                  '올해 이직해도 될까? / 내가 잘 할 수 있는 일이 뭔지 모르겠어'
+                }
+                value={form.concern}
+                onChange={e => set('concern', e.target.value)}
+                maxLength={200} rows={3}
+                style={{ ...inputBase, resize: 'none', padding: '14px 16px' }}
+              />
+              <p style={{ fontFamily: MONO, fontSize: 11, color: INK.ink28, textAlign: 'right', marginTop: 6 }}>
+                {form.concern.length}/200
+              </p>
+            </div>
+
+            {/* Bottom hairline */}
+            <div style={{
+              height: 1, background: INK.hair,
+              margin: `${isMobile ? 26 : 34}px 0 0`,
+            }} />
+
+            {/* Error */}
+            {error && (
+              <p style={{ fontFamily: SERIF, fontSize: 13, color: '#e07070', marginTop: 16 }}>
+                {error}
+              </p>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit" disabled={loading}
+              style={{
+                width: '100%', padding: isMobile ? '15px' : '17px',
+                borderRadius: 10, marginTop: 16,
+                background: INK.gold, color: '#1a140c',
+                fontFamily: SERIF, fontWeight: 700,
+                fontSize: isMobile ? 16 : 17, letterSpacing: 1,
+                border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                transition: 'opacity 0.15s',
+              }}
+            >
+              {loading ? '읽는 중...' : (
+                TYPE_META[selectedType]
+                  ? `${TYPE_META[selectedType].title} 보기`
+                  : '사주 보기'
+              )}
+            </button>
+          </form>
+        </div>
       </div>
-
-      <form onSubmit={submit} className="space-y-8">
-
-        <div className="space-y-5">
-          <div>
-            <label className="text-sm text-white/50 mb-2.5 block">이름 <span className="text-white/25 text-xs">(선택)</span></label>
-            <input type="text" placeholder="홍길동" maxLength={20} value={form.name}
-              onChange={e => set('name', e.target.value)}
-              className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-          </div>
-          <div>
-            <label className="text-sm text-white/50 mb-2.5 block">성별</label>
-            <div className="flex gap-2">
-              {(['male', 'female'] as const).map(s => (
-                <button key={s} type="button" onClick={() => set('sex', s)}
-                  className={`flex-1 rounded-xl h-12 text-base font-medium transition-all ${
-                    form.sex === s
-                      ? 'bg-white/[0.10] text-white border border-white/20'
-                      : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/70'
-                  }`}>
-                  {s === 'male' ? '남자' : '여자'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px bg-white/[0.06]" />
-
-        <div>
-          <div className="flex items-center justify-between mb-2.5">
-            <label className="text-sm text-white/50">생년월일</label>
-            <div className="flex rounded-lg border border-white/8 p-0.5 gap-0.5">
-              {(['solar', 'lunar'] as const).map(t => (
-                <button key={t} type="button" onClick={() => set('calType', t)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                    form.calType === t ? 'bg-white/12 text-white' : 'text-white/35 hover:text-white/70'
-                  }`}>
-                  {t === 'solar' ? '양력' : '음력'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="년도" value={form.year} onChange={e => set('year', e.target.value)}
-              className="flex-1 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="월" value={form.month} onChange={e => set('month', e.target.value)}
-              className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="일" value={form.day} onChange={e => set('day', e.target.value)}
-              className="w-20 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-          </div>
-          {form.calType === 'lunar' && (
-            <label className="mt-2.5 flex items-center gap-2 text-sm text-white/35 cursor-pointer">
-              <input type="checkbox" checked={form.isLeapMonth} onChange={e => set('isLeapMonth', e.target.checked)} className="rounded" />
-              윤달
-            </label>
-          )}
-        </div>
-
-        <div>
-          <label className="text-sm text-white/50 mb-2.5 block">태어난 시간</label>
-          <div className="flex items-center gap-2">
-            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="시 (0~23)" value={form.hour} disabled={form.unknownHour}
-              onChange={e => set('hour', e.target.value)}
-              className="w-28 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
-            <span className="text-white/30 text-sm">:</span>
-            <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="분 (0~59)" value={form.minute} disabled={form.unknownHour}
-              onChange={e => set('minute', e.target.value)}
-              className="w-28 rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors disabled:opacity-25" />
-            <label className="flex items-center gap-2 text-sm text-white/40 cursor-pointer ml-1">
-              <input type="checkbox" checked={form.unknownHour} onChange={e => set('unknownHour', e.target.checked)} className="rounded" />
-              모름
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-sm text-white/50 mb-2.5 block">태어난 곳</label>
-          <select value={form.city} onChange={e => set('city', e.target.value)}
-            className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white focus:outline-none focus:border-white/25 transition-colors">
-            <option value="" className="bg-zinc-900">도시 선택</option>
-            {DOMESTIC_CITIES.map(c => (
-              <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
-            ))}
-            <option value="__overseas__" disabled className="bg-zinc-900">── 해외 ──</option>
-            {OVERSEAS_CITIES.map(c => (
-              <option key={c.label} value={c.label} className="bg-zinc-900">{c.label}</option>
-            ))}
-            <option value="__custom__" className="bg-zinc-900">직접 입력 (경도)</option>
-          </select>
-          {form.city === '__custom__' && (
-            <input type="number" placeholder="경도 (예: 127.0 = 서울, -118.2 = LA)"
-              value={form.customLon} onChange={e => set('customLon', e.target.value)}
-              step="0.1" min="-180" max="180"
-              className="mt-2 w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 h-12 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors" />
-          )}
-        </div>
-
-        {/* 고급 설정 */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-4">
-          <p className="text-xs text-white/30">고급 설정 <span className="text-white/20">(선택)</span></p>
-
-          {/* 야자시/조자시 */}
-          <div className={form.unknownHour ? 'opacity-30 pointer-events-none' : ''}>
-            <div className="flex items-center gap-3">
-              <label className="relative flex-shrink-0 cursor-pointer">
-                <input type="checkbox"
-                  checked={form.dayBoundaryRule === 'zi_hour'}
-                  disabled={form.unknownHour}
-                  onChange={e => set('dayBoundaryRule', e.target.checked ? 'zi_hour' : 'midnight')}
-                  className="sr-only" />
-                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'bg-white/30' : 'bg-white/10'}`} />
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.dayBoundaryRule === 'zi_hour' ? 'translate-x-4' : ''}`} />
-              </label>
-              <span className="text-sm text-white/60 flex-1">자시(子時) 전체를 다음날 일주로</span>
-              <button type="button"
-                onClick={() => setExpandedInfo(v => v === 'zi_hour' ? null : 'zi_hour')}
-                className="text-white/25 hover:text-white/50 transition-colors text-xs border border-white/[0.10] rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
-                ?
-              </button>
-            </div>
-            {expandedInfo === 'zi_hour' && (
-              <div className="mt-2.5 ml-12 space-y-2 text-xs text-white/40 leading-relaxed">
-                <p>사주에서 하루가 언제 바뀌는지에 대한 두 가지 관법이 있어요.</p>
-                <p><span className="text-white/55">기본 (진태양시 자정 기준)</span> — 태양이 정확히 자정을 넘는 순간 날짜가 바뀝니다. 서울 기준으로 시계 00:33 무렵이에요. 더 정밀한 방식.</p>
-                <p><span className="text-white/55">이 옵션 ON (자시설)</span> — 자시(23:00~01:00 진태양시) 전체를 다음날로 봅니다. 밤 11시 이후 출생이면 익일 일주를 적용해요. 전통 역학에서 많이 쓰는 방식.</p>
-                <p className="text-white/25">모르겠으면 그냥 꺼두세요. 자정 전후 출생이 아니면 결과가 같아요.</p>
-              </div>
-            )}
-          </div>
-
-          {/* 합화 오행 변화 */}
-          <div>
-            <div className="flex items-center gap-3">
-              <label className="relative flex-shrink-0 cursor-pointer">
-                <input type="checkbox"
-                  checked={form.applyHapHwa}
-                  onChange={e => set('applyHapHwa', e.target.checked)}
-                  className="sr-only" />
-                <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${form.applyHapHwa ? 'bg-white/30' : 'bg-white/10'}`} />
-                <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${form.applyHapHwa ? 'translate-x-4' : ''}`} />
-              </label>
-              <span className="text-sm text-white/60 flex-1">합(合)에 따른 오행 변화 반영</span>
-              <button type="button"
-                onClick={() => setExpandedInfo(v => v === 'hapHwa' ? null : 'hapHwa')}
-                className="text-white/25 hover:text-white/50 transition-colors text-xs border border-white/[0.10] rounded-full w-5 h-5 flex items-center justify-center flex-shrink-0">
-                ?
-              </button>
-            </div>
-            {expandedInfo === 'hapHwa' && (
-              <div className="mt-2.5 ml-12 space-y-2 text-xs text-white/40 leading-relaxed">
-                <p>사주 여덟 글자가 서로 만나 오행이 바뀌는 현상을 강도 계산에 반영해요.</p>
-                <p><span className="text-white/55">천간합화</span> — 甲·己가 만나면 둘 다 土로, 乙·庚은 金으로 바뀌는 식. 계절 기운이 맞아 합화가 성립할 때만 적용해요.</p>
-                <p><span className="text-white/55">지지합</span> — 子·丑(土), 寅·亥(木) 같은 짝이 나란히 있으면 합쳐진 오행의 힘이 강해져요.</p>
-                <p className="text-white/25">결과가 미묘하게 달라질 수 있어요. 학파마다 적용 방식이 달라 정답은 없고, 비교해보고 더 잘 맞는 쪽을 쓰세요.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="h-px bg-white/[0.06]" />
-
-        <div>
-          <label className="text-sm text-white/50 mb-2.5 block">지금 가장 궁금한 것 <span className="text-white/25 text-xs">(선택)</span></label>
-          <textarea
-            placeholder={
-              selectedType === 'today' ? '오늘 중요한 일정이 있어 / 오늘 기분이 왜 이럴까?' :
-              selectedType === 'love'  ? '지금 만나는 사람이랑 잘 맞는지 궁금해 / 내가 왜 항상 이런 사람만 만날까?' :
-              '올해 이직해도 될까? / 내가 잘 할 수 있는 일이 뭔지 모르겠어'
-            }
-            value={form.concern}
-            onChange={e => set('concern', e.target.value)} maxLength={200} rows={3}
-            className="w-full rounded-xl border border-white/8 bg-white/[0.04] px-4 py-3.5 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/25 transition-colors resize-none" />
-          <p className="mt-1.5 text-xs text-white/20 text-right">{form.concern.length}/200</p>
-        </div>
-
-        {error && <p className="text-sm text-red-400/80">{error}</p>}
-
-        <button type="submit" disabled={loading}
-          className="w-full rounded-2xl bg-white/[0.08] border border-white/[0.10] h-14 text-base font-semibold text-white hover:bg-white/[0.12] hover:border-white/[0.18] transition-all disabled:opacity-40">
-          {loading ? '읽는 중...' : (
-            selectedType === 'today' ? '오늘 사주 보기' :
-            selectedType === 'love'  ? '연애운 보기' :
-            '종합 사주 보기'
-          )}
-        </button>
-      </form>
-    </main>
+    </div>
   );
 }

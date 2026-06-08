@@ -3,18 +3,33 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { SajuHistoryItem } from "@/app/api/saju/history/route";
-import { ELEMENT_COLOR } from "@/lib/saju";
 
-const TYPE_LABEL: Record<string, string> = {
-  full:  '종합',
-  today: '오늘',
-  love:  '연애',
+// ── Design tokens ──
+const INK = {
+  hair:  'rgba(232,223,200,0.085)',
+  ink:   'rgba(232,223,200,0.94)',
+  ink70: 'rgba(232,223,200,0.66)',
+  ink45: 'rgba(232,223,200,0.42)',
+  ink28: 'rgba(232,223,200,0.26)',
+  gold:  '#c2a35b',
+};
+const SERIF = 'var(--font-noto-serif-kr), serif';
+const MONO  = 'var(--font-ibm-plex-mono), monospace';
+
+// ── Element color map ──
+const OH: Record<string, { color: string; soft: string }> = {
+  목: { color: '#7e9a6f', soft: 'rgba(126,154,111,0.16)' },
+  화: { color: '#c4685a', soft: 'rgba(196,104,90,0.16)'  },
+  토: { color: '#c0974f', soft: 'rgba(192,151,79,0.16)'  },
+  금: { color: '#c9c2ad', soft: 'rgba(201,194,173,0.14)' },
+  수: { color: '#6f88a6', soft: 'rgba(111,136,166,0.16)' },
 };
 
-const TYPE_COLOR: Record<string, string> = {
-  full:  'text-white/50',
-  today: 'text-amber-400/70',
-  love:  'text-rose-400/70',
+const TYPE_LABEL: Record<string, string> = {
+  full:   '종합',
+  today:  '오늘',
+  love:   '연애',
+  career: '직업·재물',
 };
 
 function relativeTime(iso: string): string {
@@ -29,7 +44,12 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 }
 
-export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
+interface SajuHistoryProps {
+  maxItems?: number;
+  variant?: 'standalone' | 'sidebar';
+}
+
+export function SajuHistory({ maxItems = 5, variant = 'standalone' }: SajuHistoryProps) {
   const [items, setItems] = useState<SajuHistoryItem[] | null>(null);
 
   useEffect(() => {
@@ -41,50 +61,100 @@ export function SajuHistory({ maxItems = 5 }: { maxItems?: number }) {
 
   if (!items || items.length === 0) return null;
 
-  return (
-    <div className="w-full max-w-[500px] mt-8">
-      <p className="text-[10px] text-white/25 tracking-widest mb-3 px-1">최근 열람</p>
-      <div className="space-y-2">
-        {items.slice(0, maxItems).map(item => (
+  const isSidebar = variant === 'sidebar';
+  const rowGap = isSidebar ? 14 : 12;
+  const rowPadV = isSidebar ? 15 : 13;
+  const rowPadH = isSidebar ? 6 : 4;
+
+  const rows = (
+    <div>
+      {items.slice(0, maxItems).map((item, idx) => {
+        const el = item.day_element ? OH[item.day_element] : null;
+        const elColor = el?.color ?? INK.ink45;
+        const elSoft = el?.soft ?? 'rgba(232,223,200,0.06)';
+        const typeColor = item.type === 'today' ? INK.gold : elColor;
+
+        return (
           <Link
             key={item.id}
             href={`/saju/${item.type}/${item.id}`}
-            className="w-full flex items-center gap-3 rounded-xl border border-white/[0.07] px-4 py-3 text-left transition-all hover:border-white/[0.14] hover:bg-white/[0.02]"
-            style={{ background: 'rgba(255,255,255,0.012)' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: rowGap,
+              padding: `${rowPadV}px ${rowPadH}px`,
+              borderTop: idx === 0 ? 'none' : `1px solid ${INK.hair}`,
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
           >
-            {/* 일간 */}
-            <div className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-white/8 bg-white/[0.03]">
-              <span className="text-lg font-bold leading-none"
-                style={{ color: item.day_element ? (ELEMENT_COLOR as Record<string, string>)[item.day_element] : '#fff' }}>
-                {item.day_stem ?? '?'}
-              </span>
-            </div>
+            {/* Day stem badge */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+              background: elSoft,
+              color: elColor,
+              border: `1px solid ${elColor}33`,
+              fontFamily: SERIF, fontSize: 18, fontWeight: 600,
+            }}>
+              {item.day_stem ?? '?'}
+            </span>
 
-            {/* 본문 */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-semibold ${TYPE_COLOR[item.type] ?? 'text-white/50'}`}>
+            {/* Middle */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  fontFamily: MONO, fontSize: 11, letterSpacing: 0.5,
+                  color: typeColor,
+                }}>
                   {TYPE_LABEL[item.type] ?? item.type}
                 </span>
-                {item.birth_name && (
-                  <span className="text-sm text-white/80 font-medium truncate">{item.birth_name}</span>
-                )}
-                {!item.birth_name && (
-                  <span className="text-sm text-white/50">
-                    {item.birth_year}.{String(item.birth_month).padStart(2,'0')}.{String(item.birth_day).padStart(2,'0')}
+                {item.birth_name ? (
+                  <span style={{
+                    fontFamily: SERIF, fontSize: 15.5, fontWeight: 500,
+                    color: INK.ink,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {item.birth_name}
+                  </span>
+                ) : (
+                  <span style={{ fontFamily: SERIF, fontSize: 15.5, fontWeight: 500, color: INK.ink45 }}>
+                    {item.birth_year}.{String(item.birth_month).padStart(2, '0')}.{String(item.birth_day).padStart(2, '0')}
                   </span>
                 )}
               </div>
               {item.concern && (
-                <p className="text-xs text-white/30 truncate mt-0.5">{item.concern}</p>
+                <p style={{
+                  fontFamily: SERIF, fontSize: 12.5, color: INK.ink45,
+                  marginTop: 4, marginBottom: 0,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {item.concern}
+                </p>
               )}
             </div>
 
-            {/* 시간 */}
-            <span className="shrink-0 text-[11px] text-white/25">{relativeTime(item.last_viewed_at)}</span>
+            {/* Time */}
+            <span style={{
+              fontFamily: MONO, fontSize: 11,
+              color: INK.ink28, flexShrink: 0,
+            }}>
+              {relativeTime(item.last_viewed_at)}
+            </span>
           </Link>
-        ))}
-      </div>
+        );
+      })}
+    </div>
+  );
+
+  if (isSidebar) {
+    return rows;
+  }
+
+  // standalone: wrap with marginTop
+  return (
+    <div style={{ marginTop: 40 }}>
+      {rows}
     </div>
   );
 }

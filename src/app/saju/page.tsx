@@ -1,5 +1,4 @@
 import { Nav } from "@/components/nav";
-import { SajuHistory } from "@/components/saju-history";
 import { SajuCards } from "@/components/saju-cards";
 import { WebApplicationJsonLd, FaqPageJsonLd } from "@/components/json-ld";
 import type { Metadata } from "next";
@@ -34,28 +33,7 @@ export default function SajuLandingPage() {
         ]}
       />
       <Nav />
-      <main className="flex min-h-dvh flex-col items-center px-4 pt-14 pb-16">
-
-        {/* 헤더 + 카드: 히스토리 없으면 세로 중앙, 있으면 위에서 자연스럽게 흐름 */}
-        <div className="flex flex-col items-center justify-center flex-1 w-full py-12">
-          <div className="mb-12 text-center">
-            <h1
-              className="text-5xl font-bold text-white tracking-tight"
-              style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}
-            >
-              사주팔자
-            </h1>
-            <p className="mt-3 text-sm text-white/30">나는 왜 이런가.</p>
-          </div>
-
-          {/* 카드 */}
-          <SajuCards />
-        </div>
-
-        {/* 최근 열람 히스토리 — 카드 아래, 스크롤 가능 */}
-        <SajuHistory />
-
-      </main>
+      <SajuCards />
     </>
   );
 }
