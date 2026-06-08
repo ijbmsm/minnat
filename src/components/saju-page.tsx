@@ -2036,7 +2036,9 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
 
   function handleReadingId(id: string) {
     setCurrentReadingId(id);
-    if (!publicApi && fixedType && initialReadingId !== id) {
+    // URL에 이미 ID가 있으면(직접 URL 진입) replace 불필요 — 재마운트로 폼 깜빡임 유발
+    // 폼 제출 후(initialReadingId 없음)일 때만 URL에 ID 추가
+    if (!publicApi && fixedType && !initialReadingId) {
       router.replace(`/saju/${fixedType}/${id}`);
     }
   }
