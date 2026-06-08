@@ -21,14 +21,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: issue.title,
     description: issue.summary,
     alternates: {
-      canonical: `https://minnat.kr/issues/${id}`,
+      canonical: `https://drinkplace.kr/issues/${id}`,
     },
     openGraph: {
       title: issue.title,
       description: issue.summary,
       type: "article",
       publishedTime: issue.published_at,
-      url: `https://minnat.kr/issues/${id}`,
+      url: `https://drinkplace.kr/issues/${id}`,
     },
     twitter: {
       card: "summary",
@@ -55,13 +55,13 @@ export default async function Page({ params }: Props) {
         title={issue.title}
         description={issue.summary}
         datePublished={issue.published_at}
-        url={`https://minnat.kr/issues/${id}`}
+        url={`https://drinkplace.kr/issues/${id}`}
       />
       <BreadcrumbJsonLd
         items={[
-          { name: "술자리", url: "https://minnat.kr" },
-          { name: "이슈", url: "https://minnat.kr/issues" },
-          { name: issue.title, url: `https://minnat.kr/issues/${id}` },
+          { name: "술자리", url: "https://drinkplace.kr" },
+          { name: "이슈", url: "https://drinkplace.kr/issues" },
+          { name: issue.title, url: `https://drinkplace.kr/issues/${id}` },
         ]}
       />
       <IssueDetailPage

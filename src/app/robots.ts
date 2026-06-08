@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/admin/"],
     },
-    sitemap: "https://minnat.kr/sitemap.xml",
+    sitemap: "https://drinkplace.kr/sitemap.xml",
   };
 }

@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
             </span>
           )}
           <span style={{ fontSize: '24px', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.05em' }}>
-            minnat.kr
+            drinkplace.kr
           </span>
         </div>
       </div>

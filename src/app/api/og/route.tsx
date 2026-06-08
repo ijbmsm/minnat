@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
             marginTop: 40,
           }}
         >
-          색안경 벗고, 팩트로 보는 정치 — minnat.kr
+          색안경 벗고, 팩트로 보는 정치 — drinkplace.kr
         </div>
       </div>
     ),

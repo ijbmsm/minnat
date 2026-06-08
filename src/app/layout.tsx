@@ -29,7 +29,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://minnat.kr"),
+  metadataBase: new URL("https://drinkplace.kr"),
   title: {
     default: "술자리 — 정치 · 사주",
     template: "%s — 술자리",
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     siteName: "술자리",
     locale: "ko_KR",
     type: "website",
-    url: "https://minnat.kr",
+    url: "https://drinkplace.kr",
   },
   twitter: {
     card: "summary",
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     description: "술자리에서 나누는 두 가지 주제 — 정치 팩트와 사주팔자",
   },
   alternates: {
-    canonical: "https://minnat.kr",
+    canonical: "https://drinkplace.kr",
   },
   icons: {
     icon: [

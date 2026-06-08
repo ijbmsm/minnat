@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getIssues, getPresidents } from "@/lib/data";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://minnat.kr";
+  const baseUrl = "https://drinkplace.kr";
   const [issues, presidents] = await Promise.all([
     getIssues(),
     getPresidents(),

@@ -1,4 +1,4 @@
-# 민낯 (minnat) — 프로젝트 가이드
+# 술자리 (drinkplace) — 프로젝트 가이드
 
 > "우리는 점수 매기지 않는다. 사회·제도의 반응을 측정만 한다."
 
@@ -99,11 +99,16 @@ score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간�
 
 ## 알려진 이슈 (해결 필요)
 
+### 정치 플랫폼
 1. **dedup 미흡** — 같은 사건이 3건씩 중복 저장됨. actor + category + 7일 이내 = 같은 사건으로 병합 필요
 2. **criminal_conviction 오분류** — 기사 주제가 선거인데 과거 전과 "언급만" → media_coverage여야 함
 3. **배경 깜빡임** — 뷰 탭 전환 시 width 변화 + blur 레이어 reflow. CSS transition으로 변경함, 확인 필요
 4. **시드 데이터 부족** — 네이버 날짜 필터(ds/de) 추가했으나 재실행 필요
 5. **경계선 직선 2개** — 파랑/빨강 gradient 끝이 겹치는 부분. overlap 조정 필요
+
+### 사주 서비스
+6. **profile PATCH 500** — `/api/user/profile` PATCH 시 Supabase 400 반환. 원인: migration 012 (`supabase/012-profile-birth.sql`) 프로덕션 미적용 가능성. 해결: Supabase SQL Editor에서 012 실행. 에러 로그는 Vercel 함수 로그 `[profile PATCH] supabase error:` 로 확인.
+7. **SAJU_ADMIN_USER_ID 미설정** — Vercel 환경변수에 어드민 Supabase user UUID 추가해야 일일 캡(3회) 면제 작동.
 
 ## 환경변수
 
@@ -111,6 +116,10 @@ score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간�
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+ANTHROPIC_API_KEY=              ← 사주 LLM 호출
+UPSTASH_REDIS_REST_URL=         ← 사주 캐시 + 레이트리밋
+UPSTASH_REDIS_REST_TOKEN=
+SAJU_ADMIN_USER_ID=             ← 어드민 Supabase UUID (일일 캡 면제)
 ```
 
 ### minnat-crawler (GitHub Secrets)
@@ -143,7 +152,7 @@ DATA_GO_KR_API_KEY=
 
 ---
 
-# 민낯 사주 — 엔진 아키텍처 가이드
+# 술자리 사주 — 엔진 아키텍처 가이드
 
 > **참고 문서**: `SAJU_BUILD_PLAN.md` — M0/M1/M2 빌드 플랜 + 완료 이력
 
@@ -395,9 +404,10 @@ DEFAULT_SCHOOL = {
 ## 환경변수 (사주)
 
 ```
-UPSTASH_REDIS_REST_URL=    ← 캐시
+UPSTASH_REDIS_REST_URL=      ← 캐시 + 레이트리밋
 UPSTASH_REDIS_REST_TOKEN=
-ANTHROPIC_API_KEY=         ← LLM 호출
+ANTHROPIC_API_KEY=           ← LLM 호출
+SAJU_ADMIN_USER_ID=          ← 어드민 UUID (일일 캡 면제)
 ```
 
 ---
@@ -433,11 +443,15 @@ M0 (완료) — 코어 락다운
   ✅ M0.3 골든 테스트 43케이스 (+18 추가)
   ✅ M0.4 @deprecated 레거시 정리
 
-M1 (진행 예정) — 무료 출시
+M1 (완료) — 무료 출시
+  ✅ 무료 차트 일일 캡 (Upstash Redis, 3회/일, 어드민 면제)
+  ✅ 일주(日柱) 기반 핵심 카드 개인화 — buildCoreDesc() (일지+신강약+격국 합성)
+  ✅ OG 공유 이미지 — @vercel/og edge runtime, 로컬 폰트 (일주 표시)
+  ✅ URL 직접진입/새로고침/히스토리 클릭 플리커 3건 수정
+  ✅ LLM 응답 파싱 robustness — JSON 배열 regex 추출 (502 방지)
   [ ] 통변 모순/몰개성 차단 + 블라인드 QA
   [ ] 오늘의 운세 개인화 (대운+세운 프롬프트 강화)
   [ ] 궁합 엔진 (두 FourPillars 합충+오행보완+십신역학)
-  [ ] 무료 차트 캡
   [ ] 도메인 렌즈 분기 (love/career/today buildFactSheet 분기)
 
 M2 (출시 후) — 트래픽 기반 확장
