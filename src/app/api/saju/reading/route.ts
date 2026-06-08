@@ -476,8 +476,13 @@ async function callLLM(
 // ── JSON 파싱 헬퍼 ──
 
 function parsesections(raw: string): ReadingSection[] {
-  // LLM이 markdown 코드블록으로 감쌀 경우 벗기기
-  const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
+  // 1) markdown 코드블록 제거
+  let cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
+
+  // 2) LLM이 앞뒤에 설명 텍스트를 붙인 경우 — JSON 배열만 추출
+  const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+  if (arrMatch) cleaned = arrMatch[0];
+
   const parsed = JSON.parse(cleaned);
   if (!Array.isArray(parsed)) throw new Error('LLM이 배열을 반환하지 않음');
   return parsed.map((s: { title?: unknown; body?: unknown }) => ({
