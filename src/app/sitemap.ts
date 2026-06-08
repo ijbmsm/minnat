@@ -3,10 +3,15 @@ import { getIssues, getPresidents } from "@/lib/data";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://drinkplace.kr";
-  const [issues, presidents] = await Promise.all([
-    getIssues(),
-    getPresidents(),
-  ]);
+
+  let issues: Awaited<ReturnType<typeof getIssues>> = [];
+  let presidents: Awaited<ReturnType<typeof getPresidents>> = [];
+
+  try {
+    [issues, presidents] = await Promise.all([getIssues(), getPresidents()]);
+  } catch (e) {
+    console.warn("sitemap: DB 조회 실패, 정적 페이지만 반환", e);
+  }
 
   const issueUrls = issues.map((issue) => ({
     url: `${baseUrl}/issues/${issue.id}`,
@@ -24,6 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
+    { url: `${baseUrl}/saju`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${baseUrl}/issues`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
     { url: `${baseUrl}/politicians`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/politicians/presidents`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
