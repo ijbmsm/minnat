@@ -72,7 +72,6 @@ export default function LandingPage() {
                         ? "text-[20px] text-white/50 group-hover:text-white/65"
                         : "text-[20px] text-white group-hover:text-white"
                     }`}
-                    style={{ fontFamily: "'Shilla Culture', serif" }}
                   >
                     {line}
                   </p>
