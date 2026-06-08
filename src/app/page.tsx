@@ -54,7 +54,12 @@ export default function LandingPage() {
 
               {/* 타이틀 — 수직 중앙 */}
               <div className="relative flex flex-1 items-center">
-                <p className="text-3xl font-bold tracking-tight text-white">{label}</p>
+                <p
+                  className="text-3xl font-bold tracking-tight text-white"
+                  style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}
+                >
+                  {label}
+                </p>
               </div>
 
               {/* 설명 — 하단 고정 */}
@@ -67,6 +72,7 @@ export default function LandingPage() {
                         ? "text-[20px] text-white/50 group-hover:text-white/65"
                         : "text-[20px] text-white group-hover:text-white"
                     }`}
+                    style={{ fontFamily: "'Shilla Culture', serif" }}
                   >
                     {line}
                   </p>
