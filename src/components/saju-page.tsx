@@ -1893,6 +1893,9 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
   // readingId로 직접 진입 시 첫 렌더부터 loading=true — 폼 flash 방지
   const [loading, setLoading] = useState(!!initialReadingId);
   const [showShare, setShowShare] = useState(false);
+  // 폼 레이아웃용 반응형 — 얼리 리턴 이전에 선언해야 훅 규칙 위반 없음
+  const formIsMobile = useIsMobile(880);
+  const formIsSmall  = useIsMobile(560);
 
   // readingId로 진입 시 DB에서 결과 복원
   useEffect(() => {
@@ -2095,10 +2098,8 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     );
   }
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const isMobile = useIsMobile(880);
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const isSmall = useIsMobile(560);
+  const isMobile = formIsMobile;
+  const isSmall  = formIsSmall;
 
   const inputBase: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box',
