@@ -20,18 +20,10 @@ const ELEM_LABEL: Record<string, string> = {
   목: '木 · 나무', 화: '火 · 불', 토: '土 · 흙', 금: '金 · 쇠', 수: '水 · 물',
 };
 
-async function loadFont(): Promise<ArrayBuffer | null> {
+async function loadFont(req: NextRequest): Promise<ArrayBuffer | null> {
   try {
-    const css = await fetch(
-      'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700',
-      {
-        headers: { 'User-Agent': 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)' },
-      },
-    ).then(r => r.text());
-
-    const fontUrl = css.match(/url\(([^)]+)\)/)?.[1];
-    if (!fontUrl) return null;
-    return fetch(fontUrl).then(r => r.arrayBuffer());
+    const url = new URL('/fonts/ShillaCulture-Bold.otf', req.url);
+    return await fetch(url).then(r => r.arrayBuffer());
   } catch {
     return null;
   }
@@ -51,10 +43,10 @@ export async function GET(req: NextRequest) {
   const color  = ELEM_COLOR[element]  ?? '#ffffff';
   const elLabel = ELEM_LABEL[element] ?? element;
 
-  const fontData = await loadFont();
+  const fontData = await loadFont(req);
 
   const fontConfig = fontData
-    ? [{ name: 'NotoKR', data: fontData, weight: 700 as const, style: 'normal' as const }]
+    ? [{ name: 'ShillaKR', data: fontData, weight: 700 as const, style: 'normal' as const }]
     : [];
 
   return new ImageResponse(
@@ -66,7 +58,7 @@ export async function GET(req: NextRequest) {
           width: '100%',
           height: '100%',
           background: 'linear-gradient(160deg, #0c0c0f 0%, #111114 60%, #0a0a0d 100%)',
-          fontFamily: fontData ? 'NotoKR, sans-serif' : 'sans-serif',
+          fontFamily: fontData ? 'ShillaKR, sans-serif' : 'sans-serif',
           padding: '72px',
           position: 'relative',
         }}
