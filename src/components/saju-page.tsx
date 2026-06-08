@@ -687,37 +687,126 @@ function ShareModal({ params, shareLink, onClose }: { params: ShareParams; share
 
 // ─── RESULT VIEW ────────────────────────────────────────────────
 
+// ── buildCoreDesc: 일주 기반 개인화 한 줄 합성 ──
+// 일간·일지·일지십신 → deterministic (단정)
+// 신강약·격국 → 추정 항목이므로 hedge 톤 유지
+function buildCoreDesc(
+  dm: Stem,
+  dayBranch: Branch,
+  dayBranchSipshin: string | null,
+  bodyStrength: 'strong' | 'weak' | 'neutral',
+  geokGuk: { name: string; confidence: 'deterministic' | 'heuristic' },
+): string {
+  const sip = dayBranchSipshin ?? '';
+
+  // 일지 절 — deterministic, 항상 단정. 격국과 인과 분리된 독립 구절로.
+  const SIPSHIN_JI: Partial<Record<string, string>> = {
+    비견: `${dayBranch}(비견)을 깔고 앉아 독립·자존의 기운이 강한`,
+    겁재: `${dayBranch}(겁재)와 함께 경쟁·추진의 에너지를 품은`,
+    식신: `${dayBranch}(식신)을 깔고 앉아 표현·재능으로 빛나는`,
+    상관: `${dayBranch}(상관)을 품어 자유·비범한 기질이 드러나는`,
+    편재: `${dayBranch}(편재)를 깔고 앉아 활동·재물 감각을 품은`,
+    정재: `${dayBranch}(정재)를 깔고 앉아 안정·성실의 기반을 둔`,
+    편관: `${dayBranch}(편관)을 품어 긴장·도전의 기운이 강한`,
+    정관: `${dayBranch}(정관)을 깔고 앉아 규범·명예 의식이 뚜렷한`,
+    편인: `${dayBranch}(편인)을 품어 직관·독창의 기운이 강한`,
+    정인: `${dayBranch}(정인)을 깔고 앉아 배움·보호의 기운이 강한`,
+  };
+  const iljiClause = SIPSHIN_JI[sip] ?? `${dayBranch}(${sip})을 깔고 앉은`;
+
+  // 신강약 절 — 임계값 기반 추정이므로 항상 hedge
+  const BODY_CLAUSE: Record<string, string> = {
+    strong:  '신강한 편으로 보이는 구조',
+    weak:    '신약한 편으로 보이는 구조',
+    neutral: '중화에 가까운 구조',
+  };
+  const bodyClause = BODY_CLAUSE[bodyStrength] ?? bodyStrength;
+
+  // 격국 절 — 일지 절과 인과 분리된 독립 구절. confidence로 hedge.
+  const GEOK_CHAR: Partial<Record<string, string>> = {
+    건록격: '자기 주도 기반',
+    양인격: '강한 의지·도전',
+    정인격: '배움과 확신이 드라이브',
+    편인격: '직관·독창이 드라이브',
+    식신격: '표현·창의가 드라이브',
+    상관격: '자유·비범함이 드라이브',
+    정재격: '성실·안정이 드라이브',
+    편재격: '넓은 활동이 드라이브',
+    정관격: '규범·명예가 드라이브',
+    편관격: '강한 추진이 드라이브',
+  };
+  const geokChar = GEOK_CHAR[geokGuk.name] ?? '';
+  const geokSuffix = geokChar ? ` — ${geokChar}` : '';
+  const geokClause = geokGuk.confidence === 'heuristic'
+    ? `${geokGuk.name} 성향${geokSuffix}`
+    : `${geokGuk.name}${geokSuffix}`;
+
+  return `${dm}${dayBranch} 일주 — ${iljiClause} 타입. ${bodyClause}, ${geokClause}.`;
+}
+
 // ── IlganCard ──
 function IlganCard({ result }: { result: SajuUIResult }) {
   const { m } = useContext(SajuUICtx);
-  const { dayMaster, pillars: fp } = result;
+  const { dayMaster, pillars: fp, advanced, sipshinMap } = result;
   const dm = dayMaster.stem;
   const cg = CHEONGAN_DATA[dm];
   const ohColor = OH[cg?.oh ?? dayMaster.element]?.color ?? INK.ink;
   const ohSoft  = OH[cg?.oh ?? dayMaster.element]?.soft ?? 'transparent';
   const keywords: string[] = dayMaster.profile.keyword ?? ['집중력', '감성', '섬세'];
-  const line = dayMaster.profile.strength ?? '';
   const sub  = dayMaster.profile.vibe ?? '';
+
+  // 일지 데이터
+  const dayBranch = fp.day.branch;
+  const jj = JIJI_DATA[dayBranch];
+  const dayBranchSipshin = sipshinMap.dayBranch;
+  const branchEl = BRANCH_DATA[dayBranch].element;
+  const branchColor = OH[branchEl]?.color ?? INK.ink45;
+
+  // 신강약·격국
+  const { bodyStrength, geokGuk } = advanced;
 
   // 통근
   const allBranches = [fp.year.branch, fp.month.branch, fp.day.branch, ...(fp.hour ? [fp.hour.branch] : [])] as Branch[];
   const roots = findRoots(dm, allBranches);
 
+  // 개인화 핵심 한 줄 (일지·신강약·격국 종합)
+  const coreDesc = buildCoreDesc(dm, dayBranch, dayBranchSipshin, bodyStrength, geokGuk);
+
+  // 뱃지 — 신강약은 항상 (추정), 격국은 heuristic일 때만 (추정)
+  const bodyBadge = (bodyStrength === 'strong' ? '신강' : bodyStrength === 'weak' ? '신약' : '중화') + '(추정)';
+  const geokBadge = geokGuk.name + (geokGuk.confidence === 'heuristic' ? '(추정)' : '');
+
   return (
     <Panel style={{ padding: m ? 22 : 26, display: 'flex', flexDirection: 'column' }}>
-      <KoLabel style={{ color: INK.ink45 }}>나의 핵심 · 日干</KoLabel>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 14 }}>
-        <span style={{ fontSize: m ? 72 : 88, lineHeight: 0.85, fontWeight: 500,
+      <KoLabel style={{ color: INK.ink45 }}>나의 핵심 · 日柱</KoLabel>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14 }}>
+        {/* 일간 (大) */}
+        <span style={{ fontSize: m ? 68 : 82, lineHeight: 0.85, fontWeight: 500,
           color: ohColor, textShadow: `0 0 50px ${ohSoft}`, fontFamily: SERIF }}>
           {dm}
         </span>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 300, fontFamily: SERIF, color: INK.ink70 }}>{cg?.han ?? dayMaster.hanja}</div>
-          <div style={{ fontSize: 13.5, color: INK.ink70, marginTop: 6 }}>{cg?.img ?? dayMaster.image}</div>
+        {/* 일지 (中) */}
+        <span style={{ fontSize: m ? 42 : 52, lineHeight: 0.85, fontWeight: 300,
+          color: branchColor, fontFamily: SERIF }}>
+          {dayBranch}
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 20, fontWeight: 300, fontFamily: SERIF, color: INK.ink70 }}>
+            {cg?.han ?? dayMaster.hanja}
+          </div>
+          <div style={{ fontSize: 12, color: INK.ink45 }}>
+            {jj?.oh ?? branchEl} · {jj?.animal ?? ''} · {dayBranchSipshin}
+          </div>
+          <div style={{ fontSize: 12.5, color: INK.ink70 }}>{cg?.img ?? dayMaster.image}</div>
         </div>
       </div>
-      <p style={{ fontSize: 14.5, lineHeight: 1.65, margin: '16px 0 10px', color: INK.ink }}>{line}</p>
-      {sub && <p style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 16px', color: INK.ink45, fontStyle: 'italic' }}>"{sub}"</p>}
+      {/* 개인화 핵심 라인 (일주·신강약·격국 종합) */}
+      <p style={{ fontSize: 14, lineHeight: 1.7, margin: '16px 0 6px', color: INK.ink }}>{coreDesc}</p>
+      {/* 일간 강점 (secondary) */}
+      <p style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 8px', color: INK.ink70 }}>
+        {dayMaster.profile.strength}
+      </p>
+      {sub && <p style={{ fontSize: 12.5, lineHeight: 1.6, margin: '0 0 12px', color: INK.ink45, fontStyle: 'italic' }}>"{sub}"</p>}
       {roots.length > 0 && (
         <p style={{ fontSize: 12, color: INK.ink28, margin: '0 0 10px', fontFamily: MONO }}>
           통근: {roots.map(r => r.branch).join(' ')}
@@ -728,6 +817,14 @@ function IlganCard({ result }: { result: SajuUIResult }) {
           <span key={k} style={{ fontSize: 12.5, color: INK.ink70,
             border: `1px solid ${INK.cardLine}`, borderRadius: 20, padding: '5px 12px', whiteSpace: 'nowrap' }}>{k}</span>
         ))}
+        <span style={{ fontSize: 12.5, color: INK.ink45,
+          border: `1px solid ${INK.hair}`, borderRadius: 20, padding: '5px 12px', whiteSpace: 'nowrap' }}>
+          {bodyBadge}
+        </span>
+        <span style={{ fontSize: 12.5, color: INK.ink45,
+          border: `1px solid ${INK.hair}`, borderRadius: 20, padding: '5px 12px', whiteSpace: 'nowrap' }}>
+          {geokBadge}
+        </span>
       </div>
     </Panel>
   );
