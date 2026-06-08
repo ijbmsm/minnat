@@ -59,11 +59,13 @@ export function ArticleJsonLd({
   title,
   description,
   datePublished,
+  dateModified,
   url,
 }: {
   title: string;
   description: string;
   datePublished: string;
+  dateModified?: string;
   url: string;
 }) {
   const data = {
@@ -72,6 +74,7 @@ export function ArticleJsonLd({
     headline: title,
     description,
     datePublished,
+    dateModified: dateModified ?? datePublished,
     url,
     publisher: {
       "@type": "Organization",
@@ -79,6 +82,116 @@ export function ArticleJsonLd({
       url: "https://drinkplace.kr",
     },
     inLanguage: "ko-KR",
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+export function PersonJsonLd({
+  name,
+  jobTitle,
+  affiliation,
+  url,
+}: {
+  name: string;
+  jobTitle?: string;
+  affiliation?: string;
+  url: string;
+}) {
+  const data: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name,
+    url,
+  };
+  if (jobTitle) data.jobTitle = jobTitle;
+  if (affiliation) data.affiliation = { "@type": "Organization", name: affiliation };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+export function WebApplicationJsonLd({
+  name,
+  description,
+  url,
+}: {
+  name: string;
+  description: string;
+  url: string;
+}) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name,
+    description,
+    url,
+    applicationCategory: "LifestyleApplication",
+    operatingSystem: "Web",
+    isAccessibleForFree: true,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "KRW" },
+    inLanguage: "ko-KR",
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+export function FaqPageJsonLd({
+  items,
+}: {
+  items: { question: string; answer: string }[];
+}) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+export function DatasetJsonLd({
+  name,
+  description,
+}: {
+  name: string;
+  description: string;
+}) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name,
+    description,
+    creator: { "@type": "Organization", name: "술자리", url: "https://drinkplace.kr" },
+    license: "https://drinkplace.kr/about",
+    inLanguage: "ko-KR",
+    isAccessibleForFree: true,
   };
 
   return (

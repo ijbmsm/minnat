@@ -413,24 +413,26 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 
 ```
 P0 (오늘):
-☐ robots.ts — Yeti 룰 + /auth /mypage 차단
-☐ sitemap.ts — /saju /about /politicians 추가
+☑ robots.ts — Yeti 룰 + /auth /mypage 차단
+☑ sitemap.ts — /saju /about /politicians /politics 추가
 
 P1 (이번 주):
-☐ issues/[id] — OG 이미지 연결, twitter card → summary_large_image
-☐ saju/view/[id] — generateMetadata 추가
-☐ politicians/[id] — canonical + PersonJsonLd
-☐ about — canonical + Dataset JSON-LD
+☑ issues/[id] — OG 이미지 연결, twitter card → summary_large_image
+☑ saju/view/[id] — generateMetadata 추가
+☑ politicians/[id] — canonical + PersonJsonLd + BreadcrumbJsonLd
+☑ about — canonical + DatasetJsonLd
+☑ ArticleJsonLd — dateModified 추가
+☑ json-ld.tsx — PersonJsonLd, WebApplicationJsonLd, DatasetJsonLd, FaqPageJsonLd 추가
 
 P2 (이번 달):
-☐ saju/page.tsx — 메타 강화 + WebApplication JSON-LD
-☐ ArticleJsonLd — dateModified 추가
-☐ politicians/page, issues/page — canonical + 동적 count
+☑ saju/page.tsx — 메타 강화 + WebApplicationJsonLd + keywords
+☑ politicians/page — canonical + Metadata 타입 적용
+☑ issues/page — canonical + Metadata 타입 적용
 
 P3 (출시 후):
-☐ FAQPage schema (/saju)
-☐ RSS 피드 → 네이버 서치어드바이저 제출
-☐ GA4 설치
+☑ FAQPage schema (/saju) — 5개 FAQ 항목
+☑ RSS 피드 (/rss.xml) → 네이버 서치어드바이저 제출
+☑ GA4 설치 (NEXT_PUBLIC_GA_ID 환경변수로 조건부 로드)
 ☐ Vercel Analytics 활성화 (Core Web Vitals 실사용자 데이터)
 ```
 

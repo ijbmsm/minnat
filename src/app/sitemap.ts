@@ -28,13 +28,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   return [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
-    { url: `${baseUrl}/saju`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${baseUrl}/issues`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9 },
-    { url: `${baseUrl}/politicians`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
-    { url: `${baseUrl}/politicians/presidents`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8 },
-    { url: `${baseUrl}/explore`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.6 },
-    { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    { url: baseUrl,                              lastModified: new Date(), changeFrequency: "daily",   priority: 1.0 },
+    { url: `${baseUrl}/saju`,                   lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${baseUrl}/politics`,               lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${baseUrl}/issues`,                 lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${baseUrl}/politicians`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${baseUrl}/politicians/presidents`, lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${baseUrl}/about`,                  lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/explore`,                lastModified: new Date(), changeFrequency: "weekly",  priority: 0.6 },
     ...presidentUrls,
     ...issueUrls,
   ];

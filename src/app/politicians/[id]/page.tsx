@@ -1,10 +1,12 @@
 import { Nav } from "@/components/nav";
 import { IssueCard } from "@/components/issue-card";
+import { PersonJsonLd, BreadcrumbJsonLd } from "@/components/json-ld";
 import { getPoliticianById, getIssuesByPolitician, getEventsByPolitician } from "@/lib/data";
 import { CAMP_COLORS, CATEGORY_MAP, SOURCE_TIER_LABEL } from "@/lib/constants";
 import { calculateEventScore } from "@/lib/score";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import type { Metadata } from "next";
 import type { IssueEvent } from "@/types";
 
 interface Props {
@@ -13,13 +15,23 @@ interface Props {
 
 export const revalidate = 300;
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const politician = await getPoliticianById(id);
   if (!politician) return { title: "정치인을 찾을 수 없습니다 — 술자리" };
+  const partyName = politician.party?.name ?? "";
+  const desc = [politician.name, partyName, politician.position]
+    .filter(Boolean)
+    .join(" · ");
   return {
     title: `${politician.name} 행보 — 술자리`,
-    description: `${politician.name}의 관련 이슈 기록`,
+    description: `${desc} 관련 이슈 기록. 공식 처분 기반 팩트만.`,
+    alternates: { canonical: `https://drinkplace.kr/politicians/${id}` },
+    openGraph: {
+      title: `${politician.name} — 술자리`,
+      description: `${politician.name} 이슈 기록`,
+      url: `https://drinkplace.kr/politicians/${id}`,
+    },
   };
 }
 
@@ -105,6 +117,19 @@ export default async function PoliticianPage({ params }: Props) {
 
   return (
     <>
+      <PersonJsonLd
+        name={politician.name}
+        jobTitle={politician.position ?? undefined}
+        affiliation={politician.party?.name ?? undefined}
+        url={`https://drinkplace.kr/politicians/${id}`}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "술자리", url: "https://drinkplace.kr" },
+          { name: "정치인", url: "https://drinkplace.kr/politicians" },
+          { name: politician.name, url: `https://drinkplace.kr/politicians/${id}` },
+        ]}
+      />
       <Nav />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20">
         <Link

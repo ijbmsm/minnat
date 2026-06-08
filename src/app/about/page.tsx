@@ -1,14 +1,21 @@
 import { Nav } from "@/components/nav";
+import { DatasetJsonLd } from "@/components/json-ld";
 import { SCORED_CATEGORIES, ARCHIVE_CATEGORIES, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "방법론 — 술자리",
   description: "술자리의 점수 산출 방법론, 데이터 수집 기준, 신뢰도 게이트를 전체 공개합니다.",
+  alternates: { canonical: "https://drinkplace.kr/about" },
 };
 
 export default function AboutPage() {
   return (
     <>
+      <DatasetJsonLd
+        name="대한민국 정치인 공식 처분 데이터"
+        description="검찰·법원·윤리위·감사원·팩트체크 기관의 공식 처분 기반 정치 이슈 데이터. 진영 불문 동일 기준 적용."
+      />
       <Nav />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20">
         <h1 className="mb-2 text-3xl font-bold">방법론</h1>

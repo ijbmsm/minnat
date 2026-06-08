@@ -29,9 +29,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "article",
       publishedTime: issue.published_at,
       url: `https://drinkplace.kr/issues/${id}`,
+      images: [{
+        url: `https://drinkplace.kr/api/og?issueId=${id}`,
+        width: 1200,
+        height: 630,
+      }],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: issue.title,
       description: issue.summary,
     },

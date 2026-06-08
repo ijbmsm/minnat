@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Noto_Serif_KR, IBM_Plex_Mono } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { OrganizationJsonLd, WebsiteJsonLd } from "@/components/json-ld";
 import { PoliticsSubNav } from "@/components/politics-subnav";
 import "./globals.css";
@@ -96,6 +97,9 @@ export default function RootLayout({
         <PoliticsSubNav />
         {children}
       </body>
+      {process.env.NEXT_PUBLIC_GA_ID && (
+        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />
+      )}
     </html>
   );
 }
