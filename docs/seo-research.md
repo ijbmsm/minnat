@@ -58,9 +58,17 @@ Google의 2026 Helpful Content Update v3 이후, E-E-A-T(경험·전문성·권�
 | Authoritativeness | 외부 언론/사이트로부터 백링크, 위키피디아 언급 |
 | Trustworthiness | HTTPS, Privacy Policy, 오탈자 없는 콘텐츠, 연락처 명시 |
 
-**사주 니치 E-E-A-T:** 역술인 프로필 페이지 필수, "30년 경력 역학자 검수" 같은 표현 + Author Schema
+**사주 니치 E-E-A-T (AI 서비스 기준):**
+- About 페이지에 엔진 알고리즘 설명 (전통 명리학 기반 + 오픈소스 계산 로직 공개)
+- "이 풀이는 AI가 생성했습니다" 명시 → 투명성이 곧 신뢰
+- 사주 계산 근거 노출 (일주·월주·대운 수치 표시) → Expertise 시그널
+- WebApplication Schema + `isAccessibleForFree: true` 선언
 
-**정치 니치 E-E-A-T:** 기자/분석가 바이오 필수, 출처 명기, 정정 기록(Correction Notice) 운영
+**정치 니치 E-E-A-T (데이터 집계 서비스 기준):**
+- About 페이지에 점수 산출 공식 공개 (scoring formula 투명화)
+- 데이터 출처 명기: 국회 API, 법원, 선관위, JTBC/MBC 팩트체크 등 Tier 표기
+- "공식 처분만 점수화" 원칙 페이지로 문서화 → methodology 페이지
+- Dataset Schema로 데이터 출처 구조화
 
 ---
 
@@ -172,38 +180,47 @@ Google의 2026 Helpful Content Update v3 이후, E-E-A-T(경험·전문성·권�
 
 ### 4-1. 필수 메타태그 (Next.js generateMetadata)
 
+실제 존재하는 라우트 기준으로 작성.
+
+**사주 풀이 결과 페이지** (`/saju/[type]/[id]`)
 ```typescript
-// app/saju/[date]/page.tsx 예시
+// app/saju/[type]/[id]/page.tsx
 export async function generateMetadata({ params }): Promise<Metadata> {
-  const dateStr = params.date // "2026-06-08"
-  const korDate = formatKorDate(dateStr) // "2026년 6월 8일"
+  const reading = await getReading(params.id)
+  const typeLabel = { full: '종합', love: '연애운', career: '직업운', today: '오늘운세' }[params.type]
 
   return {
-    title: `${korDate} 무료 운세 | 오늘의 사주`,
-    description: `${korDate} 오늘의 무료 운세를 확인하세요. 띠별·별자리별 운세, 재물운·연애운·직장운 상세 분석. 사주팔자 무료 풀이 제공.`,
-    keywords: `오늘 운세, ${korDate} 운세, 무료 사주, 오늘 사주`,
-
-    // Canonical — 날짜 파라미터 중복 방지
+    title: `무료 사주 ${typeLabel} 풀이 — 술자리`,
+    description: `${reading.birthYear}년생 ${reading.dayMaster}일주 사주 AI 분석. 일간 특성·대운·세운 기반 ${typeLabel} 풀이. 무료 제공.`,
     alternates: {
-      canonical: `https://yourdomain.com/saju/${dateStr}`,
+      canonical: `https://drinkplace.kr/saju/${params.type}/${params.id}`,
     },
-
     openGraph: {
-      title: `${korDate} 무료 운세`,
-      description: `오늘의 띠별 운세 · 무료 사주풀이`,
-      url: `https://yourdomain.com/saju/${dateStr}`,
-      type: "article",
-      publishedTime: new Date(dateStr).toISOString(),
-      authors: ["사주 전문가"],
-      images: [{
-        url: `https://yourdomain.com/og/saju/${dateStr}.png`, // 동적 OG 이미지
-        width: 1200,
-        height: 630,
-      }],
+      title: `사주 ${typeLabel} 풀이`,
+      description: `${reading.dayMaster}일주 기반 AI 사주 분석`,
+      url: `https://drinkplace.kr/saju/${params.type}/${params.id}`,
+      images: [{ url: `/api/saju/og?id=${params.id}`, width: 1200, height: 630 }], // 이미 구현됨
     },
+  }
+}
+```
 
-    twitter: {
-      card: "summary_large_image",
+**정치 이슈 페이지** (`/issues/[id]`)
+```typescript
+// app/issues/[id]/page.tsx — 이미 구현됨, 보완 포인트
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const issue = await getIssue(params.id)
+
+  return {
+    title: `${issue.title} — 술자리`,
+    description: `${issue.politician_name} ${issue.category} 이슈. 공식 처분 기반 팩트 정리.`,
+    alternates: {
+      canonical: `https://drinkplace.kr/issues/${params.id}`,
+    },
+    openGraph: {
+      type: "article",
+      publishedTime: issue.created_at,
+      images: [{ url: `/api/og?issueId=${params.id}`, width: 1200, height: 630 }], // 이미 구현됨
     },
   }
 }
