@@ -515,11 +515,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { year, month, day, hour, minute, dayBoundaryRule, sex, tier, type, longitudeE, name, concern, applyHapHwa } = body;
 
-  // 무료 차트 일일 캡 (free tier + 로그인 유저)
+  // 무료 차트 일일 캡 (free tier + 로그인 유저, 어드민 제외)
   if (tier === 'free' && redis) {
     const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
+    const adminId = process.env.SAJU_ADMIN_USER_ID;
+    if (authUser && authUser.id !== adminId) {
       const { allowed, remaining } = await checkDailyChartCap(authUser.id);
       if (!allowed) {
         return NextResponse.json(
@@ -527,7 +528,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { status: 429, headers: { 'X-Daily-Cap-Remaining': '0' } },
         );
       }
-      // 남은 횟수 헤더로 응답에 포함 (UI에서 카운터 표시용)
       req.headers.set('x-cap-remaining', String(remaining));
     }
   }
