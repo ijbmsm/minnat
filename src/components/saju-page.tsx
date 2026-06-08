@@ -586,7 +586,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
 
 // ── 공유 카드 모달 ──
 interface ShareParams {
-  stem: string; hanja: string; element: string;
+  stem: string; branch: string; hanja: string; element: string;
   image: string; name: string; keywords: string; core: string;
 }
 
@@ -2046,12 +2046,19 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
   if (result) {
     const shareParams: ShareParams = {
       stem:     result.dayMaster.stem,
+      branch:   result.pillars.day.branch,
       hanja:    result.dayMaster.hanja,
       element:  result.dayMaster.element,
       image:    result.dayMaster.image,
       name:     result.birth.name ?? '',
       keywords: result.dayMaster.profile.keyword.join(','),
-      core:     result.dayMaster.profile.core,
+      core:     buildCoreDesc(
+        result.dayMaster.stem,
+        result.pillars.day.branch,
+        result.sipshinMap.dayBranch,
+        result.advanced.bodyStrength,
+        result.advanced.geokGuk,
+      ),
     };
 
     return (

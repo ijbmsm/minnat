@@ -40,6 +40,7 @@ async function loadFont(): Promise<ArrayBuffer | null> {
 export async function GET(req: NextRequest) {
   const s = new URL(req.url).searchParams;
   const stem     = s.get('stem')     ?? '갑';
+  const branch   = s.get('branch')   ?? '';
   const hanja    = s.get('hanja')    ?? '甲';
   const element  = s.get('element')  ?? '목';
   const image    = s.get('image')    ?? '';
@@ -88,45 +89,44 @@ export async function GET(req: NextRequest) {
           </span>
         </div>
 
-        {/* 중앙: 일간 대문자 */}
+        {/* 중앙: 일주 대문자 */}
         <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: '48px' }}>
-          {/* 天干 대문자 */}
+          {/* 일주 (일간 + 일지) */}
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            alignItems: 'flex-end',
+            gap: '16px',
             position: 'relative',
           }}>
-            {/* glow effect */}
+            {/* glow */}
             <div style={{
               position: 'absolute',
-              width: '300px',
-              height: '300px',
+              width: '340px',
+              height: '340px',
               borderRadius: '50%',
-              background: `radial-gradient(ellipse at center, ${color}18 0%, transparent 70%)`,
-              top: '-40px',
-              left: '-40px',
+              background: `radial-gradient(ellipse at center, ${color}16 0%, transparent 70%)`,
+              top: '-50px',
+              left: '-30px',
             }} />
-            <span style={{
-              fontSize: '320px',
-              fontWeight: 700,
-              color,
-              lineHeight: 1,
-              letterSpacing: '-0.02em',
-            }}>
+            <span style={{ fontSize: '280px', fontWeight: 700, color, lineHeight: 1, letterSpacing: '-0.02em' }}>
               {stem}
             </span>
+            {branch && (
+              <span style={{ fontSize: '180px', fontWeight: 300, color: 'rgba(255,255,255,0.45)', lineHeight: 1, letterSpacing: '-0.02em', marginBottom: '8px' }}>
+                {branch}
+              </span>
+            )}
           </div>
 
           {/* 우측 정보 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
             {/* 한자 + 이미지 */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span style={{ fontSize: '72px', color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
+              <span style={{ fontSize: '64px', color: 'rgba(255,255,255,0.75)', fontWeight: 700 }}>
                 {hanja}
               </span>
               {image && (
-                <span style={{ fontSize: '30px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}>
+                <span style={{ fontSize: '28px', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.05em' }}>
                   {image}
                 </span>
               )}
@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
                     border: '1px solid rgba(255,255,255,0.14)',
                     borderRadius: '100px',
                     padding: '10px 22px',
-                    fontSize: '28px',
+                    fontSize: '26px',
                     color: 'rgba(255,255,255,0.7)',
                   }}>
                     {k}
@@ -150,15 +150,15 @@ export async function GET(req: NextRequest) {
               </div>
             )}
 
-            {/* 핵심 한 줄 */}
+            {/* 핵심 한 줄 — 개인화 (일주+신강약+격국 종합) */}
             {core && (
               <span style={{
-                fontSize: '28px',
+                fontSize: '26px',
                 color: 'rgba(255,255,255,0.45)',
                 lineHeight: 1.7,
-                maxWidth: '480px',
+                maxWidth: '460px',
               }}>
-                {core.length > 40 ? core.slice(0, 40) + '...' : core}
+                {core.length > 60 ? core.slice(0, 60) + '...' : core}
               </span>
             )}
           </div>
