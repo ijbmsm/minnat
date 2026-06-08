@@ -39,6 +39,9 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .update(update)
     .eq('id', user.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('[profile PATCH] supabase error:', JSON.stringify(error));
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
