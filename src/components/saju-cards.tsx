@@ -141,7 +141,7 @@ export function SajuCards() {
         maxWidth: 1080,
         margin: '0 auto',
         boxSizing: 'border-box',
-        padding: isMobile ? '34px 18px 56px' : '60px 40px 80px',
+        padding: isMobile ? '60px 18px 56px' : '96px 40px 80px',
       }}>
 
         {/* HERO ROW */}
@@ -151,7 +151,7 @@ export function SajuCards() {
           justifyContent: isMobile ? 'flex-start' : 'space-between',
           alignItems: isMobile ? 'flex-start' : 'flex-end',
           gap: isSmall ? 18 : 24,
-          marginBottom: isSmall ? 48 : 64,
+          marginBottom: isSmall ? 32 : 46,
         }}>
           <div>
             <h1 style={{
