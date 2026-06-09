@@ -151,7 +151,7 @@ export function SajuCards() {
           justifyContent: isMobile ? 'flex-start' : 'space-between',
           alignItems: isMobile ? 'flex-start' : 'flex-end',
           gap: isSmall ? 18 : 24,
-          marginBottom: isSmall ? 32 : 46,
+          marginBottom: isSmall ? 48 : 64,
         }}>
           <div>
             <h1 style={{

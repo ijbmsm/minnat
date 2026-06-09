@@ -32,6 +32,8 @@ const TYPE_LABEL: Record<string, string> = {
   career: '직업·재물',
 };
 
+type Status = 'loading' | 'unauthed' | 'empty' | 'loaded';
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -50,19 +52,27 @@ interface SajuHistoryProps {
 }
 
 export function SajuHistory({ maxItems = 5, variant = 'standalone' }: SajuHistoryProps) {
-  const [items, setItems] = useState<SajuHistoryItem[] | null>(null);
+  const [status, setStatus] = useState<Status>('loading');
+  const [items, setItems] = useState<SajuHistoryItem[]>([]);
 
   useEffect(() => {
     fetch('/api/saju/history')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.items) setItems(d.items); })
-      .catch(() => {});
+      .then(r => {
+        if (r.status === 401) { setStatus('unauthed'); return null; }
+        return r.ok ? r.json() : null;
+      })
+      .then(d => {
+        if (d === null) return;
+        setItems(d?.items ?? []);
+        setStatus(d?.items?.length > 0 ? 'loaded' : 'empty');
+      })
+      .catch(() => setStatus('empty'));
   }, []);
 
   const isSidebar = variant === 'sidebar';
 
-  // Loading skeleton
-  if (items === null) {
+  // ── 로딩 스켈레톤 ──
+  if (status === 'loading') {
     const skRows = isSidebar ? 4 : 3;
     const rowPad = isSidebar ? '15px 6px' : '13px 4px';
     return (
@@ -85,7 +95,38 @@ export function SajuHistory({ maxItems = 5, variant = 'standalone' }: SajuHistor
     );
   }
 
-  if (items.length === 0) return null;
+  // ── 비로그인 안내 ──
+  if (status === 'unauthed') {
+    const wrapper: React.CSSProperties = isSidebar
+      ? { padding: '20px 6px 8px', textAlign: 'center' }
+      : { marginTop: 40, padding: '24px 4px', textAlign: 'center' };
+    return (
+      <div style={wrapper}>
+        <p style={{
+          fontFamily: SERIF, fontSize: 13, lineHeight: 1.8,
+          color: INK.ink28, marginBottom: 12,
+        }}>
+          로그인하면 열람한 사주가<br />여기에 기록됩니다
+        </p>
+        <Link href="/auth/login" style={{
+          display: 'inline-block',
+          fontFamily: MONO, fontSize: 11, letterSpacing: 0.8,
+          color: INK.gold,
+          border: `1px solid rgba(194,163,91,0.3)`,
+          borderRadius: 6,
+          padding: '5px 14px',
+          textDecoration: 'none',
+        }}>
+          로그인
+        </Link>
+      </div>
+    );
+  }
+
+  // ── 로그인은 됐지만 이력 없음 ──
+  if (status === 'empty') return null;
+
+  // ── 이력 목록 ──
   const rowGap = isSidebar ? 14 : 12;
   const rowPadV = isSidebar ? 15 : 13;
   const rowPadH = isSidebar ? 6 : 4;
@@ -171,11 +212,8 @@ export function SajuHistory({ maxItems = 5, variant = 'standalone' }: SajuHistor
     </div>
   );
 
-  if (isSidebar) {
-    return rows;
-  }
+  if (isSidebar) return rows;
 
-  // standalone: wrap with marginTop
   return (
     <div style={{ marginTop: 40 }}>
       {rows}

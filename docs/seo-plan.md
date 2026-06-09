@@ -433,7 +433,7 @@ P3 (출시 후):
 ☑ FAQPage schema (/saju) — 5개 FAQ 항목
 ☑ RSS 피드 (/rss.xml) → 네이버 서치어드바이저 제출
 ☑ GA4 설치 (NEXT_PUBLIC_GA_ID 환경변수로 조건부 로드)
-☐ Vercel Analytics 활성화 (Core Web Vitals 실사용자 데이터)
+☑ Core Web Vitals — GA4로 수집됨 (Vercel Analytics 유료, GA4 대체 가능)
 ```
 
 ---
