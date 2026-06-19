@@ -511,7 +511,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
@@ -521,7 +521,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
           year: birth.year, month: birth.month, day: birth.day,
           hour: birth.hour, minute: birth.minute, sex: birth.sex, longitudeE: birth.longitudeE,
           dayBoundaryRule: birth.dayBoundaryRule, applyHapHwa: birth.applyHapHwa,
-          name: birth.name, concern: birth.concern, tier: 'free', type: initialType,
+          name: birth.name, concern: birth.concern, tier: 'free', type: initialType, refresh,
         }),
       });
       if (!res.ok) {
@@ -560,7 +560,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
       {err && !loading && (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
           <p style={{ fontSize: 13, color: '#c4685a', marginBottom: 12 }}>{err}</p>
-          <button onClick={load}
+          <button onClick={() => load()}
             style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
               borderRadius: 4, padding: '8px 20px', cursor: 'pointer', fontFamily: MONO, fontSize: 12 }}>
             다시 시도
@@ -584,6 +584,17 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
             </div>
           ))}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <button onClick={() => load(true)}
+              style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
+                borderRadius: 4, padding: '9px 22px', cursor: 'pointer', fontFamily: MONO, fontSize: 12,
+                letterSpacing: 1 }}>
+              ↻ 다시 풀이받기
+            </button>
+            <span style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO }}>
+              사주 원국은 같지만 해석 표현이 새로 생성됩니다 (무료 횟수 차감)
+            </span>
+          </div>
         </motion.div>
       )}
     </div>
