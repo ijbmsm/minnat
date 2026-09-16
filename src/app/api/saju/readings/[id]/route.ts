@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { ReadingSection } from '@/app/api/saju/reading/route';
+import type { FourPillars } from '@/lib/saju/engine';
+import type { CompatPartner } from '@/lib/saju/compat-server';
 
 export interface SavedReading {
   id:             string;
@@ -15,6 +17,9 @@ export interface SavedReading {
   birth_name:     string | null;
   concern:        string | null;
   ai_sections:    ReadingSection[] | null;
+  chart:          FourPillars | null;
+  engine_version: string | null;
+  partner:        CompatPartner | null;
   day_stem:       string | null;
   day_element:    string | null;
   created_at:     string;
@@ -31,11 +36,25 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('saju_readings')
-    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,ai_sections,day_stem,day_element,created_at')
+    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,ai_sections,chart,engine_version,partner,day_stem,day_element,created_at')
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
 
   if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
   return NextResponse.json(data as SavedReading);
+}
+
+/** DELETE — 내 리딩 삭제. 궁합이면 상대 출생정보(partner)도 함께 사라진다 (결정 ③ 삭제 버튼). */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const { error } = await supabase.from('saju_readings').delete().eq('id', id).eq('user_id', user.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

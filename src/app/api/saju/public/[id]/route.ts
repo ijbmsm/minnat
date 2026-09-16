@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { loadPublicReading } from '@/lib/saju/reading-public';
 
-// anon 클라이언트 — 쿠키 없이 공개 정책으로 읽음
-function anonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-}
-
+/**
+ * GET /api/saju/public/[id] — 공개 공유 조회.
+ * 응답에는 출생정보·이름·고민이 없다. 원국은 저장된 chart 스냅샷(또는 서버 계산)으로 내려간다.
+ */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const { id } = await params;
-
-  const { data, error } = await anonClient()
-    .from('saju_readings')
-    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,ai_sections,day_stem,day_element,created_at')
-    .eq('id', id)
-    .single();
-
-  if (error || !data) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  return NextResponse.json(data);
+  const reading = await loadPublicReading(id);
+  if (!reading) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  return NextResponse.json(reading, {
+    headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' },
+  });
 }

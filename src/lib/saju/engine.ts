@@ -12,6 +12,7 @@ import type { SeolgiIndex } from './seolgi-loader';
 import { latestIpchunBefore, latestJieBefore, nextJieAfter, prevJieBefore } from './seolgi-loader';
 import { toApparentSolarMinutes, apparentMinutesToTime, dayOfYear } from './eot';
 import { STEMS, BRANCHES, type Stem, type Branch } from './constants';
+import { kstWallToUTC } from './kst-offset';
 
 /* ── 상수 ── */
 
@@ -45,6 +46,8 @@ export interface BirthInput {
   solarTime: { hour: number; minute: number } | null;
   /** 일주 경계 규칙 (기본: midnight) */
   dayBoundaryRule?: DayBoundaryRule;
+  /** 표준 KST(+9) 가 아닌 오프셋이 적용됐을 때의 안내 라벨. fromKST 가 채움. */
+  tzAdjust?: string | null;
 }
 
 export interface Daeun {
@@ -79,6 +82,8 @@ export interface CalcTrace {
   dayPillarOffset: number;
   boundaryCaution: boolean;
   timeKnown:       boolean;
+  /** 표준시·서머타임 이력 보정이 적용됐으면 그 라벨, 아니면 null */
+  tzAdjust:        string | null;
 }
 
 /* ── 내부 헬퍼 ── */
@@ -242,6 +247,7 @@ export function computeFourPillars(
       dayPillarOffset: DAY_PILLAR_OFFSET,
       boundaryCaution: latestJie.boundary_caution,
       timeKnown:       !!birth.solarTime,
+      tzAdjust:        birth.tzAdjust ?? null,
     },
   };
 }
@@ -268,15 +274,16 @@ export function fromKST(
   longitudeE = 127.0,
   dayBoundaryRule: DayBoundaryRule = 'midnight',
 ): BirthInput {
-  // KST → UTC (KST = UTC+9)
-  const birthUTC = new Date(Date.UTC(kstYear, kstMonth - 1, kstDay,
-    (kstHour ?? 12) - 9, kstMinute));
+  // 시계 시각 → UTC. 출생 당시의 표준시·서머타임 오프셋을 적용한다 (kst-offset.ts).
+  // 시간 미상이면 정오로 두고 날짜만 쓴다 — 연·월주 판정에 정오 UTC 면 충분.
+  const { utc: birthUTC, offset } = kstWallToUTC(kstYear, kstMonth, kstDay, kstHour ?? 12, kstMinute);
 
   if (kstHour === null) {
     return {
       birthUTC,
       solarDate: { year: kstYear, month: kstMonth, day: kstDay },
       solarTime: null,
+      tzAdjust: null,
     };
   }
 
@@ -306,5 +313,6 @@ export function fromKST(
     },
     solarTime: { hour, minute },
     dayBoundaryRule,
+    tzAdjust: offset.label,
   };
 }

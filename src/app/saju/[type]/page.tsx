@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
 import type { ReadingType } from "@/components/saju-page";
@@ -20,18 +20,21 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
   return { title: meta.title, description: meta.description };
 }
 
+/**
+ * 비로그인도 폼과 원국 미리보기까지 본다 (플랜 P1-1). AI 풀이부터 로그인.
+ * 로그인 여부는 서버에서 한 번 읽어 내려보내 클라이언트 깜빡임을 없앤다.
+ */
 export default async function SajuTypePage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
   if (!["full", "today", "love", "career"].includes(type)) notFound();
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect(`/auth/login?next=/saju/${type}`);
 
   return (
     <>
       <Nav />
-      <SajuPage fixedType={type as ReadingType} />
+      <SajuPage fixedType={type as ReadingType} loggedIn={!!user} />
     </>
   );
 }

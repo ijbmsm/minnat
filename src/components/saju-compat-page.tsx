@@ -1,9 +1,35 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CompatResponse, CompatSection } from "@/app/api/saju/compat/route";
-import type { CompatAnalysis } from "@/lib/saju/compat";
+import type { InviteCreateResponse } from "@/app/api/saju/compat/invite/route";
+import type { SavedReading } from "@/app/api/saju/readings/[id]/route";
+import { compareCharts, RELATION_LABEL, type CompatAnalysis, type CompatRelation } from "@/lib/saju/compat";
+import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
+import { computeFourPillars, fromKST, type FourPillars } from "@/lib/saju/engine";
+import { analyzeAdvanced } from "@/lib/saju/advanced";
+import { COMPAT_SECTION_TITLES } from "@/lib/saju/sections";
+import { track } from "@/lib/analytics";
+
+// ── 절기 인덱스 (클라이언트, 1회 로드) ──
+let seolgiCache: SeolgiIndex | null = null;
+async function loadSeolgi(): Promise<SeolgiIndex> {
+  if (seolgiCache) return seolgiCache;
+  const res = await fetch("/seolgi.json");
+  const rows: SeolgiRow[] = await res.json();
+  seolgiCache = buildSeolgiIndex(rows);
+  return seolgiCache;
+}
+
+function calcLocal(index: SeolgiIndex, p: { year: number; month: number; day: number; hour: number | null; sex: 'male' | 'female' }): FourPillars {
+  return computeFourPillars(index, fromKST(p.year, p.month, p.day, p.hour, 0, 127.0, 'midnight'), p.sex);
+}
+
+function daysFromJie(fp: FourPillars): number {
+  return Math.max(0, Math.floor((new Date(fp.trace.birthUTC).getTime() - new Date(fp.trace.jieUTC).getTime()) / 86_400_000));
+}
 
 // ── 디자인 토큰 (saju-page와 동일 팔레트) ──
 const INK = {
@@ -225,13 +251,201 @@ function AnalysisPanel({ analysis }: { analysis: CompatAnalysis }) {
   );
 }
 
+// ── 비로그인 게이트: 엔진 분석은 보여주고 AI 섹션은 블러 ──
+function CompatPreviewGate({ onLogin }: { onLogin: () => void }) {
+  useEffect(() => { track('saju_preview_view', { type: 'compat' }); }, []);
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, filter: 'blur(3px)', opacity: 0.5, pointerEvents: 'none' }} aria-hidden>
+        {COMPAT_SECTION_TITLES.map((t, i) => (
+          <div key={i} style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 10, background: INK.card, padding: '14px 18px' }}>
+            <span style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 500, color: INK.ink70 }}>{t}</span>
+            <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.8, color: INK.ink45 }}>
+              두 사람의 일간·일지·십신 관계를 근거로 어떤 상황에서 끌리고 부딪히는지 구체적으로 써준다.
+            </p>
+          </div>
+        ))}
+      </div>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 360, textAlign: 'center', padding: '24px 20px', borderRadius: 14,
+          background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
+          <p style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink, margin: 0 }}>끌리는 이유, 부딪히는 이유</p>
+          <p style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink45, margin: '8px 0 16px', lineHeight: 1.6 }}>
+            점수와 관계 분석은 위에 그대로. AI 풀이 4개는 가입하면 1회 무료.
+          </p>
+          <button onClick={onLogin}
+            style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14.5, fontWeight: 600, letterSpacing: 1 }}>
+            궁합 풀이 보기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CompatLocalResult {
+  analysis: CompatAnalysis;
+}
+
+type Mode = 'both' | 'invite';
+const RELATIONS: CompatRelation[] = ['lover', 'friend', 'coworker', 'family'];
+
+// ── 관계 선택 칩 ──
+function RelationChips({ value, onChange }: { value: CompatRelation; onChange: (r: CompatRelation) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {RELATIONS.map(r => (
+        <button key={r} onClick={() => onChange(r)}
+          style={{ padding: '7px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: MONO, fontSize: 12,
+            border: `1px solid ${value === r ? INK.gold : INK.cardLine}`,
+            background: value === r ? 'rgba(194,163,91,0.12)' : 'transparent', color: value === r ? INK.gold : INK.ink45 }}>
+          {RELATION_LABEL[r]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── 초대 링크 결과 카드 ──
+function InviteLinkCard({ inv, onReset }: { inv: InviteCreateResponse; onReset: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const url = typeof window !== 'undefined' ? `${window.location.origin}${inv.path}` : inv.path;
+  async function copy() {
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
+  }
+  async function share() {
+    const text = `${inv.hook.line} — 생년월일만 넣으면 둘의 궁합이 열려`;
+    if (typeof navigator.share === 'function') {
+      try { await navigator.share({ title: '술자리 궁합 초대', text, url }); return; } catch { /* 취소 */ }
+    }
+    await copy();
+  }
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      style={{ border: `1px solid rgba(194,163,91,0.35)`, borderRadius: 14, background: 'rgba(194,163,91,0.06)', padding: '20px 18px' }}>
+      <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, letterSpacing: 1.5, color: INK.ink45 }}>초대 링크 · {RELATION_LABEL[inv.relation]} · 7일</p>
+      <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 15, lineHeight: 1.6, color: INK.ink }}>
+        <span style={{ color: INK.gold }}>{inv.hook.dayPillarHanja}</span> · {inv.hook.line}
+      </p>
+      <p style={{ margin: '6px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink28 }}>상대에게는 이 카드만 보여. 내 생년월일은 안 나가.</p>
+      <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.3)', fontFamily: MONO, fontSize: 12, color: INK.ink70, wordBreak: 'break-all' }}>{url}</div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button onClick={share} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
+          카톡·문자로 보내기
+        </button>
+        <button onClick={copy} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: `1px solid ${INK.cardLine}`, cursor: 'pointer', background: 'transparent', color: INK.ink70, fontFamily: SERIF, fontSize: 14 }}>
+          {copied ? '복사됐어' : '링크 복사'}
+        </button>
+      </div>
+      <p style={{ margin: '12px 0 0', textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink45 }}>
+        상대가 수락하면 둘 다 결과를 보고, 둘 다 크레딧 +1.
+      </p>
+      <button onClick={onReset} style={{ marginTop: 10, width: '100%', padding: 10, borderRadius: 8, border: 'none', background: 'transparent', color: INK.ink28, fontFamily: MONO, fontSize: 12, cursor: 'pointer' }}>
+        다른 초대 만들기
+      </button>
+    </motion.div>
+  );
+}
+
+// ── 크레딧 소진 (궁합) ──
+function CompatCreditZero({ onInvite }: { onInvite: () => void }) {
+  return (
+    <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 14, background: INK.card, padding: '20px 18px' }}>
+      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>무료 풀이를 다 썼어</p>
+      <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
+        궁합은 방법이 하나 더 있어. 상대에게 초대 링크를 보내면 <b style={{ color: INK.ink70 }}>둘 다 무료</b>로 보고 둘 다 크레딧 +1.
+      </p>
+      <button onClick={onInvite} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
+        초대 링크로 보내기
+      </button>
+    </div>
+  );
+}
+
 // ── 메인 페이지 컴포넌트 ──
-export function SajuCompatPage() {
+export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingId }: { loggedIn?: boolean; initialMode?: Mode; readingId?: string }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [relation, setRelation] = useState<CompatRelation>('lover');
   const [formA, setFormA] = useState<PersonForm>({ ...PERSON_DEFAULTS });
   const [formB, setFormB] = useState<PersonForm>({ ...PERSON_DEFAULTS });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CompatResponse | null>(null);
+  const [local, setLocal] = useState<CompatLocalResult | null>(null);
+  const [autoSubmit, setAutoSubmit] = useState(false);
+  const [creditZero, setCreditZero] = useState(false);
+  const [invite, setInvite] = useState<InviteCreateResponse | null>(null);
+  const [saved, setSaved] = useState<SavedReading | null>(null);
+
+  // 저장된 궁합 리딩 복원 (이력 진입) — 분석은 두 chart 로 로컬 재계산
+  useEffect(() => {
+    if (!readingId) return;
+    setLoading(true);
+    fetch(`/api/saju/readings/${readingId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((d: SavedReading | null) => {
+        if (!d?.chart || !d.partner?.chart || !d.ai_sections) return;
+        const advA = analyzeAdvanced(d.chart, daysFromJie(d.chart));
+        const advB = analyzeAdvanced(d.partner.chart, daysFromJie(d.partner.chart));
+        const analysis = compareCharts(d.chart, d.partner.chart, advA.strengths.ratios, advB.strengths.ratios);
+        setSaved(d);
+        setRelation(d.partner.relation);
+        setResult({ cacheKey: '', cached: true, sections: d.ai_sections, analysis, tier: 'free', readingId: d.id });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [readingId]);
+
+  async function deleteSaved() {
+    if (!saved) return;
+    if (!window.confirm('이 궁합 기록과 상대 출생정보를 삭제할까?')) return;
+    const res = await fetch(`/api/saju/readings/${saved.id}`, { method: 'DELETE' });
+    if (res.ok) router.push('/saju');
+  }
+
+  // 로그인 전 입력을 복원 (재입력 0회)
+  useEffect(() => {
+    if (readingId) return;
+    try {
+      const raw = sessionStorage.getItem('saju:compat-form');
+      if (raw) {
+        const s = JSON.parse(raw) as { a: PersonForm; b: PersonForm; relation?: CompatRelation; mode?: Mode; resume?: boolean };
+        setFormA(s.a); setFormB(s.b);
+        if (s.relation) setRelation(s.relation);
+        if (s.mode) setMode(s.mode);
+        if (s.resume && loggedIn) { sessionStorage.removeItem('saju:compat-form'); setAutoSubmit(true); }
+      }
+    } catch { /* ignore */ }
+  }, [loggedIn, readingId]);
+
+  // 초대 링크 생성 (로그인 필요)
+  const createInvite = useCallback(async () => {
+    setError(null);
+    const toNum = (s: string) => (s.trim() === '' ? null : parseInt(s, 10));
+    const y = toNum(formA.year), m = toNum(formA.month), d = toNum(formA.day);
+    if (!y || !m || !d) { setError('내 생년월일을 입력해줘.'); return; }
+    try { sessionStorage.setItem('saju:compat-form', JSON.stringify({ a: formA, b: formB, relation, mode: 'invite' })); } catch { /* ignore */ }
+    if (!loggedIn) {
+      track('saju_login_prompt', { type: 'invite_create' });
+      try { sessionStorage.setItem('saju:compat-form', JSON.stringify({ a: formA, b: formB, relation, mode: 'invite', resume: true })); } catch { /* ignore */ }
+      router.push(`/auth/login?next=${encodeURIComponent('/saju/compat?mode=invite')}`);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/saju/compat/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ relation, person: { year: y, month: m, day: d, hour: formA.unknownHour ? null : toNum(formA.hour), sex: formA.sex, name: formA.name || undefined, longitudeE: 127.0 } }),
+      });
+      const data = await res.json() as InviteCreateResponse & { error?: string };
+      if (!res.ok) { setError(data.error ?? '오류'); return; }
+      track('saju_invite_create', { relation });
+      setInvite(data);
+    } catch { setError('네트워크 오류'); }
+    finally { setLoading(false); }
+  }, [formA, formB, relation, loggedIn, router]);
 
   const handleSubmit = useCallback(async () => {
     setError(null);
@@ -246,7 +460,26 @@ export function SajuCompatPage() {
       return;
     }
 
+    track('saju_form_submit', { type: 'compat', logged_in: loggedIn });
+    try { sessionStorage.setItem('saju:compat-form', JSON.stringify({ a: formA, b: formB, relation, mode: 'both' })); } catch { /* ignore */ }
+
+    // 1) 엔진 분석은 로그인 여부와 무관하게 클라이언트에서 (LLM 비용 0)
     setLoading(true);
+    try {
+      const index = await loadSeolgi();
+      const fpA = calcLocal(index, { year: yA, month: mA, day: dA, hour: formA.unknownHour ? null : toNum(formA.hour), sex: formA.sex });
+      const fpB = calcLocal(index, { year: yB, month: mB, day: dB, hour: formB.unknownHour ? null : toNum(formB.hour), sex: formB.sex });
+      const advA = analyzeAdvanced(fpA, daysFromJie(fpA));
+      const advB = analyzeAdvanced(fpB, daysFromJie(fpB));
+      setLocal({ analysis: compareCharts(fpA, fpB, advA.strengths.ratios, advB.strengths.ratios) });
+    } catch (e) {
+      setError(`계산 오류: ${e instanceof Error ? e.message : '알 수 없는 오류'}`);
+      setLoading(false);
+      return;
+    }
+
+    // 2) AI 섹션은 로그인 시에만
+    if (!loggedIn) { setLoading(false); return; }
     try {
       const res = await fetch('/api/saju/compat', {
         method: 'POST',
@@ -264,22 +497,40 @@ export function SajuCompatPage() {
             sex: formB.sex, name: formB.name || undefined,
             longitudeE: 127.0,
           },
+          relation,
           tier: 'free',
         }),
       });
 
-      const data = await res.json() as CompatResponse & { error?: string };
+      const data = await res.json() as CompatResponse & { error?: string; message?: string };
       if (!res.ok) {
-        setError(data.error ?? '오류가 발생했습니다.');
+        if (res.status === 402) { track('saju_credit_zero', { type: 'compat' }); setCreditZero(true); return; }
+        setError(data.message ?? data.error ?? '오류가 발생했습니다.');
         return;
       }
+      track('saju_reading_view', { type: 'compat', cached: data.cached });
       setResult(data);
     } catch {
       setError('네트워크 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [formA, formB]);
+  }, [formA, formB, relation, loggedIn]);
+
+  // 로그인 후 돌아오면 자동 제출 (모드별)
+  useEffect(() => {
+    if (!autoSubmit) return;
+    setAutoSubmit(false);
+    if (mode === 'invite') void createInvite(); else void handleSubmit();
+  }, [autoSubmit, mode, handleSubmit, createInvite]);
+
+  function handleLogin() {
+    track('saju_login_prompt', { type: 'compat' });
+    try { sessionStorage.setItem('saju:compat-form', JSON.stringify({ a: formA, b: formB, relation, mode: 'both', resume: true })); } catch { /* ignore */ }
+    router.push(`/auth/login?next=${encodeURIComponent('/saju/compat')}`);
+  }
+
+  const analysis = result?.analysis ?? local?.analysis ?? null;
 
   return (
     <main style={{ minHeight: '100dvh', paddingTop: 56, paddingBottom: 32 }}>
@@ -296,15 +547,34 @@ export function SajuCompatPage() {
           </p>
         </div>
 
-        {!result ? (
+        {invite ? (
+          <InviteLinkCard inv={invite} onReset={() => setInvite(null)} />
+        ) : creditZero ? (
+          <CompatCreditZero onInvite={() => { setCreditZero(false); setLocal(null); setMode('invite'); }} />
+        ) : !analysis ? (
           // ── 입력 폼 ──
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <PersonInput label="첫 번째 사람 (A)" form={formA} onChange={setFormA} />
+            {/* 모드 토글 */}
+            <div style={{ display: 'flex', borderRadius: 10, border: `1px solid ${INK.cardLine}`, padding: 4, background: 'rgba(232,223,200,0.02)' }}>
+              {([['both', '둘 다 입력'], ['invite', '상대에게 링크 보내기']] as [Mode, string][]).map(([mv, label]) => (
+                <button key={mv} onClick={() => setMode(mv)}
+                  style={{ flex: 1, padding: '10px 0', borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: SERIF, fontSize: 13.5,
+                    background: mode === mv ? 'rgba(232,223,200,0.10)' : 'transparent', color: mode === mv ? INK.ink : INK.ink45, fontWeight: mode === mv ? 600 : 400 }}>
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            {/* 구분 */}
-            <div style={{ textAlign: 'center', color: INK.ink28, fontFamily: SERIF, fontSize: 20 }}>×</div>
+            <RelationChips value={relation} onChange={setRelation} />
 
-            <PersonInput label="두 번째 사람 (B)" form={formB} onChange={setFormB} />
+            <PersonInput label={mode === 'invite' ? '나' : '첫 번째 사람 (A)'} form={formA} onChange={setFormA} />
+
+            {mode === 'both' && (
+              <>
+                <div style={{ textAlign: 'center', color: INK.ink28, fontFamily: SERIF, fontSize: 20 }}>×</div>
+                <PersonInput label="두 번째 사람 (B)" form={formB} onChange={setFormB} />
+              </>
+            )}
 
             {error && (
               <p style={{ color: '#c4685a', fontFamily: MONO, fontSize: 12, textAlign: 'center', margin: 0 }}>
@@ -313,7 +583,7 @@ export function SajuCompatPage() {
             )}
 
             <button
-              onClick={handleSubmit}
+              onClick={mode === 'invite' ? createInvite : handleSubmit}
               disabled={loading}
               style={{
                 marginTop: 8, padding: '14px', borderRadius: 10, border: 'none',
@@ -323,11 +593,13 @@ export function SajuCompatPage() {
                 borderWidth: 1, borderStyle: 'solid', borderColor: 'rgba(194,163,91,0.3)',
               }}
             >
-              {loading ? '분석 중…' : '궁합 보기'}
+              {loading ? (mode === 'invite' ? '링크 만드는 중…' : '분석 중…') : (mode === 'invite' ? '초대 링크 만들기' : '궁합 보기')}
             </button>
 
-            <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0 }}>
-              무료 4회/일
+            <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0, lineHeight: 1.6 }}>
+              {mode === 'invite'
+                ? '상대가 자기 생년월일을 넣으면 둘 다 무료로 결과를 봐. 상대에게 내 생년월일은 안 보여.'
+                : '점수·관계 분석은 무료 · AI 풀이는 가입 후 1회 무료'}
             </p>
           </div>
         ) : (
@@ -339,22 +611,32 @@ export function SajuCompatPage() {
               transition={{ duration: 0.4 }}
               style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
             >
+              {saved && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink45 }}>
+                  <span>{RELATION_LABEL[relation]} 궁합 · 상대 {saved.partner?.name ? saved.partner.name : `${saved.partner?.day_stem ?? ''}일간`}</span>
+                  <button onClick={deleteSaved} style={{ border: 'none', background: 'transparent', color: INK.ink28, cursor: 'pointer', fontFamily: MONO, fontSize: 11 }}>기록·상대정보 삭제</button>
+                </div>
+              )}
+
               {/* 점수 */}
               <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 12, background: INK.card }}>
-                <CompatScoreBar score={result.analysis.score} level={result.analysis.level} />
+                <CompatScoreBar score={analysis.score} level={analysis.level} />
               </div>
 
               {/* 분석 요약 */}
-              <AnalysisPanel analysis={result.analysis} />
+              <AnalysisPanel analysis={analysis} />
+              <SummaryChips summary={analysis.summary} />
 
-              {/* AI 섹션 */}
-              {result.sections.map((s, i) => (
-                <SectionCard key={i} section={s} />
-              ))}
+              {/* AI 섹션 — 로그인 전엔 게이트, 로그인 후 로딩 중엔 스피너 */}
+              {result
+                ? result.sections.map((s, i) => <SectionCard key={i} section={s} />)
+                : loggedIn
+                  ? <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 12, color: INK.ink45, padding: '20px 0' }}>{loading ? '풀이 중…' : (error ?? '')}</p>
+                  : <CompatPreviewGate onLogin={handleLogin} />}
 
               {/* 다시 보기 버튼 */}
               <button
-                onClick={() => setResult(null)}
+                onClick={() => { if (saved) { router.push('/saju/compat'); return; } setResult(null); setLocal(null); }}
                 style={{ padding: '12px', borderRadius: 8, border: `1px solid ${INK.cardLine}`,
                   background: 'transparent', color: INK.ink45, fontFamily: MONO, fontSize: 13,
                   cursor: 'pointer', marginTop: 4 }}

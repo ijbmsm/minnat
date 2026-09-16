@@ -13,6 +13,10 @@ import type { Element, Stem, Branch } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 import { lunarToSolar } from "@/lib/saju/lunar";
 import { analyzeAdvanced, findRoots, JIJANGGAN, type AdvancedAnalysis } from "@/lib/saju/advanced";
+import { SECTION_TITLES } from "@/lib/saju/sections";
+import type { SajuHistoryItem } from "@/app/api/saju/history/route";
+import type { SavedReading } from "@/app/api/saju/readings/[id]/route";
+import { track } from "@/lib/analytics";
 
 // ── 디자인 토큰 ──
 const INK = {
@@ -354,12 +358,13 @@ interface SajuUIResult {
   };
   elements: { el: Element; count: number; color: string; comment: string | null }[];
   sipshinMap: Record<string, string | null>;
-  birth: BirthParams;
+  /** null = 공개 공유 뷰 (출생정보 없이 chart 스냅샷만으로 렌더) */
+  birth: BirthParams | null;
   advanced: AdvancedAnalysis;
 }
 
 // ── buildUIResult ──
-function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
+function buildUIResult(fp: FourPillars, birth: BirthParams | null): SajuUIResult {
   const dm = fp.day.stem;
   const dmData = STEM_DATA[dm];
 
@@ -398,7 +403,7 @@ function buildUIResult(fp: FourPillars, birth: BirthParams): SajuUIResult {
       (new Date(fp.trace.birthUTC).getTime() - new Date(fp.trace.jieUTC).getTime()) / 86_400_000
     ),
   );
-  const advanced = analyzeAdvanced(fp, daysFromJie, undefined, birth.applyHapHwa);
+  const advanced = analyzeAdvanced(fp, daysFromJie, undefined, birth?.applyHapHwa ?? false);
 
   return {
     pillars: fp,
@@ -500,7 +505,7 @@ type ReadingType = 'full' | 'today' | 'love' | 'career';
 
 // ── AI 해석 컴포넌트 ──
 function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }: {
-  birth: BirthParams;
+  birth: BirthParams | null;
   initialType?: ReadingType;
   cachedSections?: ReadingSection[] | null;
   onReadingId?: (id: string) => void;
@@ -510,8 +515,16 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   );
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [creditZero, setCreditZero] = useState<{ earn: { key: string; text: string }[] } | null>(null);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!loading) { setSlow(false); return; }
+    const t = setTimeout(() => setSlow(true), 10_000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const load = useCallback(async (refresh = false) => {
+    if (!birth) { setErr('공유된 풀이입니다. 내 사주를 보려면 아래에서 입력해줘.'); return; }
     setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
@@ -525,11 +538,17 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
         }),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error((j as { error?: string }).error ?? `HTTP ${res.status}`);
+        const j = await res.json().catch(() => ({})) as { error?: string; message?: string; earn?: { key: string; text: string }[] };
+        if (res.status === 402) {
+          track('saju_credit_zero', { type: initialType });
+          setCreditZero({ earn: j.earn ?? [] });
+          return;
+        }
+        throw new Error(j.message ?? j.error ?? `HTTP ${res.status}`);
       }
       const data = await res.json() as ReadingResponse;
       setReading(data);
+      track('saju_reading_view', { type: initialType, cached: data.cached });
       if (data.readingId) onReadingId?.(data.readingId);
     } catch (e) {
       setErr(e instanceof Error ? e.message : '알 수 없는 오류');
@@ -538,7 +557,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   }, []);
 
   useEffect(() => {
-    if (!cachedSections) load();
+    if (!cachedSections && birth) load();
   }, []); // eslint-disable-line
 
   return (
@@ -555,7 +574,11 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
             }}
           />
           <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO, letterSpacing: 1 }}>해석 중</span>
+          {slow && <span style={{ fontSize: 11.5, color: INK.ink28, fontFamily: SERIF }}>조금 더 걸리고 있어. 원국이 복잡할수록 길어져.</span>}
         </div>
+      )}
+      {creditZero && !loading && (
+        <CreditZeroPanel earn={creditZero.earn} type={initialType} />
       )}
       {err && !loading && (
         <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -576,7 +599,9 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               ⚠ {reading.cautions.join(' · ')}
             </p>
           )}
-          {reading.sections.map((s: ReadingSection, i: number) => (
+          {initialType === 'today'
+            ? <TodayCards sections={reading.sections} todayPillar={reading.todayPillar} streak={reading.credit?.streak} streakReward={reading.credit?.streakReward} />
+            : reading.sections.map((s: ReadingSection, i: number) => (
             <div key={i} style={{ padding: 20, borderRadius: 8,
               background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
               <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO,
@@ -584,7 +609,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
             </div>
           ))}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 4 }}>
+          {birth && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <button onClick={() => load(true)}
               style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
                 borderRadius: 4, padding: '9px 22px', cursor: 'pointer', fontFamily: MONO, fontSize: 12,
@@ -592,11 +617,279 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               ↻ 다시 풀이받기
             </button>
             <span style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO }}>
-              사주 원국은 같지만 해석 표현이 새로 생성됩니다 (무료 횟수 차감)
+              사주 원국은 같지만 해석 표현이 새로 생성돼 (크레딧 1 소모)
             </span>
-          </div>
+          </div>}
         </motion.div>
       )}
+    </div>
+  );
+}
+
+// ── 오늘의 사주 — 카드 3장 한 화면 (P3-1) ──
+function TodayCards({ sections, todayPillar, streak, streakReward }: {
+  sections: ReadingSection[];
+  todayPillar?: ReadingResponse['todayPillar'];
+  streak?: number;
+  streakReward?: boolean;
+}) {
+  const { m } = useContext(SajuUICtx);
+  const first = sections[0]?.body ?? '';
+  const energyMatch = first.match(/에너지\s*([1-5])\s*\/\s*5/);
+  const energy = energyMatch ? parseInt(energyMatch[1], 10) : null;
+  const firstBody = energy !== null ? first.replace(/^\s*에너지\s*[1-5]\s*\/\s*5\.?\s*/, '') : first;
+  const ACCENT = ['rgba(194,163,91,0.14)', 'rgba(126,154,111,0.14)', 'rgba(196,104,90,0.14)'];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink45 }}>
+        <span>{todayPillar ? `오늘 일진 ${todayPillar.stem}${todayPillar.branch} · ${todayPillar.sipshinStem}` : '오늘'}</span>
+        {streak !== undefined && streak > 0 && (
+          <span style={{ color: streakReward ? INK.gold : INK.ink45 }}>
+            {streakReward ? '7일 연속 · 크레딧 +1' : `연속 ${streak}일 · 7일이면 +1`}
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        {sections.slice(0, 3).map((sec, i) => (
+          <div key={i} style={{ padding: m ? 16 : 18, borderRadius: 10, background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, margin: 0 }}>{sec.title}</p>
+              {i === 0 && energy !== null && (
+                <span style={{ display: 'flex', gap: 3 }} aria-label={`에너지 ${energy}/5`}>
+                  {[1,2,3,4,5].map(n => <span key={n} style={{ width: 8, height: 8, borderRadius: 4, background: n <= energy ? '#c2a35b' : 'rgba(120,100,60,0.18)' }} />)}
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: m ? 14 : 13.5, color: '#2a2218', lineHeight: 1.8, whiteSpace: 'pre-wrap', margin: 0, background: ACCENT[i], padding: '10px 12px', borderRadius: 6 }}>
+              {i === 0 ? firstBody : sec.body}
+            </p>
+          </div>
+        ))}
+      </div>
+      <TodayCompatLine todayPillar={todayPillar} />
+    </div>
+  );
+}
+
+// ── 오늘의 궁합 한 줄 (P3-4) — 저장된 궁합 상대가 있으면 일진×두 일지 관계 ──
+const BRANCH_CHUNG: Record<string, string> = { 자:'오', 오:'자', 축:'미', 미:'축', 인:'신', 신:'인', 묘:'유', 유:'묘', 진:'술', 술:'진', 사:'해', 해:'사' };
+const BRANCH_YUKHAP: Record<string, string> = { 자:'축', 축:'자', 인:'해', 해:'인', 묘:'술', 술:'묘', 진:'유', 유:'진', 사:'신', 신:'사', 오:'미', 미:'오' };
+function branchRel(today: string, mine: string): '합' | '충' | null {
+  if (BRANCH_YUKHAP[today] === mine) return '합';
+  if (BRANCH_CHUNG[today] === mine) return '충';
+  return null;
+}
+function TodayCompatLine({ todayPillar }: { todayPillar?: ReadingResponse['todayPillar'] }) {
+  const [partner, setPartner] = useState<{ name: string | null; branch: string; myBranch: string; readingId: string } | null | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const h = await fetch('/api/saju/history').then(r => r.ok ? r.json() : null) as { items?: SajuHistoryItem[] } | null;
+        const compat = h?.items?.find(it => it.type === 'compat');
+        if (!compat) { if (alive) setPartner(null); return; }
+        const d = await fetch(`/api/saju/readings/${compat.id}`).then(r => r.ok ? r.json() : null) as SavedReading | null;
+        if (!alive) return;
+        if (!d?.partner?.chart || !d.chart) { setPartner(null); return; }
+        setPartner({ name: d.partner.name, branch: d.partner.chart.day.branch, myBranch: d.chart.day.branch, readingId: d.id });
+      } catch { if (alive) setPartner(null); }
+    })();
+    return () => { alive = false; };
+  }, []);
+  if (partner === undefined || !todayPillar) return null;
+  if (partner === null) {
+    return (
+      <Link href="/saju/compat?mode=invite" style={{ textDecoration: 'none', fontFamily: MONO, fontSize: 11, color: INK.ink45, textAlign: 'center', padding: '6px 0' }}>
+        궁합 상대를 저장해두면 여기에 &quot;오늘 둘은?&quot; 이 붙어 →
+      </Link>
+    );
+  }
+  const me = branchRel(todayPillar.branch, partner.myBranch);
+  const them = branchRel(todayPillar.branch, partner.branch);
+  const who = partner.name ?? '상대';
+  const text =
+    me === '충' || them === '충'
+      ? `오늘 일진이 ${me === '충' ? '내' : who + '의'} 일지와 충. 결정·다툼은 내일로 미루는 게 낫겠어.`
+    : me === '합' && them === '합'
+      ? `오늘 일진이 둘의 일지와 모두 합. 같이 결정하기 좋은 날.`
+    : me === '합' || them === '합'
+      ? `오늘은 ${me === '합' ? '내' : who + '의'} 쪽 기운이 잘 통하는 날. 먼저 말 꺼내기 좋아.`
+      : `오늘 일진은 둘 다에게 무난. 평소대로.`;
+  return (
+    <Link href={`/saju/compat/${partner.readingId}`} style={{ textDecoration: 'none', display: 'flex', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 8, border: `1px solid ${INK.cardLine}`, background: INK.card }}>
+      <span style={{ fontFamily: SERIF, fontSize: 16, color: INK.gold }}>合</span>
+      <span style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink70, lineHeight: 1.5 }}>{who}와 오늘 · {text}</span>
+    </Link>
+  );
+}
+
+// ── 타이밍 타임라인 (P3-3) — 緣: 배우자성 대운·세운, 財: 재성·관성·식상 대운 ──
+function TimingTimeline({ result, type }: { result: SajuUIResult; type: ReadingType }) {
+  const { m } = useContext(SajuUICtx);
+  const fp = result.pillars;
+  const dm = fp.day.stem;
+  const sex = result.birth?.sex ?? 'male';
+  const currentYear = new Date().getFullYear();
+  const birthYear = fp.trace.sajuYear;
+  const currentAge = currentYear - birthYear;
+
+  const spouse: readonly string[] = sex === 'female' ? ['정관', '편관'] : ['정재', '편재'];
+  const label = (ss: string | null, bs: string | null): string | null => {
+    const has = (arr: readonly string[]) => (ss !== null && arr.includes(ss)) || (bs !== null && arr.includes(bs));
+    if (type === 'love') return has(spouse) ? '인연' : null;
+    if (has(['정재', '편재'])) return '재물';
+    if (has(['정관', '편관'])) return '승진·이직';
+    if (has(['식신', '상관'])) return '표현·창업';
+    return null;
+  };
+
+  const marks = fp.daeun.map(d => ({
+    startYear: birthYear + d.startAge, startAge: d.startAge, gz: `${d.pillar.stem}${d.pillar.branch}`,
+    tag: label(getSipshin(dm, d.pillar.stem), getBranchSipshin(dm, d.pillar.branch)),
+    current: currentAge >= d.startAge && currentAge < d.startAge + 10,
+    past: currentAge >= d.startAge + 10,
+  }));
+  const years = [0, 1, 2, 3, 4].map(k => {
+    const y = currentYear + k; const sp = calcSeyunPillar(y);
+    return { y, gz: `${sp.stem}${sp.branch}`, tag: label(getSipshin(dm, sp.stem), getBranchSipshin(dm, sp.branch)) };
+  });
+  const hitYears = years.filter(y => y.tag);
+  if (!marks.some(x => x.tag) && hitYears.length === 0) return null;
+
+  return (
+    <Panel style={{ padding: m ? '16px 16px' : '18px 22px' }}>
+      <KoLabel style={{ color: INK.ink45 }}>{type === 'love' ? '인연이 들어오는 시기' : '돈·자리가 움직이는 시기'} · 엔진 계산</KoLabel>
+      <div style={{ display: 'flex', gap: 0, marginTop: 14, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
+        {marks.map((x, i) => (
+          <div key={i} style={{ flex: '0 0 auto', width: m ? 74 : 92, textAlign: 'center', opacity: x.past ? 0.4 : 1 }}>
+            <div style={{ position: 'relative', height: 14 }}>
+              <div style={{ position: 'absolute', left: 0, right: 0, top: 6, height: 1, background: INK.hair }} />
+              <div style={{ position: 'absolute', left: '50%', top: x.tag ? 2 : 4, transform: 'translateX(-50%)',
+                width: x.tag ? 10 : 6, height: x.tag ? 10 : 6, borderRadius: '50%',
+                background: x.tag ? INK.gold : INK.ink28, boxShadow: x.current ? `0 0 0 3px rgba(194,163,91,0.25)` : 'none' }} />
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 10, color: x.current ? INK.gold : INK.ink45, marginTop: 6 }}>{x.startYear}</div>
+            <div style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink70 }}>{x.gz}</div>
+            <div style={{ fontFamily: MONO, fontSize: 9.5, color: x.tag ? INK.gold : INK.ink28, marginTop: 2, minHeight: 12 }}>{x.tag ?? (x.current ? '지금' : '')}</div>
+          </div>
+        ))}
+      </div>
+      {hitYears.length > 0 && (
+        <p style={{ margin: '12px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink45, lineHeight: 1.7 }}>
+          가까운 세운: {hitYears.map(y => `${y.y} ${y.gz}(${y.tag})`).join(' · ')}
+        </p>
+      )}
+    </Panel>
+  );
+}
+
+// ── 다음으로 볼 것 (P3-2) — 타입 간 딥링크 ──
+const NEXT_LINKS: Record<ReadingType, { href: string; seal: string; ko: string; why: string }[]> = {
+  full:   [{ href: '/saju/love', seal: '緣', ko: '연애운', why: '상대 유형과 만남 시기까지' }, { href: '/saju/career', seal: '財', ko: '직업·재물운', why: '직업군 3개와 타이밍' }],
+  love:   [{ href: '/saju/compat?mode=invite', seal: '合', ko: '궁합', why: '지금 만나는 사람이 있다면' }, { href: '/saju/today', seal: '日', ko: '오늘의 사주', why: '매일 무료' }],
+  career: [{ href: '/saju/full', seal: '命', ko: '종합 사주', why: '전체 그림에서 다시' }, { href: '/saju/today', seal: '日', ko: '오늘의 사주', why: '오늘 결정해도 되는지' }],
+  today:  [{ href: '/saju/compat?mode=invite', seal: '合', ko: '궁합', why: '오늘 둘은 어떤지' }, { href: '/saju/full', seal: '命', ko: '종합 사주', why: '올해 흐름 전체' }],
+};
+function NextReadings({ type }: { type: ReadingType }) {
+  const { m } = useContext(SajuUICtx);
+  return (
+    <div style={{ marginTop: 18 }}>
+      <KoLabel style={{ color: INK.ink45 }}>다음으로 볼 것</KoLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '1fr 1fr', gap: 8, marginTop: 10 }}>
+        {NEXT_LINKS[type].map(l => (
+          <Link key={l.href} href={l.href} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, border: `1px solid ${INK.cardLine}`, background: INK.card }}>
+            <span style={{ fontFamily: SERIF, fontSize: 20, color: INK.gold }}>{l.seal}</span>
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 600, color: INK.ink }}>{l.ko}</span>
+              <span style={{ fontFamily: SERIF, fontSize: 12, color: INK.ink45 }}>{l.why}</span>
+            </span>
+            <span style={{ marginLeft: 'auto', color: INK.ink28 }}>›</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── 크레딧 소진 — 획득 방법 3줄 + 바로가기 (결제 없음) ──
+function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]; type: ReadingType }) {
+  const router = useRouter();
+  const titles = SECTION_TITLES[type];
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, filter: 'blur(2px)', opacity: 0.35, pointerEvents: 'none' }} aria-hidden>
+        {titles.slice(0, 3).map((t, i) => (
+          <div key={i} style={{ padding: 14, borderRadius: 8, background: 'rgba(250,248,243,0.93)' }}>
+            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, margin: 0 }}>{t}</p>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: -60, position: 'relative', padding: '20px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}` }}>
+        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>무료 풀이를 다 썼어</p>
+        <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
+          돈은 안 받아. 대신 이렇게 하면 한 번 더 볼 수 있어.
+        </p>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {earn.map(e => (
+            <li key={e.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontFamily: SERIF, fontSize: 13.5, color: INK.ink70, lineHeight: 1.5 }}>
+              <span style={{ color: INK.gold, fontFamily: MONO, fontSize: 12, marginTop: 2 }}>+1</span>
+              <span>{e.text}</span>
+            </li>
+          ))}
+        </ul>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <button onClick={() => router.push('/saju/compat?mode=invite')}
+            style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 13.5, fontWeight: 600 }}>
+            궁합 초대 만들기
+          </button>
+          <button onClick={() => router.push('/saju/today')}
+            style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: `1px solid ${INK.cardLine}`, cursor: 'pointer', background: 'transparent', color: INK.ink70, fontFamily: SERIF, fontSize: 13.5 }}>
+            오늘의 사주 (매일 무료)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 비로그인 미리보기 게이트 — 섹션 제목만 블러로 보여주고 로그인으로 보낸다 ──
+function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void }) {
+  const { m } = useContext(SajuUICtx);
+  useEffect(() => { track('saju_preview_view', { type }); }, [type]);
+  const titles = SECTION_TITLES[type];
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, filter: 'blur(3px)', opacity: 0.55, pointerEvents: 'none', userSelect: 'none' }}
+        aria-hidden>
+        {titles.map((t, i) => (
+          <div key={i} style={{ padding: 18, borderRadius: 8, background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
+            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, textTransform: 'uppercase', marginBottom: 8 }}>{t}</p>
+            <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, margin: 0 }}>
+              이 차트만의 이야기가 여기에 들어가. 원국·대운·세운을 근거로 연도까지 짚어서 써준다.
+            </p>
+          </div>
+        ))}
+      </div>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ width: '100%', maxWidth: 380, textAlign: 'center', padding: m ? '22px 18px' : '28px 24px',
+          borderRadius: 14, background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
+          <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK.ink, margin: 0 }}>
+            {titles.length}개 섹션이 준비됐어
+          </p>
+          <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.6 }}>
+            원국은 위에 그대로. AI 풀이는 가입하면 1회 무료, 오늘의 사주는 매일 무료.
+          </p>
+          <button onClick={onLogin}
+            style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 15, fontWeight: 600, letterSpacing: 1 }}>
+            전체 풀이 보기
+          </button>
+          <p style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28, margin: '10px 0 0' }}>
+            카카오 1탭 · 입력한 정보는 그대로 이어져
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1752,7 +2045,7 @@ const TABS: { id: TabId; ko: string; mark?: string }[] = [
   { id: 'gunghap', ko: '궁합' },
 ];
 
-function ResultView({ result, defaultType = 'full', cachedSections, onReadingId, currentReadingId, onReset, onShare }: {
+function ResultView({ result, defaultType = 'full', cachedSections, onReadingId, currentReadingId, onReset, onShare, engineChanged = false, loggedIn = true, onLogin }: {
   result: SajuUIResult;
   defaultType?: ReadingType;
   cachedSections?: ReadingSection[] | null;
@@ -1760,17 +2053,23 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
   currentReadingId?: string | null;
   onReset: () => void;
   onShare: () => void;
+  /** 저장된 원국 스냅샷이 현재 엔진 계산과 다를 때 true — 배너 표시 */
+  engineChanged?: boolean;
+  /** false 면 AI 탭에 PreviewGate (비로그인 미리보기) */
+  loggedIn?: boolean;
+  onLogin?: () => void;
 }) {
   const m = useIsMobile();
   const isLeanType = defaultType === 'love' || defaultType === 'today' || defaultType === 'career';
-  const [tab, setTab] = useState<TabId>(isLeanType ? 'ai' : 'manse');
+  // 비로그인은 게이트가 바로 보이도록 AI 탭에서 시작
+  const [tab, setTab] = useState<TabId>(isLeanType || !loggedIn ? 'ai' : 'manse');
   const [detail, setDetail] = useState<DetailPayload | null>(null);
   const { birth, dayMaster } = result;
 
   const ctx = useMemo(() => ({ m, openDetail: setDetail }), [m]);
 
-  const sexLabel  = birth.sex === 'male' ? '남' : '여';
-  const hourLabel = birth.hour === null ? '시간 미상' : `${birth.hour}:${String(birth.minute).padStart(2,'0')}`;
+  const sexLabel  = birth ? (birth.sex === 'male' ? '남' : '여') : '';
+  const hourLabel = birth ? (birth.hour === null ? '시간 미상' : `${birth.hour}:${String(birth.minute).padStart(2,'0')}`) : '';
 
   return (
     <SajuUICtx.Provider value={ctx}>
@@ -1782,19 +2081,21 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
             justifyContent: 'space-between', flexDirection: m ? 'column' : 'row',
             gap: m ? 12 : 0, paddingBottom: m ? 18 : 22, borderBottom: `1px solid ${INK.hair}` }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap', minWidth: 0 }}>
-              {birth.name && (
+              {birth?.name && (
                 <span style={{ fontSize: m ? 20 : 22, fontWeight: 600, letterSpacing: 1, whiteSpace: 'nowrap', color: INK.ink }}>
                   {birth.name}
                 </span>
               )}
               <span style={{ fontFamily: MONO, fontSize: m ? 10 : 11, color: INK.ink45, whiteSpace: 'nowrap' }}>
-                {sexLabel} · {birth.year}.{String(birth.month).padStart(2,'0')}.{String(birth.day).padStart(2,'0')} · {hourLabel}
+                {birth
+                  ? `${sexLabel} · ${birth.year}.${String(birth.month).padStart(2,'0')}.${String(birth.day).padStart(2,'0')} · ${hourLabel}`
+                  : `공유된 사주 · ${dayMaster.stem}${result.pillars.day.branch} 일주`}
               </span>
             </div>
             <div style={{ display: 'flex', gap: 8, flex: '0 0 auto', alignSelf: m ? 'stretch' : 'auto' }}>
               {[
                 { label: '카드 공유', action: onShare },
-                { label: '다시 입력', action: onReset },
+                { label: birth ? '다시 입력' : '내 사주 보기', action: onReset },
               ].map(({ label, action }) => (
                 <button key={label} onClick={action}
                   style={{ flex: m ? 1 : '0 0 auto', textAlign: 'center',
@@ -1807,6 +2108,15 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
               ))}
             </div>
           </div>
+
+          {engineChanged && (
+            <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8,
+              border: '1px solid rgba(194,163,91,0.35)', background: 'rgba(194,163,91,0.08)',
+              fontSize: 12.5, color: INK.ink70, lineHeight: 1.6 }}>
+              계산 규칙이 업데이트돼서 지금 보는 원국은 <b style={{ color: INK.ink }}>풀이받을 당시 기준</b>이야.
+              최신 계산으로 보려면 AI 풀이 아래 "다시 풀이받기"를 눌러줘.
+            </div>
+          )}
 
           {/* 원국 — 일간카드 + 8자카드 */}
           <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : '380px 1fr',
@@ -1850,9 +2160,13 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
                 {tab === 'ai'      && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <OhaengAccordion result={result} />
+                    {(defaultType === 'love' || defaultType === 'career') && <TimingTimeline result={result} type={defaultType} />}
                     <Panel style={{ padding: m ? 20 : 28 }}>
-                      <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
-                        cachedSections={cachedSections} onReadingId={onReadingId} />
+                      {!loggedIn && result.birth
+                        ? <PreviewGate type={defaultType ?? 'full'} onLogin={() => onLogin?.()} />
+                        : <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
+                            cachedSections={cachedSections} onReadingId={onReadingId} />}
+                      {loggedIn && result.birth && <NextReadings type={defaultType ?? 'full'} />}
                     </Panel>
                   </div>
                 )}
@@ -1883,6 +2197,24 @@ const TYPE_META: Record<ReadingType, { title: string; sub: string }> = {
 
 export type { ReadingType };
 
+// ── 프로필 응답 (출생 필드만) ──
+interface ProfileBirthLike {
+  birth_year?: number | null; birth_month?: number | null; birth_day?: number | null;
+  birth_hour?: number | null; birth_minute?: number | null;
+  birth_sex?: 'male' | 'female' | null; birth_name?: string | null; birth_longitude?: number | null;
+}
+
+// ── 저장 리딩 응답 (own / public 공통 최소 형태) ──
+interface SavedReadingLike {
+  ai_sections?: ReadingSection[] | null;
+  chart?: FourPillars | null;
+  engine_version?: string | null;
+  birth_year?: number; birth_month?: number; birth_day?: number;
+  birth_hour?: number | null; birth_minute?: number | null;
+  birth_sex?: 'male' | 'female'; birth_longitude?: number | null;
+  birth_name?: string | null; concern?: string | null;
+}
+
 // ── 폼 기본값 ──
 const FORM_DEFAULTS = {
   name: '', concern: '',
@@ -1898,13 +2230,15 @@ const FORM_DEFAULTS = {
 };
 
 // ── 메인 페이지 ──
-export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = false }: { fixedType?: ReadingType; readingId?: string; publicApi?: boolean }) {
+export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = false, loggedIn = true }: { fixedType?: ReadingType; readingId?: string; publicApi?: boolean; loggedIn?: boolean }) {
   const router = useRouter();
+  const [formStarted, setFormStarted] = useState(false);
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
   const [result, setResult] = useState<SajuUIResult | null>(null);
   const [cachedSections, setCachedSections] = useState<ReadingSection[] | null>(null);
   const [currentReadingId, setCurrentReadingId] = useState<string | null>(initialReadingId ?? null);
+  const [engineChanged, setEngineChanged] = useState(false);
   const [expandedInfo, setExpandedInfo] = useState<'zi_hour' | 'hapHwa' | null>(null);
   const [error, setError]   = useState<string | null>(null);
   // readingId로 직접 진입 시 첫 렌더부터 loading=true — 폼 flash 방지
@@ -1913,6 +2247,12 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
   // 폼 레이아웃용 반응형 — 얼리 리턴 이전에 선언해야 훅 규칙 위반 없음
   const formIsMobile = useIsMobile(880);
   const formIsSmall  = useIsMobile(560);
+
+  // 공유 링크로 들어온 방문자 → 가입 시 추천 관계 기록용 쿠키 (30일). 보상은 첫 풀이 완료 시.
+  useEffect(() => {
+    if (!publicApi || !initialReadingId) return;
+    try { document.cookie = `saju_ref=${initialReadingId}; max-age=2592000; path=/; samesite=lax`; } catch { /* ignore */ }
+  }, [publicApi, initialReadingId]);
 
   // readingId로 진입 시 DB에서 결과 복원
   useEffect(() => {
@@ -1923,19 +2263,33 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
       : `/api/saju/readings/${initialReadingId}`;
     fetch(endpoint)
       .then(r => r.ok ? r.json() : null)
-      .then(async d => {
-        if (!d?.birth_year) { setLoading(false); return; }
+      .then(async (d: SavedReadingLike | null) => {
+        if (!d) { setLoading(false); return; }
+        if (d.ai_sections) setCachedSections(d.ai_sections);
+
+        // 공개 뷰: 출생정보 없이 chart 스냅샷만으로 렌더
+        if (publicApi || !d.birth_year) {
+          if (d.chart) setResult(buildUIResult(d.chart, null));
+          return;
+        }
+
         const index = await loadSeolgi();
         const lon = d.birth_longitude ?? 127.0;
-        const fp = computeFourPillars(index, fromKST(d.birth_year, d.birth_month, d.birth_day, d.birth_hour, d.birth_minute ?? 0, lon, 'midnight'), d.birth_sex);
-        const birthParams = {
-          year: d.birth_year, month: d.birth_month, day: d.birth_day,
-          hour: d.birth_hour, minute: d.birth_minute ?? 0, sex: d.birth_sex as 'male' | 'female',
-          longitudeE: lon, dayBoundaryRule: 'midnight' as const, applyHapHwa: false,
+        const birthParams: BirthParams = {
+          year: d.birth_year, month: d.birth_month!, day: d.birth_day!,
+          hour: d.birth_hour ?? null, minute: d.birth_minute ?? 0, sex: d.birth_sex ?? 'male',
+          longitudeE: lon, dayBoundaryRule: 'midnight', applyHapHwa: false,
           name: d.birth_name ?? undefined, concern: d.concern ?? undefined,
         };
+        const fpNow = computeFourPillars(index, fromKST(birthParams.year, birthParams.month, birthParams.day, birthParams.hour, birthParams.minute, lon, 'midnight'), birthParams.sex);
+        // 저장된 스냅샷이 있으면 그것으로 렌더 — "내가 봤던 원국" 보존. 현재 엔진과 다르면 배너.
+        const fp = d.chart ?? fpNow;
+        if (d.chart) {
+          const changed = ['year','month','day'].some(k => d.chart![k as 'year'|'month'|'day'].gz !== fpNow[k as 'year'|'month'|'day'].gz)
+            || (d.chart.hour?.gz ?? null) !== (fpNow.hour?.gz ?? null);
+          setEngineChanged(changed);
+        }
         setResult(buildUIResult(fp, birthParams));
-        if (d.ai_sections) setCachedSections(d.ai_sections);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -1952,8 +2306,23 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
         // 세션 폼 없으면 저장된 프로필로 pre-fill
         fetch('/api/user/profile')
           .then(r => r.ok ? r.json() : null)
-          .then(d => {
-            if (d?.birth_year) {
+          .then(async (d: ProfileBirthLike | null) => {
+            if (d?.birth_year && d.birth_month && d.birth_day) {
+              // 오늘의 사주: 프로필이 있으면 바로 계산 (랜딩 → 결과 2탭, P3-1)
+              if (fixedType === 'today' && loggedIn) {
+                try {
+                  const lon = d.birth_longitude ?? 127.0;
+                  const bp: BirthParams = {
+                    year: d.birth_year, month: d.birth_month, day: d.birth_day,
+                    hour: d.birth_hour ?? null, minute: d.birth_minute ?? 0, sex: d.birth_sex ?? 'male',
+                    longitudeE: lon, dayBoundaryRule: 'midnight', applyHapHwa: false,
+                    name: d.birth_name ?? undefined,
+                  };
+                  setLoading(true);
+                  const index = await loadSeolgi();
+                  setResult(buildUIResult(computeFourPillars(index, fromKST(bp.year, bp.month, bp.day, bp.hour, bp.minute, lon, 'midnight'), bp.sex), bp));
+                } catch { /* 폼으로 폴백 */ } finally { setLoading(false); }
+              }
               setForm(f => ({
                 ...f,
                 year:        String(d.birth_year),
@@ -1988,7 +2357,10 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: string, v: string | boolean) => {
+    if (!formStarted) { setFormStarted(true); track('saju_form_start', { type: selectedType }); }
+    setForm(f => ({ ...f, [k]: v }));
+  };
 
   function getLongitude(): number {
     if (form.city === '__custom__') {
@@ -2028,9 +2400,10 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
 
     const longitudeE = getLongitude();
     try { sessionStorage.setItem('saju:form', JSON.stringify(form)); } catch { /* ignore */ }
+    track('saju_form_submit', { type: selectedType, logged_in: loggedIn });
 
-    // 출생 정보 프로필에 자동 저장 (fire-and-forget)
-    fetch('/api/user/profile', {
+    // 출생 정보 프로필에 자동 저장 (fire-and-forget, 로그인 시에만 의미 있음)
+    if (loggedIn) fetch('/api/user/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2053,6 +2426,15 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     } catch (err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally { setLoading(false); }
+  }
+
+  // 비로그인 → 로그인 후 재입력 없이 이어가기: 출생정보를 pending-compute 에 넣고 로그인으로
+  function handleLogin() {
+    if (!result?.birth) return;
+    track('saju_login_prompt', { type: selectedType });
+    try { sessionStorage.setItem('saju:pending-compute', JSON.stringify(result.birth)); } catch { /* ignore */ }
+    const next = fixedType ? `/saju/${fixedType}` : '/saju/full';
+    router.push(`/auth/login?next=${encodeURIComponent(next)}`);
   }
 
   function handleReadingId(id: string) {
@@ -2080,7 +2462,7 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
       hanja:    result.dayMaster.hanja,
       element:  result.dayMaster.element,
       image:    result.dayMaster.image,
-      name:     result.birth.name ?? '',
+      name:     result.birth?.name ?? '',
       keywords: result.dayMaster.profile.keyword.join(','),
       core:     buildCoreDesc(
         result.dayMaster.stem,
@@ -2099,8 +2481,15 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
           cachedSections={cachedSections}
           onReadingId={handleReadingId}
           currentReadingId={currentReadingId}
-          onReset={() => { setResult(null); setCachedSections(null); if (fixedType && initialReadingId) router.replace(`/saju/${fixedType}`); }}
-          onShare={() => setShowShare(true)}
+          onReset={() => {
+            if (publicApi) { router.push('/saju'); return; }
+            setResult(null); setCachedSections(null); setEngineChanged(false);
+            if (fixedType && initialReadingId) router.replace(`/saju/${fixedType}`);
+          }}
+          onShare={() => { track('saju_share_click', { type: selectedType }); setShowShare(true); }}
+          engineChanged={engineChanged}
+          loggedIn={publicApi ? true : loggedIn}
+          onLogin={handleLogin}
         />
         <AnimatePresence>
           {showShare && (

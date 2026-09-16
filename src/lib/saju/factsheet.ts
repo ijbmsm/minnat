@@ -22,7 +22,7 @@ function makeSeyunPillar(year: number): Pillar {
 }
 
 // ── 버전 (캐시 키 일부) ──
-const FACTSHEET_VERSION = '2.0.0';
+export const FACTSHEET_VERSION = '2.1.0';
 
 // ── 신살 테이블 ──
 
@@ -471,6 +471,7 @@ export function buildFactSheet(
   const cautions: string[] = [];
   if (!fp.hour)               cautions.push('시주 없음: 시주 궁(직업·노년 운) 해석 제외');
   if (fp.trace.boundaryCaution) cautions.push('절기 경계 출생: 월주 불확실, 단정 금지');
+  if (fp.trace.tzAdjust)        cautions.push(`${fp.trace.tzAdjust}: 입력한 시각을 당시 시계 기준으로 환산했음`);
 
   return {
     meta: {

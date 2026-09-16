@@ -4,6 +4,7 @@
  *
  * Query params:
  *   stem, hanja, element, image, name, keywords (comma-sep), core
+ *   variant=invite → 1200×630 가로 초대 카드 (hook, partner 파라미터). 생년월일은 절대 받지 않는다.
  */
 
 import { ImageResponse } from '@vercel/og';
@@ -39,6 +40,9 @@ export async function GET(req: NextRequest) {
   const name     = s.get('name')     ?? '';
   const keywords = (s.get('keywords') ?? '').split(',').filter(Boolean).slice(0, 3);
   const core     = s.get('core')     ?? '';
+  const variant  = s.get('variant')  ?? 'card';
+  const hook     = s.get('hook')     ?? '';
+  const partner  = s.get('partner')  ?? '';
 
   const color  = ELEM_COLOR[element]  ?? '#ffffff';
   const elLabel = ELEM_LABEL[element] ?? element;
@@ -48,6 +52,46 @@ export async function GET(req: NextRequest) {
   const fontConfig = fontData
     ? [{ name: 'ShillaKR', data: fontData, weight: 700 as const, style: 'normal' as const }]
     : [];
+
+  if (variant === 'invite') {
+    return new ImageResponse(
+      (
+        <div style={{
+          display: 'flex', width: '100%', height: '100%',
+          background: 'linear-gradient(135deg, #0c0907 0%, #14100c 60%, #0c0907 100%)',
+          fontFamily: fontData ? 'ShillaKR, sans-serif' : 'sans-serif',
+          padding: '56px 64px', position: 'relative',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+              <span style={{ color: 'rgba(232,223,200,0.4)', fontSize: '24px', letterSpacing: '0.15em' }}>술자리 · 궁합 초대</span>
+              <span style={{ color, fontSize: '22px', border: `1px solid ${color}55`, borderRadius: '100px', padding: '6px 16px' }}>{elLabel}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', maxWidth: '760px' }}>
+              <span style={{ fontSize: '30px', color: 'rgba(232,223,200,0.55)' }}>
+                {name ? `${name}이(가) 너와의 궁합이 궁금하대` : '누군가 너와의 궁합이 궁금하대'}
+              </span>
+              <span style={{ fontSize: '40px', color: 'rgba(232,223,200,0.94)', lineHeight: 1.45 }}>
+                {hook.length > 70 ? hook.slice(0, 70) + '…' : hook}
+              </span>
+              {partner && (
+                <span style={{ fontSize: '24px', color: 'rgba(232,223,200,0.45)' }}>끌리는 기운 · {partner}</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '28px', borderTop: '1px solid rgba(232,223,200,0.1)' }}>
+              <span style={{ fontSize: '26px', color: '#c2a35b' }}>생년월일만 넣으면 둘의 궁합이 열려 →</span>
+              <span style={{ fontSize: '22px', color: 'rgba(232,223,200,0.25)' }}>drinkplace.kr</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '10px', marginLeft: '40px' }}>
+            <span style={{ fontSize: '200px', fontWeight: 700, color, lineHeight: 1 }}>{stem}</span>
+            <span style={{ fontSize: '130px', fontWeight: 300, color: 'rgba(232,223,200,0.45)', lineHeight: 1, marginBottom: '8px' }}>{branch}</span>
+          </div>
+        </div>
+      ),
+      { width: 1200, height: 630, fonts: fontConfig },
+    );
+  }
 
   return new ImageResponse(
     (

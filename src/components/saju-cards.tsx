@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SajuHistory } from "@/components/saju-history";
+import type { CreditsResponse } from "@/app/api/saju/credits/route";
 
 // ── Design tokens ──
 const INK = {
@@ -44,26 +45,26 @@ const SAJU_TYPES = [
   { id: 'compat', href: '/saju/compat', seal: '合', ko: '궁합',        tagline: '두 사주로 보는 케미.\n끌리는 이유, 부딪히는 이유.' },
 ];
 
-// ── DailyFree chip ──
-function DailyFree({ total = 4, used = 0 }: { total?: number; used?: number }) {
-  const left = total - used;
+// ── CreditBadge — 3상태: 비로그인 / 무료 1회 남음 / 크레딧 N ──
+function CreditBadge({ loggedIn, credits }: { loggedIn: boolean | null; credits: CreditsResponse | null }) {
+  const base: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 10,
+    border: `1px solid ${INK.cardLine}`, borderRadius: 999,
+    padding: '7px 14px', background: INK.card,
+    fontFamily: MONO, fontSize: 11, letterSpacing: 0.5, color: INK.ink70,
+  };
+  if (loggedIn === null) return <div style={{ ...base, opacity: 0.4 }}>·</div>;
+  if (!loggedIn) return <div style={base}>가입하면 1회 무료 · 오늘의 사주는 매일</div>;
+  if (!credits) return <div style={{ ...base, opacity: 0.6 }}>크레딧 확인 중</div>;
+  const parts: string[] = [];
+  if (!credits.freeUsed) parts.push('무료 1회 남음');
+  if (credits.balance > 0) parts.push(`크레딧 ${credits.balance}`);
+  if (credits.todayFree) parts.push('오늘의 사주 무료');
+  if (parts.length === 0) parts.push('공유·초대로 +1');
   return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 10,
-      border: `1px solid ${INK.cardLine}`, borderRadius: 999,
-      padding: '7px 14px 7px 13px', background: INK.card,
-    }}>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {Array.from({ length: total }).map((_, i) => (
-          <div key={i} style={{
-            width: 6, height: 6, borderRadius: 3,
-            background: i < left ? INK.gold : INK.ink28,
-          }} />
-        ))}
-      </div>
-      <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: 0.5, color: INK.ink70 }}>
-        오늘 무료 {left}/{total}회
-      </span>
+    <div style={base}>
+      <span style={{ width: 6, height: 6, borderRadius: 3, background: (!credits.freeUsed || credits.balance > 0 || credits.todayFree) ? INK.gold : INK.ink28 }} />
+      {parts.join(' · ')}
     </div>
   );
 }
@@ -98,28 +99,25 @@ export function SajuCards() {
   const router = useRouter();
   const isMobile = useBp(940);
   const isSmall = useBp(760);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [credits, setCredits] = useState<CreditsResponse | null>(null);
 
-  // 마운트 시 auth 상태 미리 로드 — 클릭 시 즉시 반응하기 위해
+  // auth 상태 + 크레딧 배지
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
       setIsLoggedIn(!!user);
+      if (user) {
+        fetch('/api/saju/credits').then(r => r.ok ? r.json() : null).then((d: CreditsResponse | null) => { if (d) setCredits(d); }).catch(() => {});
+      }
     });
   }, []);
 
+  // 비로그인도 바로 폼으로 (P1-1). 로그인은 AI 풀이 단계에서.
   const handleClick = useCallback(
-    (href: string) => {
-      if (isLoggedIn === null) return; // 아직 로드 중
-      if (isLoggedIn) {
-        router.push(href);
-      } else {
-        setPendingHref(href);
-      }
-    },
-    [router, isLoggedIn],
+    (href: string) => { router.push(href); },
+    [router],
   );
 
   const sealSize = isSmall ? 42 : 48;
@@ -175,7 +173,7 @@ export function SajuCards() {
               나는 왜 이런가.
             </p>
           </div>
-          <DailyFree total={4} used={0} />
+          <CreditBadge loggedIn={isLoggedIn} credits={credits} />
         </div>
 
         {/* MAIN GRID */}
@@ -225,6 +223,11 @@ export function SajuCards() {
                       }}>
                         {t.ko}
                       </span>
+                      {t.id === 'today' && credits?.todayFree && (
+                        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1.5, color: INK.gold, border: `1px solid ${INK.gold}55`, borderRadius: 4, padding: '2px 6px' }}>
+                          오늘 무료
+                        </span>
+                      )}
                       {t.featured && (
                         <span style={{
                           fontFamily: MONO,
@@ -293,63 +296,6 @@ export function SajuCards() {
         </div>
       </div>
 
-      {/* 로그인 유도 모달 */}
-      {pendingHref && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 50,
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-            paddingBottom: 32, paddingLeft: 16, paddingRight: 16,
-          }}
-          onClick={() => setPendingHref(null)}
-        >
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'rgba(0,0,0,0.60)',
-            backdropFilter: 'blur(4px)',
-          }} />
-          <div
-            style={{
-              position: 'relative', width: '100%', maxWidth: 420,
-              borderRadius: 16, border: `1px solid rgba(255,255,255,0.08)`,
-              padding: 24, background: 'rgba(18,18,22,0.97)',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{
-              position: 'absolute', left: 0, right: 0, top: 0, height: 1,
-              borderRadius: '16px 16px 0 0',
-              background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent)',
-            }} />
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#fff', marginBottom: 4 }}>로그인이 필요해요</p>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 20 }}>
-              로그인하면 하루 4회 무료로 사주를 볼 수 있어요.
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => setPendingHref(null)}
-                style={{
-                  flex: 1, borderRadius: 12, border: `1px solid rgba(255,255,255,0.08)`,
-                  padding: '10px 0', fontSize: 13, color: 'rgba(255,255,255,0.5)',
-                  background: 'transparent', cursor: 'pointer',
-                }}
-              >
-                취소
-              </button>
-              <button
-                onClick={() => router.push(`/auth/login?next=${encodeURIComponent(pendingHref)}`)}
-                style={{
-                  flex: 1, borderRadius: 12, background: '#fff',
-                  border: 'none', padding: '10px 0', fontSize: 13,
-                  fontWeight: 600, color: '#000', cursor: 'pointer',
-                }}
-              >
-                로그인하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
