@@ -271,7 +271,7 @@ function CompatPreviewGate({ onLogin }: { onLogin: () => void }) {
           background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
           <p style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink, margin: 0 }}>끌리는 이유, 부딪히는 이유</p>
           <p style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink45, margin: '8px 0 16px', lineHeight: 1.6 }}>
-            점수와 관계 분석은 위에 그대로. AI 풀이 4개는 가입하면 1회 무료.
+            점수와 관계 분석은 위에 그대로 보실 수 있습니다. 풀이 4편은 로그인 후 하루 한 편.
           </p>
           <button onClick={onLogin}
             style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -600,7 +600,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
             <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0, lineHeight: 1.6 }}>
               {mode === 'invite'
                 ? '상대가 생년월일을 입력하면 두 분 다 무료로 결과를 보십니다. 상대에게 내 생년월일은 보이지 않습니다.'
-                : '점수·관계 분석은 무료 · AI 풀이는 로그인 후 하루 한 편'}
+                : '점수·관계 분석은 무료 · 풀이는 로그인 후 하루 한 편'}
             </p>
           </div>
         ) : (

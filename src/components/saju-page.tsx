@@ -902,27 +902,32 @@ function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void
           </div>
         ))}
       </div>
-      {/* 안내 카드는 첫 섹션 위에 붙어 따라 내려온다 — 가려진 분량이 아래로 이어지는 게 보이도록 */}
-      <div style={{ position: 'sticky', top: m ? 80 : 104, marginTop: -(minBody + 90),
-        display: 'flex', justifyContent: 'center', padding: '0 12px', pointerEvents: 'none' }}>
-        <div style={{ width: '100%', maxWidth: 400, textAlign: 'center', padding: m ? '22px 18px' : '26px 24px',
-          borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}`,
-          boxShadow: '0 24px 70px rgba(0,0,0,0.55)', pointerEvents: 'auto' }}>
-          <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK.ink, margin: 0 }}>
-            풀이 {titles.length}편이 준비되어 있습니다
-          </p>
-          <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.65 }}>
-            위의 사주 원국은 로그인 없이 계속 보실 수 있습니다.
-            AI 풀이는 로그인하시면 하루 한 편씩 무료로 읽으실 수 있습니다.
-          </p>
-          <button onClick={onLogin}
-            style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 15, fontWeight: 600, letterSpacing: 1 }}>
-            로그인하고 풀이 보기
-          </button>
-          <p style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28, margin: '10px 0 0', lineHeight: 1.6 }}>
-            카카오 로그인 · 입력하신 정보는 그대로 이어집니다
-          </p>
+
+      {/* 안내 카드는 가려진 영역 "위쪽" 에 얹고, 스크롤하는 동안 sticky 로 따라온다.
+          맨 아래에 두면 한참 내려가야 보인다. */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        {/* 첫 섹션 제목이 카드 위로 살짝 보이게 하는 여백 */}
+        <div style={{ height: m ? 44 : 58 }} />
+        <div style={{ position: 'sticky', top: m ? 88 : 116, width: '100%', maxWidth: 400, margin: '0 auto', pointerEvents: 'auto' }}>
+          <div style={{ textAlign: 'center', padding: m ? '22px 18px' : '26px 24px',
+            borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}`,
+            boxShadow: '0 24px 70px rgba(0,0,0,0.6)' }}>
+            <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK.ink, margin: 0 }}>
+              풀이 {titles.length}편이 준비되어 있습니다
+            </p>
+            <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.65 }}>
+              위의 사주 원국은 로그인 없이 계속 보실 수 있습니다.
+              풀이는 로그인하시면 하루 한 편씩 무료로 읽으실 수 있습니다.
+            </p>
+            <button onClick={onLogin}
+              style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 15, fontWeight: 600, letterSpacing: 1 }}>
+              로그인하고 풀이 보기
+            </button>
+            <p style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28, margin: '10px 0 0', lineHeight: 1.6 }}>
+              카카오 로그인 · 입력하신 정보는 그대로 이어집니다
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -2168,7 +2173,7 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
               border: '1px solid rgba(194,163,91,0.35)', background: 'rgba(194,163,91,0.08)',
               fontSize: 12.5, color: INK.ink70, lineHeight: 1.6 }}>
               계산 규칙이 업데이트되어, 지금 보시는 원국은 <b style={{ color: INK.ink }}>풀이받으실 당시 기준</b>입니다.
-              최신 계산으로 보시려면 AI 풀이 아래 "다시 풀이받기"를 눌러 주세요.
+              최신 계산으로 보시려면 아래 "다시 풀이받기"를 눌러 주세요.
             </div>
           )}
 
