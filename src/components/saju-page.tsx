@@ -2109,6 +2109,25 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
             </div>
           </div>
 
+          {/* 원국 자체에 영향을 준 계산 조건 — AI 풀이(cautions)를 못 보는 비로그인·미리보기에서도 보여야 한다 */}
+          {(result.pillars.trace.tzAdjust || result.pillars.trace.boundaryCaution) && (
+            <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {result.pillars.trace.tzAdjust && (
+                <span style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.5, color: INK.gold,
+                  border: `1px solid ${INK.gold}44`, background: 'rgba(194,163,91,0.07)',
+                  borderRadius: 6, padding: '6px 10px' }}>
+                  ⓘ {result.pillars.trace.tzAdjust} — 입력한 시각을 당시 시계 기준으로 환산했어
+                </span>
+              )}
+              {result.pillars.trace.boundaryCaution && (
+                <span style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.5, color: INK.ink45,
+                  border: `1px solid ${INK.cardLine}`, borderRadius: 6, padding: '6px 10px' }}>
+                  ⓘ 절기 경계 출생 — 월주가 갈릴 수 있어
+                </span>
+              )}
+            </div>
+          )}
+
           {engineChanged && (
             <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8,
               border: '1px solid rgba(194,163,91,0.35)', background: 'rgba(194,163,91,0.08)',
