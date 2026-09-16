@@ -6,11 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
 import { z } from 'zod';
 import type { CompatAnalysis } from '@/lib/saju/compat';
 import { createClient } from '@/lib/supabase/server';
 import { callSajuLLM } from '@/lib/saju/llm';
+import { cacheGet, cacheSet, cacheDel } from '@/lib/saju/cache';
 import { chargeForReading, refundCredit, maybeRewardReferrer } from '@/lib/saju/credits';
 import { reserveLLMCall, releaseLLMCall, MonthlyCapError } from '@/lib/saju/spend';
 import { computeCompat, saveCompatReading, parseCompatSections, PersonSchema, RelationSchema, COMPAT_MAX_TOKENS, type CompatPerson } from '@/lib/saju/compat-server';
@@ -42,12 +42,6 @@ export interface CompatResponse {
   readingId?: string;
   credit?:    ReadingCredit;
 }
-
-// ── Redis ──
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
-    : null;
 
 
 // ── Route Handler ──
@@ -94,7 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq('user_id', user.id).eq('cache_key', cacheKey)
       .maybeSingle<{ id: string; ai_sections: CompatSection[] | null }>();
     if (mine?.ai_sections?.length) {
-      if (redis) await redis.set(cacheKey, JSON.stringify(mine.ai_sections));
+      await cacheSet(cacheKey, JSON.stringify(mine.ai_sections));
       return respond(mine.ai_sections, true, mine.id, { via: 'seen', balance: -1 });
     }
   }
@@ -113,8 +107,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   };
 
   // 3) Redis
-  if (redis && !refresh) {
-    const hit = await redis.get<string>(cacheKey);
+  if (!refresh) {
+    const hit = await cacheGet(cacheKey);
     if (hit) {
       try {
         const sections = parseCompatSections(hit);
@@ -122,7 +116,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         void maybeRewardReferrer(user.id);
         return respond(sections, true, readingId, credit);
       } catch {
-        await redis.del(cacheKey);
+        await cacheDel(cacheKey);
       }
     }
   }
@@ -156,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'AI 응답 파싱 실패', raw }, { status: 502 });
   }
 
-  if (redis) await redis.set(cacheKey, raw);
+  await cacheSet(cacheKey, raw);
   const readingId = await save(sections);
   void maybeRewardReferrer(user.id);
   return respond(sections, false, readingId, credit);

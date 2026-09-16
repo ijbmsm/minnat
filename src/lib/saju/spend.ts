@@ -46,11 +46,19 @@ export async function reserveLLMCall(userId: string | null): Promise<void> {
   const r = redis();
   if (!r) return;
   const key = spendKeyFor();
-  const count = await r.incr(key);
-  if (count === 1) await r.expire(key, 40 * 86400);
+  let count: number;
+  try {
+    count = await r.incr(key);
+    if (count === 1) await r.expire(key, 40 * 86400);
+  } catch (err) {
+    // Redis 장애 시 통과시킨다 — 킬스위치는 2차 방어선이고, 1차는 계정당 하루 한 편이다.
+    // 여기서 막으면 캐시 하나 죽었다고 서비스 전체가 멈춘다.
+    console.warn('[saju spend] 카운터 실패 — 킬스위치 우회:', err instanceof Error ? err.message : err);
+    return;
+  }
   const limit = monthlyCallLimit();
   if (count > limit) {
-    await r.decr(key);
+    try { await r.decr(key); } catch { /* 무시 */ }
     throw new MonthlyCapError(count, limit);
   }
   if (count === Math.floor(limit * 0.8)) {
@@ -63,5 +71,5 @@ export async function releaseLLMCall(userId: string | null): Promise<void> {
   if (userId && userId === process.env.SAJU_ADMIN_USER_ID) return;
   const r = redis();
   if (!r) return;
-  await r.decr(spendKeyFor());
+  try { await r.decr(spendKeyFor()); } catch { /* 무시 */ }
 }

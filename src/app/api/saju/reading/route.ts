@@ -9,8 +9,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-import { Ratelimit } from '@upstash/ratelimit';
 import { z } from 'zod';
 import { calcSajuServer } from '@/lib/saju/server';
 import { buildFactSheet, FACTSHEET_VERSION, type SajuFactSheet } from '@/lib/saju/factsheet';
@@ -18,6 +16,7 @@ import { STEM_DATA } from '@/lib/saju/constants';
 import { getSipshin, getBranchSipshin } from '@/lib/saju/sipshin';
 import { createClient } from '@/lib/supabase/server';
 import { callSajuLLM } from '@/lib/saju/llm';
+import { cacheGet, cacheSet, cacheDel, rateLimitOk } from '@/lib/saju/cache';
 import { buildPrompt, TOKEN_BUDGET, type ReadingType } from '@/lib/saju/prompt';
 import { chargeForReading, refundCredit, maybeRewardReferrer, type ChargeVia } from '@/lib/saju/credits';
 import { reserveLLMCall, releaseLLMCall, MonthlyCapError } from '@/lib/saju/spend';
@@ -77,24 +76,6 @@ export interface ReadingResponse {
   credit?:      ReadingCredit;
 }
 
-// ── Redis 캐시 (Upstash — 영구, serverless 친화적) ──
-// 환경변수 없으면 null (로컬 개발 시 캐시 미사용)
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url:   process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      })
-    : null;
-
-// ── Rate Limiting (IP 기준 분당 5회) ──
-const ratelimit = redis
-  ? new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(5, '1 m'),
-      analytics: false,
-    })
-  : null;
 
 // ── LLM 호출 ──
 
@@ -166,14 +147,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY 미설정' }, { status: 503 });
   }
 
-  // Rate limiting
-  if (ratelimit) {
+  // Rate limiting — 캐시가 죽어 있으면 통과한다 (로그인·크레딧이 남용을 막는다)
+  {
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? '127.0.0.1';
-    const { success, limit, remaining } = await ratelimit.limit(`saju:${ip}`);
-    if (!success) {
+    const minute = Math.floor(Date.now() / 60_000);
+    if (!await rateLimitOk(`saju:rl:${ip}:${minute}`, 5, 70)) {
       return NextResponse.json(
         { error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
-        { status: 429, headers: { 'X-RateLimit-Limit': String(limit), 'X-RateLimit-Remaining': String(remaining) } },
+        { status: 429 },
       );
     }
   }
@@ -252,11 +233,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const fromDb = await loadSavedSections(cacheKey);
     if (fromDb) {
       console.info('[saju cache] db-fallback', cacheKey);
-      if (redis) {
-        const raw = JSON.stringify(fromDb.sections);
-        if (type === 'today') await redis.set(cacheKey, raw, { ex: 86400 });
-        else await redis.set(cacheKey, raw);
-      }
+      await cacheSet(cacheKey, JSON.stringify(fromDb.sections), type === 'today' ? 86400 : undefined);
       await saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp, sections: fromDb.sections });
       return respond(fromDb.sections, true, fromDb.id, { via: 'seen', balance: -1 });
     }
@@ -278,8 +255,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   };
 
   // 3) Redis 캐시 (같은 차트를 다른 사람이 이미 풀었으면 LLM 없이 — 크레딧은 위에서 판정됨)
-  if (redis && !refresh) {
-    const hit = await redis.get<string>(cacheKey);
+  if (!refresh) {
+    const hit = await cacheGet(cacheKey);
     if (hit) {
       try {
         const sections = parsesections(hit);
@@ -288,7 +265,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return respond(sections, true, readingId, credit);
       } catch {
         // 캐시 손상 → 재생성
-        await redis.del(cacheKey);
+        await cacheDel(cacheKey);
       }
     }
   }
@@ -323,13 +300,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // 캐시 저장 (today = 24h TTL, 나머지 영구)
-  if (redis) {
-    if (type === 'today') {
-      await redis.set(cacheKey, raw, { ex: 86400 });
-    } else {
-      await redis.set(cacheKey, raw);
-    }
-  }
+  await cacheSet(cacheKey, raw, type === 'today' ? 86400 : undefined);
 
   // DB 저장
   const readingId = await saveReading({ supabaseGetter: createClient, year, month, day, hour, minute, sex, longitudeE, name, concern, type, cacheKey, fp, sections });

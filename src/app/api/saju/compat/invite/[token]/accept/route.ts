@@ -4,11 +4,11 @@
  * 초대 경유 궁합은 양쪽 모두 크레딧 소모 없음 (코멘트: "상대가 자기 정보 입력했을 때 무료로").
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { callSajuLLM } from '@/lib/saju/llm';
+import { cacheGet, cacheSet, cacheDel } from '@/lib/saju/cache';
 import { grantCredit } from '@/lib/saju/credits';
 import { reserveLLMCall, releaseLLMCall, MonthlyCapError } from '@/lib/saju/spend';
 import { loadInvite } from '@/lib/saju/invite-server';
@@ -16,11 +16,6 @@ import { computeCompat, saveCompatReading, parseCompatSections, PersonSchema, CO
 import type { CompatResponse } from '@/app/api/saju/compat/route';
 
 const RequestSchema = z.object({ person: PersonSchema });
-
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
-    : null;
 
 export async function POST(
   req: NextRequest,
@@ -56,9 +51,9 @@ export async function POST(
   // 풀이 원문: 캐시 → LLM
   let sections: ReturnType<typeof parseCompatSections> | null = null;
   let cached = false;
-  if (redis) {
-    const hit = await redis.get<string>(cacheKey);
-    if (hit) { try { sections = parseCompatSections(hit); cached = true; } catch { await redis.del(cacheKey); } }
+  {
+    const hit = await cacheGet(cacheKey);
+    if (hit) { try { sections = parseCompatSections(hit); cached = true; } catch { await cacheDel(cacheKey); } }
   }
   if (!sections) {
     try { await reserveLLMCall(user.id); }
@@ -78,7 +73,7 @@ export async function POST(
     }
     try { sections = parseCompatSections(raw); }
     catch { return NextResponse.json({ error: 'AI 응답 파싱 실패', raw }, { status: 502 }); }
-    if (redis) await redis.set(cacheKey, raw);
+    await cacheSet(cacheKey, raw);
   }
 
   // 양쪽 저장 — B 는 세션 클라이언트, A 는 service 클라이언트 (RLS 상 남의 행)

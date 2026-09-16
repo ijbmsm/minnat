@@ -2214,21 +2214,21 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
 
           {/* 탭 콘텐츠 */}
           <div style={{ marginTop: m ? 16 : 24 }}>
+            {/* 풀이는 탭 선택과 무관하게 항상 마운트한다 — 만세력을 보는 동안 뒤에서 미리 생성된다.
+                탭을 눌러야 그때 부르면 사용자가 로딩을 처음부터 기다리게 된다. */}
+            <div style={{ display: tab === 'ai' ? 'flex' : 'none', flexDirection: 'column', gap: 10 }}>
+              <OhaengAccordion result={result} />
+              {(defaultType === 'love' || defaultType === 'career') && <TimingTimeline result={result} type={defaultType} />}
+              <Panel style={{ padding: m ? 20 : 28 }}>
+                {!loggedIn && result.birth
+                  ? <PreviewGate type={defaultType ?? 'full'} onLogin={() => onLogin?.()} />
+                  : <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
+                      cachedSections={cachedSections} onReadingId={onReadingId} />}
+                {loggedIn && result.birth && <NextReadings type={defaultType ?? 'full'} />}
+              </Panel>
+            </div>
             <AnimatePresence mode="wait">
               <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                {tab === 'ai'      && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <OhaengAccordion result={result} />
-                    {(defaultType === 'love' || defaultType === 'career') && <TimingTimeline result={result} type={defaultType} />}
-                    <Panel style={{ padding: m ? 20 : 28 }}>
-                      {!loggedIn && result.birth
-                        ? <PreviewGate type={defaultType ?? 'full'} onLogin={() => onLogin?.()} />
-                        : <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
-                            cachedSections={cachedSections} onReadingId={onReadingId} />}
-                      {loggedIn && result.birth && <NextReadings type={defaultType ?? 'full'} />}
-                    </Panel>
-                  </div>
-                )}
                 {tab === 'manse'   && <ManseTab result={result} />}
                 {tab === 'ohaeng'  && <OhaengTab result={result} />}
                 {tab === 'daeun'   && <DaeunTab result={result} />}
