@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify:kasi:day": "tsx scripts/verify-day-pillar-kasi.ts",
+    "verify:kasi:seolgi": "tsx scripts/verify-seolgi-kasi.ts",
+    "verify:kasi:lunar": "tsx scripts/verify-lunar-kasi.ts",
+    "qa:saju": "tsx scripts/saju-qa.ts",
+    "qa:collect": "tsx scripts/collect-qa-samples.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -32,6 +39,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^4.1.8"
   }

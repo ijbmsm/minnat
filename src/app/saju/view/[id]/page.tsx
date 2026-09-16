@@ -1,6 +1,8 @@
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
-import { createClient } from "@supabase/supabase-js";
+import { loadPublicReading } from "@/lib/saju/reading-public";
+import { STEM_DATA } from "@/lib/saju/constants";
+import { DAY_MASTER_PROFILE } from "@/lib/saju/interpret";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -12,44 +14,43 @@ const TYPE_LABEL: Record<string, string> = {
   today:  "오늘 운세",
 };
 
-function anonClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  );
-}
-
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const reading = await loadPublicReading(id);
+  if (!reading) return { title: "사주 풀이 — 술자리" };
 
-  const { data } = await anonClient()
-    .from("saju_readings")
-    .select("type, birth_year, day_stem")
-    .eq("id", id)
-    .single();
+  const typeLabel = TYPE_LABEL[reading.type] ?? "사주 풀이";
+  const dm = reading.chart.day.stem;
+  const dmData = STEM_DATA[dm];
+  const profile = DAY_MASTER_PROFILE[dm];
+  const dayPillar = `${dm}${reading.chart.day.branch}`;
 
-  if (!data) return { title: "사주 풀이 — 술자리" };
-
-  const typeLabel = TYPE_LABEL[data.type as string] ?? "사주 풀이";
-  const dayMaster = (data.day_stem as string) ?? "";
-  const birthYear = data.birth_year as number;
+  // OG 이미지는 출생정보 없이 일주·오행만으로 그린다 (api/saju/og 쿼리 파라미터)
+  const og = new URLSearchParams({
+    stem: dm,
+    branch: reading.chart.day.branch,
+    hanja: dmData.hanja,
+    element: dmData.element,
+    image: dmData.image,
+    keywords: profile.keyword.slice(0, 3).join(","),
+  });
 
   return {
-    title: `${dayMaster} ${typeLabel} — 술자리`,
-    description: `${birthYear}년생 ${dayMaster}일간 사주 AI 분석. 전통 명리학 기반 무료 풀이.`,
+    title: `${dayPillar} ${typeLabel} — 술자리`,
+    description: `${dayPillar} 일주의 ${typeLabel}. 전통 명리학 계산 + AI 풀이.`,
     alternates: { canonical: `https://drinkplace.kr/saju/view/${id}` },
     openGraph: {
-      title: `${dayMaster} ${typeLabel} — 술자리`,
-      description: `${birthYear}년생 사주 AI 풀이`,
+      title: `${dayPillar} ${typeLabel} — 술자리`,
+      description: `${profile.keyword.slice(0, 3).join(" · ")}`,
       url: `https://drinkplace.kr/saju/view/${id}`,
       images: [{
-        url: `https://drinkplace.kr/api/saju/og?id=${id}`,
-        width: 1200,
-        height: 630,
+        url: `https://drinkplace.kr/api/saju/og?${og.toString()}`,
+        width: 1080,
+        height: 1080,
       }],
     },
     twitter: { card: "summary_large_image" },

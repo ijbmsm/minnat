@@ -291,7 +291,21 @@ export function compareCharts(
 
 // ── 궁합 LLM 프롬프트 빌더 ──
 
+export type CompatRelation = 'lover' | 'friend' | 'coworker' | 'family';
+
+export const RELATION_LABEL: Record<CompatRelation, string> = {
+  lover: '연인', friend: '친구', coworker: '동료', family: '가족',
+};
+
+const RELATION_PERSONA: Record<CompatRelation, string> = {
+  lover:    '두 사람의 사주 데이터를 보고 연애·결혼 궁합을 분석해줘.',
+  friend:   '두 사람의 사주 데이터를 보고 친구로서의 궁합을 분석해줘. 연애·결혼 언급 금지. 같이 놀 때·힘들 때·오래 갈 때 어떤지.',
+  coworker: '두 사람의 사주 데이터를 보고 일로 만난 사이(동료·상사·파트너)의 궁합을 분석해줘. 연애 언급 금지. 협업 방식·역할 분담·의사결정 충돌 중심.',
+  family:   '두 사람의 사주 데이터를 보고 가족(부모·자녀·형제) 사이의 궁합을 분석해줘. 연애 언급 금지. 기대·거리감·대화 방식 중심.',
+};
+
 export interface CompatFactSheet {
+  relation?: CompatRelation;
   personA: {
     stem: Stem;
     branch: Branch;
@@ -311,9 +325,11 @@ export interface CompatFactSheet {
 
 export function buildCompatPrompt(cfs: CompatFactSheet): { system: string; user: string } {
   const { personA, personB, analysis } = cfs;
+  const relation = cfs.relation ?? 'lover';
 
+  // system 은 관계 유형별 4종 — 사용자 데이터를 넣지 않아 prompt cache 가 걸린다.
   const system = `너는 한국 전통 사주명리 궁합 전문가야.
-두 사람의 사주 데이터를 보고 연애·결혼 궁합을 분석해줘.
+${RELATION_PERSONA[relation]}
 규칙:
 1. 두 사람은 '첫 번째 사람(A)', '두 번째 사람(B)'으로 불러. 이름 금지.
 2. 팩트 기반으로만. 없는 사실 지어내지 마.

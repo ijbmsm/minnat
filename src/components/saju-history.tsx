@@ -30,6 +30,7 @@ const TYPE_LABEL: Record<string, string> = {
   today:  '오늘',
   love:   '연애',
   career: '직업·재물',
+  compat: '궁합',
 };
 
 type Status = 'loading' | 'unauthed' | 'empty' | 'loaded';

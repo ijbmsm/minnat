@@ -508,3 +508,43 @@ describe('음력 입력 — lunarToSolar 변환 후 4주 검증', () => {
   });
 
 });
+
+// ────────────────────────────────────────────────────────
+describe('표준시·서머타임 이력 보정 (tzdata Asia/Seoul)', () => {
+
+  it('1987-07-15 00:30 (서머타임 UTC+10) — 시주 亥, 일주는 7/14 진태양시 기준', () => {
+    // 시계 00:30 KDT = UTC 7/14 14:30 → apparent = 870+508+eot(195≈-6) ≈ 1372 → 22:52 → 亥時, solarDate 7/14
+    // 보정 없이 +9 로 계산하면 UTC 15:30 → 1432 → 23:52 → 子時 로 시주가 바뀐다
+    const fp = calc(1987, 7, 15, 0, 'male', { minute: 30 });
+    expect(fp.hour?.branch).toBe('해');
+    expect(fp.trace.effectiveSolarDate).toEqual({ year: 1987, month: 7, day: 14 });
+    expect(fp.trace.birthUTC).toBe('1987-07-14T14:30:00.000Z');
+    expect(fp.trace.tzAdjust).toContain('서머타임');
+  });
+
+  it('1986-07-15 00:30 (대조군, 표준 +9) — 시주 子', () => {
+    const fp = calc(1986, 7, 15, 0, 'male', { minute: 30 });
+    expect(fp.hour?.branch).toBe('자');
+    expect(fp.trace.tzAdjust).toBeNull();
+  });
+
+  it('1955-06-01 03:45 (서머타임 UTC+9:30) — 시주 丑 (보정 없으면 寅)', () => {
+    // 시계 03:45 KDT(+9:30) = UTC 5/31 18:15 → apparent = 1095+508+eot(151≈+2) ≈ 1605 → +1일 02:45 → 丑時
+    // 보정 없이 +9 면 UTC 18:45 → 1635 → 03:15 → 寅時
+    const fp = calc(1955, 6, 1, 3, 'female', { minute: 45 });
+    expect(fp.hour?.branch).toBe('축');
+    expect(fp.trace.tzAdjust).toContain('UTC+9:30');
+  });
+
+  it('1958-01-15 12:00 (표준시 UTC+8:30) — birthUTC 03:30Z, 라벨 표시', () => {
+    const fp = calc(1958, 1, 15, 12, 'male');
+    expect(fp.trace.birthUTC).toBe('1958-01-15T03:30:00.000Z');
+    expect(fp.trace.tzAdjust).toContain('UTC+8:30');
+  });
+
+  it('시간 미상 입력은 보정 라벨을 붙이지 않는다 (날짜만 사용)', () => {
+    const fp = calc(1987, 7, 15, null, 'male');
+    expect(fp.trace.tzAdjust).toBeNull();
+    expect(fp.hour).toBeNull();
+  });
+});

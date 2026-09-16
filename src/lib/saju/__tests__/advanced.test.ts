@@ -76,6 +76,7 @@ function makeFP(
       effectiveSolarDate: { year: 2024, month: 1, day: 21 },
       dayPillarOffset: 49,
       boundaryCaution: false,
+      tzAdjust: null,
       timeKnown: h !== null,
     },
   };

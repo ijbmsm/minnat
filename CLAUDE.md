@@ -1,5 +1,9 @@
 # 술자리 (drinkplace) — 프로젝트 가이드
 
+> 📍 **현재 진행 상태는 [`STATUS.md`](./STATUS.md) 가 기준입니다.**
+> `plan.md` · `plan-v1.1.md` · `SAJU_BUILD_PLAN.md` 는 실제 코드보다 뒤처져 있습니다.
+> DB 복구가 필요하면 [`supabase/README.md`](./supabase/README.md) 의 런북을 따르세요.
+
 > "우리는 점수 매기지 않는다. 사회·제도의 반응을 측정만 한다."
 
 ## 프로젝트 구조
@@ -404,11 +408,28 @@ DEFAULT_SCHOOL = {
 ## 환경변수 (사주)
 
 ```
-UPSTASH_REDIS_REST_URL=      ← 캐시 + 레이트리밋
+UPSTASH_REDIS_REST_URL=      ← 캐시 + 레이트리밋 + 월 킬스위치 카운터
 UPSTASH_REDIS_REST_TOKEN=
-ANTHROPIC_API_KEY=           ← LLM 호출
-SAJU_ADMIN_USER_ID=          ← 어드민 UUID (일일 캡 면제)
+ANTHROPIC_API_KEY=           ← LLM 호출 (Sonnet 5 단일)
+SAJU_ADMIN_USER_ID=          ← 어드민 UUID (크레딧·킬스위치 면제)
+SUPABASE_SERVICE_KEY=        ← 공개 공유 조회·초대·크레딧 지급 (서버 전용)
+SAJU_MONTHLY_CALL_LIMIT=     ← 월 LLM 호출 상한 (기본 1000 ≈ $50 상한)
+DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이터포털)
 ```
+
+## v2 (2026-09-16) 주요 모듈 — 자세한 것은 `SAJU_PLAN_V2.md`
+
+| 파일 | 역할 |
+|---|---|
+| `lib/saju/kst-offset.ts` | 표준시·서머타임 이력 (tzdata Asia/Seoul) → `fromKST()` 가 사용 |
+| `lib/saju/credits.ts` | 크레딧 규칙 한 곳 (계정당 1회 → 日 매일 → 획득 크레딧 → 402) |
+| `lib/saju/spend.ts` | 월 LLM 호출 킬스위치 |
+| `lib/saju/llm.ts` | Sonnet 5 공통 호출, system cache_control, usage 로그 |
+| `lib/saju/prompt.ts` | 풀이 프롬프트 빌더 (system 불변 / user 가변) |
+| `lib/saju/compat-server.ts`, `invite-server.ts`, `hooks.ts` | 궁합 계산·저장, 초대 로드, 후킹 템플릿 50개 |
+| `lib/saju/reading-public.ts` | 공개 공유 로더 (출생정보 미노출) |
+| `supabase/016~018` | chart 스냅샷·anon 컬럼 제한 / 크레딧 원장·RPC / 초대·compat 리딩 |
+| `scripts/verify-*-kasi.ts`, `saju-qa.ts` | KASI 전수 대조, 통변 QA (`npm run verify:kasi:*`, `qa:saju`) |
 
 ---
 
@@ -433,6 +454,8 @@ SAJU_ADMIN_USER_ID=          ← 어드민 UUID (일일 캡 면제)
 ---
 
 ## 빌드 플랜 진행 현황
+
+> **다음 단계 플랜: `SAJU_PLAN_V2.md`** (2026-09-16 — 크레딧·초대 링크·표준시 보정·검증). 리서치 근거: `docs/saju-product-research.md`
 
 자세한 내용: `SAJU_BUILD_PLAN.md`
 

@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 
 export interface SajuHistoryItem {
   id:             string;
-  type:           'full' | 'today' | 'love';
+  type:           'full' | 'today' | 'love' | 'career' | 'compat';
+  partner_name:   string | null;
   birth_year:     number;
   birth_month:    number;
   birth_day:      number;
@@ -27,11 +28,15 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabase
     .from('saju_readings')
-    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,cache_key,day_stem,day_element,last_viewed_at,created_at')
+    .select('id,type,birth_year,birth_month,birth_day,birth_hour,birth_minute,birth_sex,birth_longitude,birth_name,concern,cache_key,day_stem,day_element,last_viewed_at,created_at,partner')
     .eq('user_id', user.id)
     .order('last_viewed_at', { ascending: false })
     .limit(20);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ items: data as SajuHistoryItem[] });
+  const items: SajuHistoryItem[] = (data as Array<Omit<SajuHistoryItem, 'partner_name'> & { partner: { name?: string | null } | null }>).map(row => {
+    const { partner, ...rest } = row;
+    return { ...rest, partner_name: partner?.name ?? null };
+  });
+  return NextResponse.json({ items });
 }
