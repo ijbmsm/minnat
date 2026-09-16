@@ -413,7 +413,7 @@ UPSTASH_REDIS_REST_TOKEN=
 ANTHROPIC_API_KEY=           ← LLM 호출 (Sonnet 5 단일)
 SAJU_ADMIN_USER_ID=          ← 어드민 UUID (크레딧·킬스위치 면제)
 SUPABASE_SERVICE_KEY=        ← 공개 공유 조회·초대·크레딧 지급 (서버 전용)
-SAJU_MONTHLY_CALL_LIMIT=     ← 월 LLM 호출 상한 (기본 1000 ≈ $50 상한)
+SAJU_MONTHLY_CALL_LIMIT=     ← 월 LLM 호출 상한 (기본 3000 ≈ $40~120, 타입 구성에 따라)
 DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이터포털)
 ```
 

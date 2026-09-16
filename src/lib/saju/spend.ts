@@ -5,9 +5,12 @@
  */
 import { Redis } from '@upstash/redis';
 
-// 월 지출 상한 $50 (결정 2026-09-16). Sonnet 5 회당 4~5센트(캐시 미적중·최대 토큰 가정) → 1,000회.
-// 실측 후 회당 비용이 낮으면 올린다. 어드민 호출은 세지 않는다.
-const DEFAULT_MONTHLY_CALL_LIMIT = 1000;
+// 월 LLM 호출 상한 3,000회 (결정 2026-09-17).
+// 회당 비용은 타입에 따라 다르다 — 오늘의 사주 약 1.3센트(출력 900토큰),
+// 종합·연애·직업 약 4센트(출력 3,500토큰), 궁합 약 3센트.
+// 3,000회면 구성에 따라 대략 $40~120. 여기에 닿을 정도면 사업자·PG 를 검토할 시점이다.
+// 어드민 호출은 세지도 막지도 않는다.
+const DEFAULT_MONTHLY_CALL_LIMIT = 3000;
 
 let _redis: Redis | null | undefined;
 function redis(): Redis | null {
