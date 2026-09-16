@@ -277,7 +277,7 @@ P4  검증          KASI 대조·LLM QA         P1부터 병행
 | P3 | ✅ 4/5 + P3-5 실기기 점검은 사람 |
 | P4 | ◐ 스크립트 4/4 작성, 실행은 API 키·크레딧 후 / P4-4 사람 |
 
-배포 전 체크: **`supabase/UPGRADE-saju-v2.sql` 전체를 SQL Editor 에 붙여넣어 실행** (SETUP.sql 은 신규 DB 전용 — 데이터가 있으면 사전 점검에서 중단됨), Vercel 환경변수에 `SUPABASE_SERVICE_KEY`·`SAJU_MONTHLY_CALL_LIMIT` 추가, Anthropic 크레딧 충전. 검증: `npm run typecheck` · `npm test`(105) · `npm run build` 모두 통과 (2026-09-16).
+배포 전 체크: **`supabase/UPGRADE-016-018.sql` 전체를 SQL Editor 에 붙여넣어 실행** (SETUP.sql 은 신규 DB 전용 — 데이터가 있으면 사전 점검에서 중단됨), Vercel 환경변수에 `SUPABASE_SERVICE_KEY`·`SAJU_MONTHLY_CALL_LIMIT` 추가, Anthropic 크레딧 충전. 검증: `npm run typecheck` · `npm test`(105) · `npm run build` 모두 통과 (2026-09-16).
 남은 사람 작업: P3-5 실기기 캡처, P4-4 블라인드 QA·외부 만세력 대조, 후킹 템플릿 50개 톤 검토(`src/lib/saju/hooks.ts`).
 
 ## 5. Ralph 루프로 돌릴 때
