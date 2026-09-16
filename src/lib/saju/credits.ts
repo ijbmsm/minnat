@@ -73,11 +73,12 @@ async function currentBalance(supabase: SupabaseClient, userId: string): Promise
 
 export async function getCreditState(supabase: SupabaseClient, userId: string): Promise<CreditState> {
   const [credits, readings] = await Promise.all([
+    // select('*') — 019 미적용 DB 에서도 컬럼 누락으로 쿼리가 통째로 실패하지 않게 한다
     supabase
       .from('saju_credits')
-      .select('balance, free_used, daily_last_date, streak_count')
+      .select('*')
       .eq('user_id', userId)
-      .maybeSingle<{ balance: number; free_used: boolean; daily_last_date: string | null; streak_count: number }>(),
+      .maybeSingle<{ balance?: number; free_used?: boolean; daily_last_date?: string | null; streak_count?: number }>(),
     supabase
       .from('saju_readings')
       .select('type')
@@ -114,10 +115,20 @@ export async function chargeForReading(args: {
   // 하루 한 편 (타입 무관). 다시 풀이받기는 제외.
   if (!refresh) {
     const { data, error } = await supabase.rpc('saju_use_daily', { p_today: kstToday() });
-    if (!error && data && typeof data === 'object') {
-      const r = data as { free: boolean; streak: number; reward: boolean };
-      if (r.free) {
-        return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId), streak: r.streak, streakReward: r.reward };
+    if (!error) {
+      if (data && typeof data === 'object') {
+        const r = data as { free: boolean; streak: number; reward: boolean };
+        if (r.free) {
+          return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId), streak: r.streak, streakReward: r.reward };
+        }
+      }
+    } else {
+      // 019 미적용 폴백 — 배포와 마이그레이션 사이 시차에 서비스가 죽지 않게 v2 경로로 동작시킨다.
+      // 019 를 적용하면 이 분기는 다시 타지 않는다.
+      console.warn('[saju credits] saju_use_daily 없음 → v2 폴백:', error.message);
+      const { data: usedNow, error: legacyErr } = await supabase.rpc('saju_use_free');
+      if (!legacyErr && usedNow === true) {
+        return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId) };
       }
     }
   }
