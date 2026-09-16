@@ -743,12 +743,14 @@ function TimingTimeline({ result, type }: { result: SajuUIResult; type: ReadingT
     return null;
   };
 
+  // 대운은 10년 구간이다. 시작 연도만 찍으면 "2019 = 지금" 처럼 읽히므로 구간으로 표시한다.
   const marks = fp.daeun.map(d => ({
-    startYear: birthYear + d.startAge, startAge: d.startAge, gz: `${d.pillar.stem}${d.pillar.branch}`,
+    startYear: d.startYear, endYear: d.startYear + 9, startAge: d.startAge, gz: `${d.pillar.stem}${d.pillar.branch}`,
     tag: label(getSipshin(dm, d.pillar.stem), getBranchSipshin(dm, d.pillar.branch)),
     current: currentAge >= d.startAge && currentAge < d.startAge + 10,
     past: currentAge >= d.startAge + 10,
   }));
+  const nowMark = marks.find(x => x.current);
   const years = [0, 1, 2, 3, 4].map(k => {
     const y = currentYear + k; const sp = calcSeyunPillar(y);
     return { y, gz: `${sp.stem}${sp.branch}`, tag: label(getSipshin(dm, sp.stem), getBranchSipshin(dm, sp.branch)) };
@@ -768,14 +770,28 @@ function TimingTimeline({ result, type }: { result: SajuUIResult; type: ReadingT
                 width: x.tag ? 10 : 6, height: x.tag ? 10 : 6, borderRadius: '50%',
                 background: x.tag ? INK.gold : INK.ink28, boxShadow: x.current ? `0 0 0 3px rgba(194,163,91,0.25)` : 'none' }} />
             </div>
-            <div style={{ fontFamily: MONO, fontSize: 10, color: x.current ? INK.gold : INK.ink45, marginTop: 6 }}>{x.startYear}</div>
+            <div title={`${x.startAge}~${x.startAge + 9}세`}
+              style={{ fontFamily: MONO, fontSize: 10, color: x.current ? INK.gold : INK.ink45, marginTop: 6, whiteSpace: 'nowrap' }}>
+              {x.startYear}~{String(x.endYear).slice(2)}
+            </div>
             <div style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink70 }}>{x.gz}</div>
-            <div style={{ fontFamily: MONO, fontSize: 9.5, color: x.tag ? INK.gold : INK.ink28, marginTop: 2, minHeight: 12 }}>{x.tag ?? (x.current ? '지금' : '')}</div>
+            <div style={{ display: 'flex', gap: 3, justifyContent: 'center', flexWrap: 'wrap', marginTop: 2, minHeight: 12 }}>
+              {x.current && (
+                <span style={{ fontFamily: MONO, fontSize: 9, color: INK.gold, border: `1px solid ${INK.gold}66`, borderRadius: 3, padding: '0 3px' }}>지금</span>
+              )}
+              {x.tag && <span style={{ fontFamily: MONO, fontSize: 9.5, color: INK.gold }}>{x.tag}</span>}
+            </div>
           </div>
         ))}
       </div>
-      {hitYears.length > 0 && (
+      {nowMark && (
         <p style={{ margin: '12px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink45, lineHeight: 1.7 }}>
+          지금은 {currentYear}년 · <b style={{ color: INK.gold }}>{nowMark.gz}</b> 대운({nowMark.startYear}~{nowMark.endYear}년, {nowMark.startAge}~{nowMark.startAge + 9}세) 안에 있어.
+          대운은 10년씩 묶여서 바뀌니까 칸 하나가 10년이야.
+        </p>
+      )}
+      {hitYears.length > 0 && (
+        <p style={{ margin: '6px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink45, lineHeight: 1.7 }}>
           가까운 세운: {hitYears.map(y => `${y.y} ${y.gz}(${y.tag})`).join(' · ')}
         </p>
       )}
