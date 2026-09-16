@@ -524,7 +524,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   }, [loading]);
 
   const load = useCallback(async (refresh = false) => {
-    if (!birth) { setErr('공유된 풀이입니다. 내 사주를 보려면 아래에서 입력해줘.'); return; }
+    if (!birth) { setErr('공유된 풀이입니다. 내 사주를 보시려면 아래에서 입력해 주세요.'); return; }
     setLoading(true); setErr(null);
     try {
       const res = await fetch('/api/saju/reading', {
@@ -574,7 +574,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
             }}
           />
           <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO, letterSpacing: 1 }}>해석 중</span>
-          {slow && <span style={{ fontSize: 11.5, color: INK.ink28, fontFamily: SERIF }}>조금 더 걸리고 있어. 원국이 복잡할수록 길어져.</span>}
+          {slow && <span style={{ fontSize: 11.5, color: INK.ink28, fontFamily: SERIF }}>조금 더 걸리고 있습니다. 원국이 복잡할수록 오래 걸립니다.</span>}
         </div>
       )}
       {creditZero && !loading && (
@@ -617,7 +617,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               ↻ 다시 풀이받기
             </button>
             <span style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO }}>
-              사주 원국은 같지만 해석 표현이 새로 생성돼 (크레딧 1 소모)
+              사주 원국은 같지만 해석 표현이 새로 생성됩니다 (크레딧 1개 소모)
             </span>
           </div>}
         </motion.div>
@@ -700,7 +700,7 @@ function TodayCompatLine({ todayPillar }: { todayPillar?: ReadingResponse['today
   if (partner === null) {
     return (
       <Link href="/saju/compat?mode=invite" style={{ textDecoration: 'none', fontFamily: MONO, fontSize: 11, color: INK.ink45, textAlign: 'center', padding: '6px 0' }}>
-        궁합 상대를 저장해두면 여기에 &quot;오늘 둘은?&quot; 이 붙어 →
+        궁합 상대를 저장해 두시면 여기에 &quot;오늘 둘은?&quot; 이 표시됩니다 →
       </Link>
     );
   }
@@ -709,12 +709,12 @@ function TodayCompatLine({ todayPillar }: { todayPillar?: ReadingResponse['today
   const who = partner.name ?? '상대';
   const text =
     me === '충' || them === '충'
-      ? `오늘 일진이 ${me === '충' ? '내' : who + '의'} 일지와 충. 결정·다툼은 내일로 미루는 게 낫겠어.`
+      ? `오늘 일진이 ${me === '충' ? '내' : who + '님의'} 일지와 충입니다. 결정이나 다툼은 내일로 미루시는 편이 낫습니다.`
     : me === '합' && them === '합'
-      ? `오늘 일진이 둘의 일지와 모두 합. 같이 결정하기 좋은 날.`
+      ? `오늘 일진이 두 분의 일지와 모두 합입니다. 함께 결정하기 좋은 날입니다.`
     : me === '합' || them === '합'
-      ? `오늘은 ${me === '합' ? '내' : who + '의'} 쪽 기운이 잘 통하는 날. 먼저 말 꺼내기 좋아.`
-      : `오늘 일진은 둘 다에게 무난. 평소대로.`;
+      ? `오늘은 ${me === '합' ? '내' : who + '님'} 쪽 기운이 잘 통하는 날입니다. 먼저 말을 꺼내기 좋습니다.`
+      : `오늘 일진은 두 분 다 무난합니다. 평소대로 하시면 됩니다.`;
   return (
     <Link href={`/saju/compat/${partner.readingId}`} style={{ textDecoration: 'none', display: 'flex', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 8, border: `1px solid ${INK.cardLine}`, background: INK.card }}>
       <span style={{ fontFamily: SERIF, fontSize: 16, color: INK.gold }}>合</span>
@@ -786,8 +786,8 @@ function TimingTimeline({ result, type }: { result: SajuUIResult; type: ReadingT
       </div>
       {nowMark && (
         <p style={{ margin: '12px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink45, lineHeight: 1.7 }}>
-          지금은 {currentYear}년 · <b style={{ color: INK.gold }}>{nowMark.gz}</b> 대운({nowMark.startYear}~{nowMark.endYear}년, {nowMark.startAge}~{nowMark.startAge + 9}세) 안에 있어.
-          대운은 10년씩 묶여서 바뀌니까 칸 하나가 10년이야.
+          지금은 {currentYear}년 · <b style={{ color: INK.gold }}>{nowMark.gz}</b> 대운({nowMark.startYear}~{nowMark.endYear}년, {nowMark.startAge}~{nowMark.startAge + 9}세) 안에 있습니다.
+          대운은 10년 단위로 바뀌므로 칸 하나가 10년입니다.
         </p>
       )}
       {hitYears.length > 0 && (
@@ -847,13 +847,13 @@ function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]
         ))}
       </div>
       <div style={{ marginTop: -60, position: 'relative', padding: '20px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}` }}>
-        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽었어</p>
+        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽으셨습니다</p>
         <p style={{ margin: '6px 0 16px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.65 }}>
-          풀이는 하루에 한 편씩 열려. 다음 편은 <b style={{ color: INK.ink70 }}>{tomorrow}</b>({'자정'}) 열리고,
-          이미 읽은 풀이는 몇 번을 다시 봐도 무료야.
+          풀이는 하루에 한 편씩 열립니다. 다음 편은 <b style={{ color: INK.ink70 }}>{tomorrow}</b>(자정)에 열리고,
+          이미 읽으신 풀이는 몇 번을 다시 보셔도 무료입니다.
         </p>
         <p style={{ margin: '0 0 8px', fontFamily: MONO, fontSize: 11, letterSpacing: 1, color: INK.ink28 }}>
-          기다리기 싫으면 — 크레딧 1개로 지금 바로
+          지금 바로 보시려면 — 크레딧 1개
         </p>
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {earn.map(e => (
@@ -883,36 +883,45 @@ function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void
   const { m } = useContext(SajuUICtx);
   useEffect(() => { track('saju_preview_view', { type }); }, [type]);
   const titles = SECTION_TITLES[type];
+  // 섹션마다 실제 분량만큼 자리를 잡아 둔다 — "이 정도가 나오는구나, 스크롤이 좀 있구나" 가 보여야 한다.
+  const bodyLines = m ? 7 : 5;
+  const minBody = 14 * 1.85 * bodyLines;
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, filter: 'blur(3px)', opacity: 0.55, pointerEvents: 'none', userSelect: 'none' }}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, filter: 'blur(5px)', opacity: 0.5, pointerEvents: 'none', userSelect: 'none' }}
         aria-hidden>
         {titles.map((t, i) => (
           <div key={i} style={{ padding: 18, borderRadius: 8, background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
-            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, textTransform: 'uppercase', marginBottom: 8 }}>{t}</p>
-            <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, margin: 0 }}>
-              이 차트만의 이야기가 여기에 들어가. 원국·대운·세운을 근거로 연도까지 짚어서 써준다.
-            </p>
+            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, textTransform: 'uppercase', marginBottom: 10 }}>{t}</p>
+            <div style={{ minHeight: minBody, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {Array.from({ length: bodyLines }).map((_, k) => (
+                <span key={k} style={{ display: 'block', height: 11, borderRadius: 3,
+                  background: 'rgba(42,34,24,0.16)', width: k === bodyLines - 1 ? '62%' : '100%' }} />
+              ))}
+            </div>
           </div>
         ))}
       </div>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-        <div style={{ width: '100%', maxWidth: 380, textAlign: 'center', padding: m ? '22px 18px' : '28px 24px',
-          borderRadius: 14, background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
+      {/* 안내 카드는 첫 섹션 위에 붙어 따라 내려온다 — 가려진 분량이 아래로 이어지는 게 보이도록 */}
+      <div style={{ position: 'sticky', top: m ? 80 : 104, marginTop: -(minBody + 90),
+        display: 'flex', justifyContent: 'center', padding: '0 12px', pointerEvents: 'none' }}>
+        <div style={{ width: '100%', maxWidth: 400, textAlign: 'center', padding: m ? '22px 18px' : '26px 24px',
+          borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}`,
+          boxShadow: '0 24px 70px rgba(0,0,0,0.55)', pointerEvents: 'auto' }}>
           <p style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 600, color: INK.ink, margin: 0 }}>
-            {titles.length}개 섹션이 준비됐어
+            풀이 {titles.length}편이 준비되어 있습니다
           </p>
-          <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.6 }}>
-            원국은 위에 그대로. 가입하면 하루에 한 편씩 무료로 읽을 수 있어.
+          <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.65 }}>
+            위의 사주 원국은 로그인 없이 계속 보실 수 있습니다.
+            AI 풀이는 로그인하시면 하루 한 편씩 무료로 읽으실 수 있습니다.
           </p>
           <button onClick={onLogin}
             style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 15, fontWeight: 600, letterSpacing: 1 }}>
-            전체 풀이 보기
+            로그인하고 풀이 보기
           </button>
-          <p style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28, margin: '10px 0 0' }}>
-            카카오 1탭 · 입력한 정보는 그대로 이어져
+          <p style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28, margin: '10px 0 0', lineHeight: 1.6 }}>
+            카카오 로그인 · 입력하신 정보는 그대로 이어집니다
           </p>
         </div>
       </div>
@@ -1015,7 +1024,7 @@ function ShareModal({ params, shareLink, onClose }: { params: ShareParams; share
             {copied === 'card' ? '복사됨!' : 'URL 복사'}
           </button>
         </div>
-        <p className="mt-2 text-[10px] text-white/25 text-center">링크를 받은 사람은 로그인 없이 볼 수 있어</p>
+        <p className="mt-2 text-[10px] text-white/25 text-center">링크를 받으신 분은 로그인 없이 보실 수 있습니다</p>
       </motion.div>
     </motion.div>
   );
@@ -1979,7 +1988,7 @@ function OlhaeTab({ result }: { result: SajuUIResult }) {
           <p style={{ fontSize: m ? 14.5 : 15.5, lineHeight: 1.8, color: INK.ink70, margin: 0 }}>
             올해는 <b style={{ color: OH[curStemEl]?.color }}>{curStem}{curBranch}</b>년.{' '}
             천간 {curSipGan}, 지지 {curSipJi} 기운이 들어와.{' '}
-            이 두 에너지가 나의 사주와 어떻게 만나는지가 올해의 핵심이야.
+            이 두 에너지가 내 사주와 어떻게 만나는지가 올해의 핵심입니다.
           </p>
         </div>
       </Panel>
@@ -2023,9 +2032,9 @@ function GunghapTab({ result }: { result: SajuUIResult }) {
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         width: 52, height: 52, borderRadius: 5, border: `1px solid ${INK.gold}55`, color: INK.gold,
         fontFamily: SERIF, fontSize: 28, fontWeight: 500 }}>合</span>
-      <div style={{ fontSize: m ? 18 : 20, fontWeight: 600, marginTop: 22, color: INK.ink }}>궁합 볼 상대를 더해줘</div>
+      <div style={{ fontSize: m ? 18 : 20, fontWeight: 600, marginTop: 22, color: INK.ink }}>궁합 볼 상대를 추가해 주세요</div>
       <p style={{ fontSize: m ? 14 : 15, lineHeight: 1.75, color: INK.ink70, maxWidth: 420, margin: '12px auto 28px' }}>
-        상대의 생년월일을 입력하면, 두 사람의 오행이 어떻게 만나는지 읽어줄게.
+        상대의 생년월일을 입력하시면 두 사람의 오행이 어떻게 만나는지 읽어 드립니다.
       </p>
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
         {([['년도','year','80px'],['월','month','60px'],['일','day','60px']] as [string,string,string][]).map(([ph,k,w])=>(
@@ -2142,13 +2151,13 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
                 <span style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.5, color: INK.gold,
                   border: `1px solid ${INK.gold}44`, background: 'rgba(194,163,91,0.07)',
                   borderRadius: 6, padding: '6px 10px' }}>
-                  ⓘ {result.pillars.trace.tzAdjust} — 입력한 시각을 당시 시계 기준으로 환산했어
+                  ⓘ {result.pillars.trace.tzAdjust} — 입력하신 시각을 당시 시계 기준으로 환산했습니다
                 </span>
               )}
               {result.pillars.trace.boundaryCaution && (
                 <span style={{ fontFamily: MONO, fontSize: 11, lineHeight: 1.5, color: INK.ink45,
                   border: `1px solid ${INK.cardLine}`, borderRadius: 6, padding: '6px 10px' }}>
-                  ⓘ 절기 경계 출생 — 월주가 갈릴 수 있어
+                  ⓘ 절기 경계 출생 — 월주가 갈릴 수 있습니다
                 </span>
               )}
             </div>
@@ -2158,8 +2167,8 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
             <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8,
               border: '1px solid rgba(194,163,91,0.35)', background: 'rgba(194,163,91,0.08)',
               fontSize: 12.5, color: INK.ink70, lineHeight: 1.6 }}>
-              계산 규칙이 업데이트돼서 지금 보는 원국은 <b style={{ color: INK.ink }}>풀이받을 당시 기준</b>이야.
-              최신 계산으로 보려면 AI 풀이 아래 "다시 풀이받기"를 눌러줘.
+              계산 규칙이 업데이트되어, 지금 보시는 원국은 <b style={{ color: INK.ink }}>풀이받으실 당시 기준</b>입니다.
+              최신 계산으로 보시려면 AI 풀이 아래 "다시 풀이받기"를 눌러 주세요.
             </div>
           )}
 
@@ -2401,6 +2410,12 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
       }).finally(() => setLoading(false));
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 결과가 그려지면 맨 위로 — 폼 하단에서 제출하면 결과 중간에 떨어져 원국을 못 보고 지나친다.
+  useEffect(() => {
+    if (!result) return;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [result]);
 
   const set = (k: string, v: string | boolean) => {
     if (!formStarted) { setFormStarted(true); track('saju_form_start', { type: selectedType }); }

@@ -95,7 +95,7 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
   const preview = useCallback(async () => {
     setError(null);
     const person = toPerson(form);
-    if (!person) { setError('생년월일을 입력해줘.'); return; }
+    if (!person) { setError('생년월일을 입력해 주세요.'); return; }
     track('saju_form_submit', { type: 'invite', logged_in: loggedIn });
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ token, form })); } catch { /* ignore */ }
     setLoading(true);
@@ -112,7 +112,7 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
   const accept = useCallback(async () => {
     setError(null);
     const person = toPerson(form);
-    if (!person) { setError('생년월일을 입력해줘.'); return; }
+    if (!person) { setError('생년월일을 입력해 주세요.'); return; }
     setLoading(true);
     try {
       const res = await fetch(`/api/saju/compat/invite/${token}/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ person }) });
@@ -140,8 +140,8 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
   if (!invite) {
     return (
       <main style={{ minHeight: '100dvh', background: INK.bg, color: INK.ink, fontFamily: SERIF, padding: '120px 20px', textAlign: 'center' }}>
-        <p style={{ fontSize: 18 }}>초대 링크를 찾을 수 없어.</p>
-        <p style={{ fontSize: 13, color: INK.ink45 }}>링크가 잘못됐거나 삭제됐어. 보낸 사람에게 다시 받아줘.</p>
+        <p style={{ fontSize: 18 }}>초대 링크를 찾을 수 없습니다.</p>
+        <p style={{ fontSize: 13, color: INK.ink45 }}>링크가 잘못되었거나 삭제되었습니다. 보내신 분께 다시 받아 주세요.</p>
       </main>
     );
   }
@@ -154,17 +154,17 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
         <div style={{ textAlign: 'center', padding: '28px 0 20px' }}>
           <p style={{ margin: 0, fontFamily: MONO, fontSize: 11, letterSpacing: 2, color: INK.ink45 }}>{rel} 궁합 초대</p>
           <h1 style={{ margin: '10px 0 0', fontSize: 24, fontWeight: 600, lineHeight: 1.4 }}>
-            {invite.inviter.name ? `${invite.inviter.name}이(가)` : '누군가'} 너와의 궁합이 궁금하대
+            {invite.inviter.name ? `${invite.inviter.name}이(가)` : '누군가'} 님과의 궁합을 궁금해합니다
           </h1>
         </div>
 
         <InviterCard v={invite} />
 
         {invite.expired && (
-          <p style={{ marginTop: 14, textAlign: 'center', color: '#c4685a', fontFamily: MONO, fontSize: 12 }}>초대가 만료됐어. 다시 보내달라고 해줘.</p>
+          <p style={{ marginTop: 14, textAlign: 'center', color: '#c4685a', fontFamily: MONO, fontSize: 12 }}>초대가 만료되었습니다. 다시 보내 달라고 요청해 주세요.</p>
         )}
         {isInviter && (
-          <p style={{ marginTop: 14, textAlign: 'center', color: INK.ink45, fontFamily: MONO, fontSize: 12 }}>이건 내가 만든 초대야. 상대가 수락하면 이력에 결과가 올라와.</p>
+          <p style={{ marginTop: 14, textAlign: 'center', color: INK.ink45, fontFamily: MONO, fontSize: 12 }}>내가 만든 초대입니다. 상대가 수락하면 이력에 결과가 올라옵니다.</p>
         )}
 
         {!invite.expired && !isInviter && !result && (
@@ -202,7 +202,7 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
               </button>
             ) : null}
             <p style={{ margin: '10px 0 0', textAlign: 'center', fontFamily: MONO, fontSize: 10.5, color: INK.ink28 }}>
-              내 생년월일은 상대에게 보이지 않아. 결과만 같이 봐.
+              내 생년월일은 상대에게 보이지 않습니다. 결과만 함께 보십니다.
             </p>
           </div>
         )}
@@ -219,7 +219,7 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
                   </div>
                 ))}
                 <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink45, margin: '4px 0 0' }}>
-                  둘 다 크레딧 +1. 이 결과는 내 이력에서 다시 볼 수 있어.
+                  두 분 다 크레딧 +1. 이 결과는 내 이력에서 다시 보실 수 있습니다.
                 </p>
                 <button onClick={() => router.push('/saju/full')}
                   style={{ padding: 13, borderRadius: 10, border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink70, fontFamily: SERIF, fontSize: 14, cursor: 'pointer' }}>
@@ -232,15 +232,15 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
                   {COMPAT_SECTION_TITLES.map((t, i) => (
                     <div key={i} style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 10, background: INK.card, padding: '14px 18px' }}>
                       <span style={{ fontFamily: SERIF, fontSize: 14, color: INK.ink70 }}>{t}</span>
-                      <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.8, color: INK.ink45 }}>두 사람의 일간·일지·십신 관계를 근거로 구체적으로 써준다.</p>
+                      <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.8, color: INK.ink45 }}>두 분의 일간·일지·십신 관계를 근거로 구체적으로 알려 드립니다.</p>
                     </div>
                   ))}
                 </div>
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                   <div style={{ width: '100%', maxWidth: 340, textAlign: 'center', padding: '22px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.95)', border: `1px solid ${INK.cardLine}` }}>
-                    <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600 }}>풀이 4개가 준비됐어</p>
+                    <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600 }}>풀이 4편이 준비되어 있습니다</p>
                     <p style={{ margin: '8px 0 16px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-                      초대로 보는 궁합은 오늘 몫과 상관없이 둘 다 무료. 결과를 저장하려면 로그인이 필요해.
+                      초대로 보는 궁합은 오늘 몫과 상관없이 두 분 다 무료입니다. 결과를 저장하시려면 로그인이 필요합니다.
                     </p>
                     {error && <p style={{ color: '#c4685a', fontFamily: MONO, fontSize: 12, margin: '0 0 10px' }}>{error}</p>}
                     <button onClick={loggedIn ? accept : goLogin} disabled={loading}

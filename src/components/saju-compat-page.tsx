@@ -315,7 +315,7 @@ function InviteLinkCard({ inv, onReset }: { inv: InviteCreateResponse; onReset: 
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* ignore */ }
   }
   async function share() {
-    const text = `${inv.hook.line} — 생년월일만 넣으면 둘의 궁합이 열려`;
+    const text = `${inv.hook.line} — 생년월일만 넣으면 둘의 궁합이 열립니다`;
     if (typeof navigator.share === 'function') {
       try { await navigator.share({ title: '술자리 궁합 초대', text, url }); return; } catch { /* 취소 */ }
     }
@@ -328,18 +328,18 @@ function InviteLinkCard({ inv, onReset }: { inv: InviteCreateResponse; onReset: 
       <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 15, lineHeight: 1.6, color: INK.ink }}>
         <span style={{ color: INK.gold }}>{inv.hook.dayPillarHanja}</span> · {inv.hook.line}
       </p>
-      <p style={{ margin: '6px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink28 }}>상대에게는 이 카드만 보여. 내 생년월일은 안 나가.</p>
+      <p style={{ margin: '6px 0 0', fontFamily: MONO, fontSize: 11, color: INK.ink28 }}>상대에게는 이 카드만 보입니다. 내 생년월일은 전달되지 않습니다.</p>
       <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.3)', fontFamily: MONO, fontSize: 12, color: INK.ink70, wordBreak: 'break-all' }}>{url}</div>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button onClick={share} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
           카톡·문자로 보내기
         </button>
         <button onClick={copy} style={{ flex: 1, padding: '12px 0', borderRadius: 10, border: `1px solid ${INK.cardLine}`, cursor: 'pointer', background: 'transparent', color: INK.ink70, fontFamily: SERIF, fontSize: 14 }}>
-          {copied ? '복사됐어' : '링크 복사'}
+          {copied ? '복사했습니다' : '링크 복사'}
         </button>
       </div>
       <p style={{ margin: '12px 0 0', textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink45 }}>
-        상대가 수락하면 둘 다 결과를 보고, 둘 다 크레딧 +1.
+        상대가 수락하면 두 분 다 결과를 보시고, 두 분 다 크레딧 +1입니다.
       </p>
       <button onClick={onReset} style={{ marginTop: 10, width: '100%', padding: 10, borderRadius: 8, border: 'none', background: 'transparent', color: INK.ink28, fontFamily: MONO, fontSize: 12, cursor: 'pointer' }}>
         다른 초대 만들기
@@ -352,10 +352,10 @@ function InviteLinkCard({ inv, onReset }: { inv: InviteCreateResponse; onReset: 
 function CompatCreditZero({ onInvite }: { onInvite: () => void }) {
   return (
     <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 14, background: INK.card, padding: '20px 18px' }}>
-      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽었어</p>
+      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽으셨습니다</p>
       <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-        풀이는 하루 한 편씩 열려. 근데 궁합은 길이 하나 더 있어 — 상대에게 초대 링크를 보내면
-        <b style={{ color: INK.ink70 }}> 오늘 몫과 상관없이 둘 다 무료</b>로 보고, 둘 다 크레딧 +1.
+        풀이는 하루 한 편씩 열립니다. 다만 궁합은 길이 하나 더 있습니다. 상대에게 초대 링크를 보내시면
+        <b style={{ color: INK.ink70 }}> 오늘 몫과 상관없이 두 분 다 무료</b>로 보시고, 두 분 다 크레딧 +1입니다.
       </p>
       <button onClick={onInvite} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
         초대 링크로 보내기
@@ -426,7 +426,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
     setError(null);
     const toNum = (s: string) => (s.trim() === '' ? null : parseInt(s, 10));
     const y = toNum(formA.year), m = toNum(formA.month), d = toNum(formA.day);
-    if (!y || !m || !d) { setError('내 생년월일을 입력해줘.'); return; }
+    if (!y || !m || !d) { setError('내 생년월일을 입력해 주세요.'); return; }
     try { sessionStorage.setItem('saju:compat-form', JSON.stringify({ a: formA, b: formB, relation, mode: 'invite' })); } catch { /* ignore */ }
     if (!loggedIn) {
       track('saju_login_prompt', { type: 'invite_create' });
@@ -457,7 +457,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
     const yB = toNum(formB.year), mB = toNum(formB.month), dB = toNum(formB.day);
 
     if (!yA || !mA || !dA || !yB || !mB || !dB) {
-      setError('두 사람 모두 생년월일을 입력해주세요.');
+      setError('두 분 모두 생년월일을 입력해 주세요.');
       return;
     }
 
@@ -599,8 +599,8 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
 
             <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0, lineHeight: 1.6 }}>
               {mode === 'invite'
-                ? '상대가 자기 생년월일을 넣으면 둘 다 무료로 결과를 봐. 상대에게 내 생년월일은 안 보여.'
-                : '점수·관계 분석은 무료 · AI 풀이는 가입하면 하루 한 편'}
+                ? '상대가 생년월일을 입력하면 두 분 다 무료로 결과를 보십니다. 상대에게 내 생년월일은 보이지 않습니다.'
+                : '점수·관계 분석은 무료 · AI 풀이는 로그인 후 하루 한 편'}
             </p>
           </div>
         ) : (

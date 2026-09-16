@@ -55,15 +55,15 @@ function CreditBadge({ loggedIn, credits }: { loggedIn: boolean | null; credits:
     fontFamily: MONO, fontSize: 11, letterSpacing: 0.4, color: INK.ink70,
   };
   if (loggedIn === null) return <div style={{ ...base, opacity: 0.35 }}>·</div>;
-  if (!loggedIn) return <div style={base}>원국은 로그인 없이 · 풀이는 가입하면 매일 한 편</div>;
+  if (!loggedIn) return <div style={base}>원국은 로그인 없이 · 풀이는 로그인 후 매일 한 편</div>;
   if (!credits) return <div style={{ ...base, opacity: 0.6 }}>확인 중</div>;
 
   const live = credits.dailyFree || credits.balance > 0;
   const label = credits.dailyFree
-    ? (credits.balance > 0 ? `오늘 무료 한 편 · 크레딧 ${credits.balance}` : '오늘 무료 한 편 남음')
+    ? (credits.balance > 0 ? `오늘 무료 한 편 · 크레딧 ${credits.balance}` : '오늘 무료 한 편 남았습니다')
     : credits.balance > 0
-      ? `크레딧 ${credits.balance}개로 더 볼 수 있어`
-      : '오늘 몫 다 읽음 · 내일 자정에 한 편';
+      ? `크레딧 ${credits.balance}개로 더 보실 수 있습니다`
+      : '오늘 몫을 다 읽으셨습니다 · 내일 자정에 한 편';
   return (
     <div style={{ ...base, borderColor: live ? `${INK.gold}55` : INK.cardLine, color: live ? INK.ink : INK.ink45 }}>
       <span style={{ width: 6, height: 6, borderRadius: 3, background: live ? INK.gold : INK.ink28 }} />
@@ -189,7 +189,7 @@ export function SajuCards() {
                 </div>
                 <span style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink45 }}>
                   {credits.readTypes.length === credits.totalTypes
-                    ? `다섯 편 다 읽었어`
+                    ? `다섯 편 모두 읽으셨습니다`
                     : `${credits.readTypes.length}/${credits.totalTypes} 읽음 · 하루 한 편씩`}
                 </span>
               </div>
@@ -245,7 +245,7 @@ export function SajuCards() {
                         {t.ko}
                       </span>
                       {credits?.readTypes.includes(t.id as CreditsResponse['readTypes'][number]) && (
-                        <span title="이미 읽은 풀이 — 다시 보는 건 언제나 무료"
+                        <span title="이미 읽은 풀이입니다 — 다시 보시는 것은 언제나 무료입니다"
                           style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1.5, color: INK.ink45, border: `1px solid ${INK.cardLine}`, borderRadius: 4, padding: '2px 6px' }}>
                           읽음
                         </span>
