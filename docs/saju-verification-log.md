@@ -50,6 +50,47 @@ tzdata `Asia/Seoul` 전환 28건을 `src/lib/saju/kst-offset.ts` 에 옮겼다. 
 ### 미검증 (계정·크레딧 필요)
 크레딧 차감·402 화면, 초대 링크 생성·수락·양쪽 지급, AI 풀이 생성·프롬프트 캐시, 오늘의 사주 카드 렌더.
 
+## 2-2. SEO 점검 (2026-09-17)
+
+| 항목 | 상태 |
+|---|---|
+| robots.txt | 정상. `/api/ /admin/ /auth/ /mypage/ /report/` 차단, 네이버 Yeti 허용, sitemap·rss 등록 |
+| sitemap URL 수 | 109 → **114** (사주 풀이 5종 추가) |
+| canonical | **치명적 결함 수정** — 아래 |
+| 제목 | `— 술자리 — 술자리` 중복 제거 |
+| JSON-LD | `/saju` 에 WebApplication + FaqPage 유지 |
+
+### 발견 → 수정 (커밋 32079ee)
+루트 `layout.tsx` 의 `alternates.canonical` 이 `https://drinkplace.kr` 로 고정돼 있어
+**자기 canonical 을 지정하지 않은 모든 페이지가 홈의 중복으로 선언**되고 있었다.
+해당 페이지: `/politics` `/explore` `/board` `/politicians/presidents` `/politicians/presidents/[id]`
+그리고 사주 풀이 5종 전부. 구글은 이런 페이지를 색인에서 제외한다.
+
+여기에 사주 풀이 5종은 sitemap 에도 없었다. 즉 검색 유입의 실제 착지 페이지가
+"홈 복제본 + 사이트맵 누락" 이라는 최악 조합이었다.
+
+수정 후 배포 확인:
+
+| URL | canonical |
+|---|---|
+| `/saju/love` | `https://drinkplace.kr/saju/love` ✅ |
+| `/saju/career` | `https://drinkplace.kr/saju/career` ✅ |
+| `/saju/today` | `https://drinkplace.kr/saju/today` ✅ |
+| `/saju/compat` | `https://drinkplace.kr/saju/compat` ✅ |
+| `/politics` `/explore` `/board` `/politicians/presidents` | 각자 자기 URL ✅ |
+
+제목도 검색어를 담도록 교체 — "무료 사주팔자 종합 풀이", "연애운 사주 · 내 인연 시기",
+"오늘의 사주 · 오늘 운세", "직업운·재물운 사주", "사주 궁합 · 두 사람 케미".
+
+### 곁들여 개선된 것
+P1-1 에서 `/saju/[type]` 의 로그인 리다이렉트를 제거했는데, 그 전에는 크롤러가
+`/auth/login` 으로 튕겨 **이 페이지들이 애초에 색인될 수 없었다**. 지금은 원국·대운·오행까지
+서버 렌더된 실제 콘텐츠가 크롤러에 보인다.
+
+### 남은 것 (사람 필요)
+- 구글 서치콘솔·네이버 서치어드바이저에 사이트맵 재제출
+- 색인 반영 확인 (보통 며칠~2주)
+
 ## 3. LLM 통변 QA (P4-3)
 
 `scripts/saju-qa.ts` — `scripts/qa-samples/*.json` (reading 응답 저장본) 을 읽어 규칙 검사 + 몰개성 유사도.
