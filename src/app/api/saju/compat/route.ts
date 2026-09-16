@@ -103,13 +103,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const charge = await chargeForReading({ supabase, userId: user.id, type: 'compat', cacheKey, refresh });
   if (!charge.ok) {
     return NextResponse.json(
-      { error: 'credit', message: '무료 풀이를 다 썼어. 상대에게 초대 링크를 보내면 둘 다 무료로 볼 수 있어.', balance: charge.balance, earn: charge.earn },
+      { error: 'credit', message: '오늘 무료 한 편은 다 썼어. 상대에게 초대 링크를 보내면 둘 다 무료로 볼 수 있어.', balance: charge.balance, earn: charge.earn },
       { status: 402 },
     );
   }
   const credit: ReadingCredit = { via: charge.via, balance: charge.balance };
   const undoCharge = async () => {
-    if (charge.via === 'credit' || charge.via === 'free') await refundCredit(user.id, cacheKey);
+    if (charge.via === 'credit') await refundCredit(user.id, cacheKey);
   };
 
   // 3) Redis

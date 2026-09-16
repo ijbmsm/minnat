@@ -352,9 +352,10 @@ function InviteLinkCard({ inv, onReset }: { inv: InviteCreateResponse; onReset: 
 function CompatCreditZero({ onInvite }: { onInvite: () => void }) {
   return (
     <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 14, background: INK.card, padding: '20px 18px' }}>
-      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>무료 풀이를 다 썼어</p>
+      <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽었어</p>
       <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-        궁합은 방법이 하나 더 있어. 상대에게 초대 링크를 보내면 <b style={{ color: INK.ink70 }}>둘 다 무료</b>로 보고 둘 다 크레딧 +1.
+        풀이는 하루 한 편씩 열려. 근데 궁합은 길이 하나 더 있어 — 상대에게 초대 링크를 보내면
+        <b style={{ color: INK.ink70 }}> 오늘 몫과 상관없이 둘 다 무료</b>로 보고, 둘 다 크레딧 +1.
       </p>
       <button onClick={onInvite} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
         초대 링크로 보내기
@@ -599,7 +600,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
             <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0, lineHeight: 1.6 }}>
               {mode === 'invite'
                 ? '상대가 자기 생년월일을 넣으면 둘 다 무료로 결과를 봐. 상대에게 내 생년월일은 안 보여.'
-                : '점수·관계 분석은 무료 · AI 풀이는 가입 후 1회 무료'}
+                : '점수·관계 분석은 무료 · AI 풀이는 가입하면 하루 한 편'}
             </p>
           </div>
         ) : (

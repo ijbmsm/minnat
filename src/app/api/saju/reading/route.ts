@@ -266,13 +266,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const charge = await chargeForReading({ supabase, userId: authUser.id, type, cacheKey, refresh });
   if (!charge.ok) {
     return NextResponse.json(
-      { error: 'credit', message: '무료 풀이를 다 썼어. 공유·초대·출석으로 더 받을 수 있어.', balance: charge.balance, earn: charge.earn },
+      { error: 'credit', message: '오늘 무료 한 편은 다 썼어. 내일 다시 열려.', balance: charge.balance, earn: charge.earn },
       { status: 402 },
     );
   }
   const credit: ReadingCredit = { via: charge.via, balance: charge.balance, ...(charge.streak !== undefined ? { streak: charge.streak } : {}), ...(charge.streakReward ? { streakReward: true } : {}) };
+  // 크레딧을 실제로 깎은 경우만 되돌린다. 일일 무료는 되돌리지 않는다
+  // (되돌리면 같은 날 무한 재시도가 가능해진다 — 실패는 캐시 미스이므로 재시도 비용이 곧 LLM 비용).
   const undoCharge = async () => {
-    if (charge.via === 'credit' || charge.via === 'free') await refundCredit(authUser.id, cacheKey);
+    if (charge.via === 'credit') await refundCredit(authUser.id, cacheKey);
   };
 
   // 3) Redis 캐시 (같은 차트를 다른 사람이 이미 풀었으면 LLM 없이 — 크레딧은 위에서 판정됨)

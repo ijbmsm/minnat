@@ -45,26 +45,29 @@ const SAJU_TYPES = [
   { id: 'compat', href: '/saju/compat', seal: '合', ko: '궁합',        tagline: '두 사주로 보는 케미.\n끌리는 이유, 부딪히는 이유.' },
 ];
 
-// ── CreditBadge — 3상태: 비로그인 / 무료 1회 남음 / 크레딧 N ──
+// ── CreditBadge — 오늘 무엇을 볼 수 있는지 한 줄로 ──
+// 정책 v3: 로그인하면 타입 무관 하루 한 편 무료. 더 보려면 크레딧, 아니면 내일.
 function CreditBadge({ loggedIn, credits }: { loggedIn: boolean | null; credits: CreditsResponse | null }) {
   const base: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 10,
+    display: 'inline-flex', alignItems: 'center', gap: 9,
     border: `1px solid ${INK.cardLine}`, borderRadius: 999,
-    padding: '7px 14px', background: INK.card,
-    fontFamily: MONO, fontSize: 11, letterSpacing: 0.5, color: INK.ink70,
+    padding: '7px 15px', background: INK.card,
+    fontFamily: MONO, fontSize: 11, letterSpacing: 0.4, color: INK.ink70,
   };
-  if (loggedIn === null) return <div style={{ ...base, opacity: 0.4 }}>·</div>;
-  if (!loggedIn) return <div style={base}>가입하면 1회 무료 · 오늘의 사주는 매일</div>;
-  if (!credits) return <div style={{ ...base, opacity: 0.6 }}>크레딧 확인 중</div>;
-  const parts: string[] = [];
-  if (!credits.freeUsed) parts.push('무료 1회 남음');
-  if (credits.balance > 0) parts.push(`크레딧 ${credits.balance}`);
-  if (credits.todayFree) parts.push('오늘의 사주 무료');
-  if (parts.length === 0) parts.push('공유·초대로 +1');
+  if (loggedIn === null) return <div style={{ ...base, opacity: 0.35 }}>·</div>;
+  if (!loggedIn) return <div style={base}>원국은 로그인 없이 · 풀이는 가입하면 매일 한 편</div>;
+  if (!credits) return <div style={{ ...base, opacity: 0.6 }}>확인 중</div>;
+
+  const live = credits.dailyFree || credits.balance > 0;
+  const label = credits.dailyFree
+    ? (credits.balance > 0 ? `오늘 무료 한 편 · 크레딧 ${credits.balance}` : '오늘 무료 한 편 남음')
+    : credits.balance > 0
+      ? `크레딧 ${credits.balance}개로 더 볼 수 있어`
+      : '오늘 몫 다 읽음 · 내일 자정에 한 편';
   return (
-    <div style={base}>
-      <span style={{ width: 6, height: 6, borderRadius: 3, background: (!credits.freeUsed || credits.balance > 0 || credits.todayFree) ? INK.gold : INK.ink28 }} />
-      {parts.join(' · ')}
+    <div style={{ ...base, borderColor: live ? `${INK.gold}55` : INK.cardLine, color: live ? INK.ink : INK.ink45 }}>
+      <span style={{ width: 6, height: 6, borderRadius: 3, background: live ? INK.gold : INK.ink28 }} />
+      {label}
     </div>
   );
 }
@@ -173,7 +176,25 @@ export function SajuCards() {
               나는 왜 이런가.
             </p>
           </div>
-          <CreditBadge loggedIn={isLoggedIn} credits={credits} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: 9 }}>
+            <CreditBadge loggedIn={isLoggedIn} credits={credits} />
+            {credits && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {SAJU_TYPES.map(t => (
+                    <span key={t.id} title={t.ko}
+                      style={{ width: 7, height: 7, borderRadius: 4,
+                        background: credits.readTypes.includes(t.id as CreditsResponse['readTypes'][number]) ? INK.gold : INK.ink28 }} />
+                  ))}
+                </div>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink45 }}>
+                  {credits.readTypes.length === credits.totalTypes
+                    ? `다섯 편 다 읽었어`
+                    : `${credits.readTypes.length}/${credits.totalTypes} 읽음 · 하루 한 편씩`}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* MAIN GRID */}
@@ -223,9 +244,10 @@ export function SajuCards() {
                       }}>
                         {t.ko}
                       </span>
-                      {t.id === 'today' && credits?.todayFree && (
-                        <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1.5, color: INK.gold, border: `1px solid ${INK.gold}55`, borderRadius: 4, padding: '2px 6px' }}>
-                          오늘 무료
+                      {credits?.readTypes.includes(t.id as CreditsResponse['readTypes'][number]) && (
+                        <span title="이미 읽은 풀이 — 다시 보는 건 언제나 무료"
+                          style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: 1.5, color: INK.ink45, border: `1px solid ${INK.cardLine}`, borderRadius: 4, padding: '2px 6px' }}>
+                          읽음
                         </span>
                       )}
                       {t.featured && (

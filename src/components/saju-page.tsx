@@ -811,13 +811,19 @@ function NextReadings({ type }: { type: ReadingType }) {
   );
 }
 
-// ── 크레딧 소진 — 획득 방법 3줄 + 바로가기 (결제 없음) ──
+// ── 오늘 몫 소진 (402) — "하루 한 편" 을 설명하고 길을 두 개 준다 ──
+// 서버가 크레딧이 있으면 자동으로 쓰므로, 이 화면이 뜬다 = 오늘 무료도 크레딧도 없다.
 function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]; type: ReadingType }) {
   const router = useRouter();
   const titles = SECTION_TITLES[type];
+  const tomorrow = (() => {
+    const kst = new Date(Date.now() + 9 * 3600 * 1000);
+    const left = 24 - kst.getUTCHours();
+    return left <= 1 ? '곧' : `약 ${left}시간 뒤`;
+  })();
   return (
     <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, filter: 'blur(2px)', opacity: 0.35, pointerEvents: 'none' }} aria-hidden>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, filter: 'blur(2px)', opacity: 0.3, pointerEvents: 'none' }} aria-hidden>
         {titles.slice(0, 3).map((t, i) => (
           <div key={i} style={{ padding: 14, borderRadius: 8, background: 'rgba(250,248,243,0.93)' }}>
             <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, margin: 0 }}>{t}</p>
@@ -825,9 +831,13 @@ function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]
         ))}
       </div>
       <div style={{ marginTop: -60, position: 'relative', padding: '20px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}` }}>
-        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>무료 풀이를 다 썼어</p>
-        <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-          돈은 안 받아. 대신 이렇게 하면 한 번 더 볼 수 있어.
+        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽었어</p>
+        <p style={{ margin: '6px 0 16px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.65 }}>
+          풀이는 하루에 한 편씩 열려. 다음 편은 <b style={{ color: INK.ink70 }}>{tomorrow}</b>({'자정'}) 열리고,
+          이미 읽은 풀이는 몇 번을 다시 봐도 무료야.
+        </p>
+        <p style={{ margin: '0 0 8px', fontFamily: MONO, fontSize: 11, letterSpacing: 1, color: INK.ink28 }}>
+          기다리기 싫으면 — 크레딧 1개로 지금 바로
         </p>
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {earn.map(e => (
@@ -842,9 +852,9 @@ function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]
             style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 13.5, fontWeight: 600 }}>
             궁합 초대 만들기
           </button>
-          <button onClick={() => router.push('/saju/today')}
+          <button onClick={() => router.push('/saju')}
             style={{ flex: 1, padding: '11px 0', borderRadius: 10, border: `1px solid ${INK.cardLine}`, cursor: 'pointer', background: 'transparent', color: INK.ink70, fontFamily: SERIF, fontSize: 13.5 }}>
-            오늘의 사주 (매일 무료)
+            읽은 풀이 다시 보기
           </button>
         </div>
       </div>
@@ -878,7 +888,7 @@ function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void
             {titles.length}개 섹션이 준비됐어
           </p>
           <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.6 }}>
-            원국은 위에 그대로. AI 풀이는 가입하면 1회 무료, 오늘의 사주는 매일 무료.
+            원국은 위에 그대로. 가입하면 하루에 한 편씩 무료로 읽을 수 있어.
           </p>
           <button onClick={onLogin}
             style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
