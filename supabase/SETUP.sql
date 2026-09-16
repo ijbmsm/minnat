@@ -42,6 +42,34 @@
 --   17. 015-crawler-dedup-and-assembly.sql       크롤러 중복 제거 인덱스 + 의원 고유코드
 
 
+-- ============================================================================
+-- 사전 점검 — 이 스크립트는 "신규 프로젝트" 전용이다
+--
+-- 빈 DB 에서는 몇 번을 돌려도 안전하다(멱등). 그러나 데이터가 쌓인 뒤에는
+-- 돌리면 안 된다. 중간의 v1.1 구간이 issues/score_snapshots 를 비우고,
+-- 카테고리 제약을 구버전으로 되돌렸다가 다시 올리기 때문이다.
+--
+-- 데이터가 있는 DB 에 스키마 변경만 적용하려면 개별 마이그레이션 파일을
+-- 직접 실행할 것 (README.md 의 적용 순서 참조).
+-- ============================================================================
+DO $preflight$
+DECLARE
+  n BIGINT := 0;
+BEGIN
+  IF to_regclass('public.issues') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM public.issues' INTO n;
+  END IF;
+  IF n > 0 THEN
+    RAISE EXCEPTION
+      E'중단: issues 테이블에 이미 %건의 데이터가 있습니다.\n'
+      '  SETUP.sql 은 신규 프로젝트 전용입니다 (중간에 TRUNCATE 가 있습니다).\n'
+      '  스키마만 갱신하려면 개별 마이그레이션 파일을 순서대로 실행하세요 — README.md 참조.',
+      n;
+  END IF;
+END
+$preflight$;
+
+
 -- ==========================================================================
 -- [1/17] schema.sql
 -- 기본 스키마 — parties, politicians, issues, score_snapshots
@@ -232,8 +260,36 @@ ALTER TABLE issues ADD CONSTRAINT issues_category_check CHECK (category IN (
 -- Supabase SQL Editor에서 실행
 
 -- 1. 기존 데이터 전체 삭제
-TRUNCATE issues CASCADE;
-TRUNCATE score_snapshots CASCADE;
+--
+-- [안전 장치] 원본 v1.1 마이그레이션은 카테고리 체계가 비호환으로 바뀌면서
+-- 기존 이슈를 무조건 비웠다. 신규 프로젝트에서는 빈 테이블이라 무해하지만,
+-- 데이터가 쌓인 뒤 이 스크립트를 다시 돌리면 이슈가 전부 사라진다.
+-- (SEED.sql 적용 후 재실행이 대표적인 사고 경로)
+-- 비어 있을 때만 진행하고, 아니면 중단한다.
+DO $truncate_guard$
+DECLARE
+  n_issues BIGINT := 0;
+  n_snaps  BIGINT := 0;
+BEGIN
+  IF to_regclass('public.issues') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM public.issues' INTO n_issues;
+  END IF;
+  IF to_regclass('public.score_snapshots') IS NOT NULL THEN
+    EXECUTE 'SELECT count(*) FROM public.score_snapshots' INTO n_snaps;
+  END IF;
+
+  IF n_issues > 0 OR n_snaps > 0 THEN
+    RAISE EXCEPTION
+      'issues %건, score_snapshots %건이 이미 있습니다. 이 구간은 두 테이블을 비웁니다. '
+      'v1.1 카테고리 재편이 정말 필요한 게 아니라면 중단하세요. '
+      '스키마만 다시 맞추려면 이 DO 블록과 아래 TRUNCATE 두 줄을 지우고 실행하세요.',
+      n_issues, n_snaps;
+  END IF;
+
+  TRUNCATE issues CASCADE;
+  TRUNCATE score_snapshots CASCADE;
+END
+$truncate_guard$;
 
 -- 2. 기존 제약조건 삭제
 ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_category_check;

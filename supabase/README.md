@@ -18,6 +18,22 @@
 6. 크롤러 1회 수동 실행으로 검증: `cd minnat-crawler && python main.py`
    — 마지막 줄의 `[비용]` 출력으로 실제 회당 비용을 확인한다
 
+## ⚠️ SETUP.sql 은 신규 프로젝트 전용
+
+빈 DB 에서는 몇 번을 돌려도 안전하다(멱등). **데이터가 쌓인 뒤에는 돌리면 안 된다** —
+중간의 v1.1 구간에 `TRUNCATE issues CASCADE` 가 있다(카테고리 체계가 비호환으로
+바뀌던 시점의 원본 동작). 맨 앞의 사전 점검 블록이 `issues` 에 데이터가 있으면
+아무것도 실행하지 않고 중단시키지만, 파괴적 구문이 들어 있다는 사실 자체는 알고 있을 것.
+
+데이터가 있는 DB 에 스키마 변경만 적용하려면 **개별 마이그레이션 파일**을
+아래 순서대로 직접 실행한다.
+
+| SQL Editor 경고 | 해당 구문 | 신규 프로젝트에서 |
+|---|---|---|
+| destructive operations | `TRUNCATE issues / score_snapshots` 2건 | 빈 테이블이라 무해 (+ 사전 점검이 막음) |
+| | `DROP TABLE IF EXISTS board_posts` 1건 | 직전 006 이 만든 빈 테이블 (+ 가드 있음) |
+| | `DROP POLICY/CONSTRAINT/TRIGGER IF EXISTS` 64건 | 멱등성용, 없으면 무시 |
+
 ## SETUP.sql 은 왜 따로 있나
 
 개별 마이그레이션 파일을 **파일명 순서대로 실행하면 깨진다.**
@@ -93,11 +109,16 @@ docker exec $C psql -U postgres -d postgres -c "DROP DATABASE minnat_test;"   # 
 
 ## 검증 이력
 
-**2026-09-16** — Postgres 17.6 에서 전체 검증 완료
-- 깨끗한 DB 1회 실행: 에러 0, 테이블 19개, RLS 정책 46개, 인덱스 54개
-- 연속 재실행(멱등성): 에러 0, 정당 시드 중복 없음
-- `issues_category_check` 17종이 크롤러 `config.py` 의 `ALL_CATEGORIES` 와 완전 일치
-- `SEED.sql` 전체 실행: 정치인 102명 / 이슈 66건 / 대통령 14명, 에러 0
+**2026-09-16** — Postgres 17.6 (격리된 로컬 DB) 에서 4개 시나리오 검증 완료
+
+| # | 시나리오 | 결과 |
+|---|---|---|
+| 1 | 빈 DB → `SETUP.sql` | 에러 0. 테이블 19 / RLS 정책 46 / 인덱스 54 |
+| 2 | 빈 DB → `SETUP.sql` 재실행 | 에러 0 (멱등). 정당 시드 중복 없음 |
+| 3 | `SEED.sql` 적용 | 에러 0. 정치인 102 / 이슈 66 / 대통령 14 |
+| 4 | **데이터 있는 상태 → `SETUP.sql` 재실행** | **사전 점검이 중단시킴. 이슈 66건 보존 확인** |
+
+`issues_category_check` 17종이 크롤러 `config.py` 의 `ALL_CATEGORIES` 와 완전 일치함도 확인.
 
 ## 알아둘 것
 
