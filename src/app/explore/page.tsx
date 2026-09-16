@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 export const metadata = {
   title: "탐색",
   description: "이슈 버블 맵, 타임라인, 전체 사건 탐색",
+  alternates: { canonical: "https://drinkplace.kr/explore" },
 };
 
 export const revalidate = 300;

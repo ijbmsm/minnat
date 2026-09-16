@@ -30,6 +30,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: baseUrl,                              lastModified: new Date(), changeFrequency: "daily",   priority: 1.0 },
     { url: `${baseUrl}/saju`,                   lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    // 사주 풀이 5종 — 검색 유입의 실제 착지 페이지다. /saju 만 넣으면 이 키워드들이 잡히지 않는다.
+    { url: `${baseUrl}/saju/full`,              lastModified: new Date(), changeFrequency: "weekly",  priority: 0.9 },
+    { url: `${baseUrl}/saju/today`,             lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${baseUrl}/saju/love`,              lastModified: new Date(), changeFrequency: "weekly",  priority: 0.9 },
+    { url: `${baseUrl}/saju/career`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${baseUrl}/saju/compat`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
     { url: `${baseUrl}/politics`,               lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
     { url: `${baseUrl}/issues`,                 lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
     { url: `${baseUrl}/politicians`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },

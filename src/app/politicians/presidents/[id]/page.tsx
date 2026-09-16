@@ -18,8 +18,9 @@ export async function generateMetadata({ params }: Props) {
   if (!pres) return { title: "대통령을 찾을 수 없습니다 — 술자리" };
   const pol = pres.politician;
   return {
-    title: `${pol?.name} — 역대 대통령 — 술자리`,
+    title: `${pol?.name} — 역대 대통령`,
     description: `${pres.term_number}대 대통령 ${pol?.name}의 사법 기록, 관련인물 기록, 사면, 경제 성적표`,
+    alternates: { canonical: `https://drinkplace.kr/politicians/presidents/${id}` },
   };
 }
 

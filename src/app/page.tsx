@@ -4,6 +4,7 @@ import { Nav } from "@/components/nav";
 export const metadata = {
   title: "술자리",
   description: "술자리에서 나누는 두 가지 주제 — 정치 팩트체크와 사주팔자",
+  alternates: { canonical: "https://drinkplace.kr" },
 };
 
 const CARDS = [

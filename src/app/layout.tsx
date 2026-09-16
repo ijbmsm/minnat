@@ -51,9 +51,8 @@ export const metadata: Metadata = {
     title: "술자리 — 정치 · 사주",
     description: "술자리에서 나누는 두 가지 주제 — 정치 팩트와 사주팔자",
   },
-  alternates: {
-    canonical: "https://drinkplace.kr",
-  },
+  // canonical 은 페이지마다 지정한다. 여기에 두면 모든 하위 페이지가 홈을 정본으로
+  // 선언해 색인에서 빠진다 (2026-09-17 수정).
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

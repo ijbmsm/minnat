@@ -4,11 +4,28 @@ import { SajuPage } from "@/components/saju-page";
 import type { ReadingType } from "@/components/saju-page";
 import { createClient } from "@/lib/supabase/server";
 
-const TYPE_META: Record<ReadingType, { title: string; description: string }> = {
-  full:   { title: "종합 풀이 · 술자리",   description: "성격부터 올해 세운까지. 사주팔자 종합 풀이." },
-  today:  { title: "오늘의 사주 · 술자리", description: "오늘 일진으로 보는 하루 에너지 흐름." },
-  love:   { title: "연애운 · 술자리",      description: "내 연애 패턴과 잘 맞는 상대 유형." },
-  career: { title: "직업·재물운 · 술자리", description: "격국·용신으로 보는 어울리는 일과 재물 성향." },
+// title 에 "술자리" 를 넣지 않는다 — 루트 layout 의 template 이 "%s — 술자리" 로 붙인다.
+const TYPE_META: Record<ReadingType, { title: string; description: string; keywords: string[] }> = {
+  full: {
+    title: "무료 사주팔자 종합 풀이",
+    description: "생년월일시만 넣으면 사주 여덟 글자·오행·대운이 바로. 성격부터 올해 세운까지 전통 명리학 기반 AI 종합 풀이.",
+    keywords: ["무료 사주", "사주팔자", "사주 풀이", "종합 사주", "만세력", "AI 사주"],
+  },
+  today: {
+    title: "오늘의 사주 · 오늘 운세",
+    description: "오늘 일진과 내 사주가 만나는 지점. 오늘 집중할 것과 조심할 것을 하루 한 장으로.",
+    keywords: ["오늘의 운세", "오늘 사주", "일진", "오늘 운세 무료", "데일리 운세"],
+  },
+  love: {
+    title: "연애운 사주 · 내 인연 시기",
+    description: "배우자궁·도화·식상으로 보는 내 연애 패턴, 잘 맞는 상대 유형, 인연이 들어오는 시기.",
+    keywords: ["연애운", "연애운 사주", "인연 시기", "결혼운", "궁합 사주", "배우자운"],
+  },
+  career: {
+    title: "직업운·재물운 사주",
+    description: "격국과 용신으로 보는 어울리는 직업군, 직장인과 사업가 적합도, 재물이 들어오는 시기.",
+    keywords: ["직업운", "재물운", "적성 사주", "이직 운", "창업 운", "사주 직업"],
+  },
 };
 
 export const dynamic = "force-dynamic";
@@ -17,7 +34,14 @@ export async function generateMetadata({ params }: { params: Promise<{ type: str
   const { type } = await params;
   const meta = TYPE_META[type as ReadingType];
   if (!meta) return {};
-  return { title: meta.title, description: meta.description };
+  const url = `https://drinkplace.kr/saju/${type}`;
+  return {
+    title: meta.title,
+    description: meta.description,
+    keywords: meta.keywords,
+    alternates: { canonical: url },
+    openGraph: { title: meta.title, description: meta.description, url, type: "website" as const },
+  };
 }
 
 /**
