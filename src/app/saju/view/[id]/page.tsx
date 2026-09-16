@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
 import { loadPublicReading } from "@/lib/saju/reading-public";
@@ -67,7 +68,9 @@ export default async function PublicSajuPage({
   return (
     <>
       <Nav />
-      <SajuPage readingId={id} publicApi />
+      <Suspense fallback={null}>
+        <SajuPage readingId={id} publicApi />
+      </Suspense>
     </>
   );
 }

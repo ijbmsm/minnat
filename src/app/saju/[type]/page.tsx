@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
@@ -58,7 +59,10 @@ export default async function SajuTypePage({ params }: { params: Promise<{ type:
   return (
     <>
       <Nav />
-      <SajuPage fixedType={type as ReadingType} loggedIn={!!user} />
+      {/* SajuPage 가 useSearchParams 로 결과 상태(?r=1)를 읽으므로 Suspense 경계가 필요하다 */}
+      <Suspense fallback={null}>
+        <SajuPage fixedType={type as ReadingType} loggedIn={!!user} />
+      </Suspense>
     </>
   );
 }

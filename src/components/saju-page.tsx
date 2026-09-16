@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, createContext, useContext, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
 import { computeFourPillars, fromKST, type FourPillars, type Pillar } from "@/lib/saju/engine";
@@ -2274,6 +2274,9 @@ interface SavedReadingLike {
   birth_name?: string | null; concern?: string | null;
 }
 
+// 결과 복원용 — 출생정보는 URL 이 아니라 여기에 둔다 (개인정보를 쿼리스트링에 싣지 않는다)
+const RESULT_KEY = 'saju:result-birth';
+
 // ── 폼 기본값 ──
 const FORM_DEFAULTS = {
   name: '', concern: '',
@@ -2291,6 +2294,10 @@ const FORM_DEFAULTS = {
 // ── 메인 페이지 ──
 export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = false, loggedIn = true }: { fixedType?: ReadingType; readingId?: string; publicApi?: boolean; loggedIn?: boolean }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // 결과 화면임을 URL 로 표시한다. 생년월일·이름은 URL 에 넣지 않는다(개인정보) —
+  // 값은 sessionStorage 에 두고 URL 에는 표식만 남겨 뒤로가기·새로고침에서 복원한다.
+  const resultParam = searchParams.get('r');
   const [formStarted, setFormStarted] = useState(false);
   const [form, setForm] = useState(FORM_DEFAULTS);
   const [selectedType, setSelectedType] = useState<ReadingType>(fixedType ?? 'full');
@@ -2422,6 +2429,26 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [result]);
 
+  // URL 의 r 표식에 맞춰 결과/폼을 맞춘다. 뒤로가기로 r 이 사라지면 폼으로 돌아간다.
+  useEffect(() => {
+    if (initialReadingId || publicApi) return;
+    if (!resultParam) { setResult(null); setCachedSections(null); return; }
+    if (result) return;
+    let birth: BirthParams | null = null;
+    try {
+      const raw = sessionStorage.getItem(RESULT_KEY);
+      if (raw) birth = JSON.parse(raw) as BirthParams;
+    } catch { /* ignore */ }
+    if (!birth) { router.replace(`/saju/${fixedType ?? 'full'}`, { scroll: false }); return; }
+    const b = birth;
+    setLoading(true);
+    loadSeolgi()
+      .then(index => setResult(buildUIResult(
+        computeFourPillars(index, fromKST(b.year, b.month, b.day, b.hour, b.minute, b.longitudeE, b.dayBoundaryRule), b.sex), b)))
+      .catch(err => setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`))
+      .finally(() => setLoading(false));
+  }, [resultParam]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const set = (k: string, v: string | boolean) => {
     if (!formStarted) { setFormStarted(true); track('saju_form_start', { type: selectedType }); }
     setForm(f => ({ ...f, [k]: v }));
@@ -2480,14 +2507,19 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
       }),
     }).catch(() => {});
 
+    const birthParams: BirthParams = {
+      year: y, month: m, day: d, hour: h, minute: min, sex: form.sex,
+      longitudeE, dayBoundaryRule: form.dayBoundaryRule, applyHapHwa: form.applyHapHwa,
+      name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
+    };
+    try { sessionStorage.setItem(RESULT_KEY, JSON.stringify(birthParams)); } catch { /* ignore */ }
+
     try {
       const index = await loadSeolgi();
       const fp = computeFourPillars(index, fromKST(y, m, d, h, min, longitudeE, form.dayBoundaryRule), form.sex);
-      setResult(buildUIResult(fp, {
-        year: y, month: m, day: d, hour: h, minute: min, sex: form.sex,
-        longitudeE, dayBoundaryRule: form.dayBoundaryRule, applyHapHwa: form.applyHapHwa,
-        name: form.name.trim() || undefined, concern: form.concern.trim() || undefined,
-      }));
+      setResult(buildUIResult(fp, birthParams));
+      // 히스토리에 결과 상태를 남긴다 — 다른 페이지 갔다 뒤로 오면 결과가 그대로 뜬다.
+      if (fixedType) router.push(`/saju/${fixedType}?r=1`, { scroll: false });
     } catch (err) {
       setError(`계산 오류: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
     } finally { setLoading(false); }
@@ -2549,7 +2581,8 @@ export function SajuPage({ fixedType, readingId: initialReadingId, publicApi = f
           onReset={() => {
             if (publicApi) { router.push('/saju'); return; }
             setResult(null); setCachedSections(null); setEngineChanged(false);
-            if (fixedType && initialReadingId) router.replace(`/saju/${fixedType}`);
+            try { sessionStorage.removeItem(RESULT_KEY); } catch { /* ignore */ }
+            if (fixedType) router.replace(`/saju/${fixedType}`, { scroll: false });
           }}
           onShare={() => { track('saju_share_click', { type: selectedType }); setShowShare(true); }}
           engineChanged={engineChanged}

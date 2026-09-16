@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Nav } from "@/components/nav";
 import { SajuPage } from "@/components/saju-page";
 import type { ReadingType } from "@/components/saju-page";
@@ -21,7 +22,9 @@ export default async function SajuDetailPage({
   return (
     <>
       <Nav />
-      <SajuPage fixedType={type as ReadingType} readingId={id} />
+      <Suspense fallback={null}>
+        <SajuPage fixedType={type as ReadingType} readingId={id} />
+      </Suspense>
     </>
   );
 }
