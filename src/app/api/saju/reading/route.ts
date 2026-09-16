@@ -461,7 +461,7 @@ async function callLLM(
   opts: { tier: 'free' | 'paid'; type: ReadingType; sex: 'male' | 'female'; todayPillar?: { stem: string; branch: string; sipshinStem: string; sipshinBranch: string } },
 ): Promise<string> {
   const { system, user } = buildPrompt(fs, opts);
-  const model   = opts.tier === 'paid' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  const model   = opts.tier === 'paid' ? 'claude-sonnet-5' : 'claude-haiku-4-5-20251001';
   // 프롬프트는 "총 N토큰 이내"로 content 분량을 지시한다. max_tokens는 그보다
   // 작으면 JSON이 닫히기 전에 강제 절단되어 파싱이 깨진다(특히 5섹션 love/career).
   // 한국어는 글자당 토큰이 많으므로 지시 분량 위에 헤드룸을 둔다.

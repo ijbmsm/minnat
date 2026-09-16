@@ -184,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     analysis,
   });
 
-  const model    = tier === 'paid' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  const model    = tier === 'paid' ? 'claude-sonnet-5' : 'claude-haiku-4-5-20251001';
   const maxToks  = tier === 'paid' ? 3200 : 2000;
 
   let raw: string;
