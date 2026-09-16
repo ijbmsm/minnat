@@ -422,13 +422,13 @@ DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이�
 | 파일 | 역할 |
 |---|---|
 | `lib/saju/kst-offset.ts` | 표준시·서머타임 이력 (tzdata Asia/Seoul) → `fromKST()` 가 사용 |
-| `lib/saju/credits.ts` | 크레딧 규칙 한 곳 (계정당 1회 → 日 매일 → 획득 크레딧 → 402) |
+| `lib/saju/credits.ts` | 크레딧 규칙 한 곳 (재열람 무료 → 하루 한 편 → 크레딧 → 402) |
 | `lib/saju/spend.ts` | 월 LLM 호출 킬스위치 |
 | `lib/saju/llm.ts` | Sonnet 5 공통 호출, system cache_control, usage 로그 |
 | `lib/saju/prompt.ts` | 풀이 프롬프트 빌더 (system 불변 / user 가변) |
 | `lib/saju/compat-server.ts`, `invite-server.ts`, `hooks.ts` | 궁합 계산·저장, 초대 로드, 후킹 템플릿 50개 |
 | `lib/saju/reading-public.ts` | 공개 공유 로더 (출생정보 미노출) |
-| `supabase/016~018` | chart 스냅샷·anon 컬럼 제한 / 크레딧 원장·RPC / 초대·compat 리딩 |
+| `supabase/016~019` | chart 스냅샷·anon 컬럼 제한 / 크레딧 원장·RPC / 초대·compat 리딩 / 하루 한 편(`saju_use_daily`) |
 | `scripts/verify-*-kasi.ts`, `saju-qa.ts` | KASI 전수 대조, 통변 QA (`npm run verify:kasi:*`, `qa:saju`) |
 
 ---
