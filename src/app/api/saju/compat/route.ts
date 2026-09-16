@@ -29,6 +29,8 @@ const RequestSchema = z.object({
 // ── 응답 타입 ──
 
 export interface CompatSection {
+  /** 고정 카테고리 라벨 (케미·속도·갈등…). 구버전 저장분에는 없을 수 있다. */
+  label?: string;
   title: string;
   body:  string;
 }

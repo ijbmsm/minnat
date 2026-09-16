@@ -9,6 +9,7 @@ import { buildFactSheet, FACTSHEET_VERSION } from '@/lib/saju/factsheet';
 import { compareCharts, buildCompatPrompt, type CompatAnalysis, type CompatRelation } from '@/lib/saju/compat';
 import { STEM_DATA } from '@/lib/saju/constants';
 import type { FourPillars } from '@/lib/saju/engine';
+import { parseJsonArrayLoose } from '@/lib/saju/json-repair';
 
 export const PersonSchema = z.object({
   year:           z.number().int().min(1880).max(2100),
@@ -24,7 +25,7 @@ export const PersonSchema = z.object({
 
 export const RelationSchema = z.enum(['lover', 'friend', 'coworker', 'family']).default('lover');
 
-export const COMPAT_MAX_TOKENS = 3200;
+export const COMPAT_MAX_TOKENS = 4400;
 
 /** 초대 토큰 — 12자 base62. */
 export function newInviteToken(): string {
@@ -52,7 +53,7 @@ export interface CompatComputed {
   user: string;
 }
 
-export const COMPAT_PROMPT_VERSION = '1.1';
+export const COMPAT_PROMPT_VERSION = '1.2';
 
 export function computeCompat(personA: CompatPerson, personB: CompatPerson, relation: CompatRelation, tier: 'free' | 'paid' = 'free'): CompatComputed {
   const fpA = calcSajuServer(personA.year, personA.month, personA.day, personA.hour, personA.sex, personA.longitudeE, personA.minute, personA.dayBoundaryRule);
@@ -90,7 +91,7 @@ export interface CompatPartner {
   relation: CompatRelation;
 }
 
-export interface CompatSectionLike { title: string; body: string }
+export interface CompatSectionLike { label?: string; title: string; body: string }
 
 /**
  * 한 사람 관점의 궁합 리딩 저장. self 가 주체, partner 가 상대.
@@ -137,19 +138,14 @@ export async function saveCompatReading(args: {
 }
 
 export function parseCompatSections(raw: string): CompatSectionLike[] {
-  let cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
-  const start = cleaned.indexOf('[');
-  if (start >= 0) cleaned = cleaned.slice(start);
-  interface RawSection { title?: string | number | null; body?: string | number | null }
-  let parsed: RawSection[];
-  try { parsed = JSON.parse(cleaned) as RawSection[]; }
-  catch {
-    const lastClose = cleaned.lastIndexOf('}');
-    parsed = lastClose >= 0 ? JSON.parse(cleaned.slice(0, lastClose + 1) + ']') as RawSection[] : [];
-  }
+  interface RawSection { label?: string | number | null; title?: string | number | null; body?: string | number | null }
+  const parsed = parseJsonArrayLoose<RawSection>(raw);
   if (!Array.isArray(parsed)) throw new Error('LLM 응답이 배열이 아님');
   const out = parsed
-    .map(s => ({ title: String(s?.title ?? ''), body: String(s?.body ?? '') }))
+    .map(s => {
+      const label = String(s?.label ?? '').replace(/^\[|\]$/g, '').trim();
+      return { ...(label ? { label } : {}), title: String(s?.title ?? ''), body: String(s?.body ?? '') };
+    })
     .filter(s => s.title || s.body);
   if (out.length === 0) throw new Error('파싱된 섹션 없음');
   return out;

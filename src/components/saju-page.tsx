@@ -13,7 +13,7 @@ import type { Element, Stem, Branch } from "@/lib/saju/constants";
 import type { ReadingSection, ReadingResponse } from "@/app/api/saju/reading/route";
 import { lunarToSolar } from "@/lib/saju/lunar";
 import { analyzeAdvanced, findRoots, JIJANGGAN, type AdvancedAnalysis } from "@/lib/saju/advanced";
-import { SECTION_TITLES } from "@/lib/saju/sections";
+import { SECTION_TITLES, SECTION_SUBTITLES } from "@/lib/saju/sections";
 import type { SajuHistoryItem } from "@/app/api/saju/history/route";
 import type { SavedReading } from "@/app/api/saju/readings/[id]/route";
 import { track } from "@/lib/analytics";
@@ -504,11 +504,12 @@ const POS_LABEL = { jeongi: '정기', junggi: '중기', yeogi: '여기' } as con
 type ReadingType = 'full' | 'today' | 'love' | 'career';
 
 // ── AI 해석 컴포넌트 ──
-function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }: {
+function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId, onShare }: {
   birth: BirthParams | null;
   initialType?: ReadingType;
   cachedSections?: ReadingSection[] | null;
   onReadingId?: (id: string) => void;
+  onShare?: () => void;
 }) {
   const [reading, setReading] = useState<ReadingResponse | null>(
     cachedSections ? { cacheKey: '', cached: true, sections: cachedSections, tier: 'free', cautions: [] } : null
@@ -563,7 +564,7 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
   return (
     <div>
       {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '60px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '48px 0 40px' }}>
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
@@ -573,8 +574,23 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
               borderTopColor: INK.gold,
             }}
           />
-          <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO, letterSpacing: 1 }}>해석 중</span>
-          {slow && <span style={{ fontSize: 11.5, color: INK.ink28, fontFamily: SERIF }}>조금 더 걸리고 있습니다. 원국이 복잡할수록 오래 걸립니다.</span>}
+          <span style={{ fontSize: 12, color: INK.ink45, fontFamily: MONO, letterSpacing: 1 }}>
+            {SECTION_TITLES[initialType].length}편을 쓰는 중
+          </span>
+          {/* 뭘 기다리는지 모르는 게 로딩을 길게 만든다 — 나올 목록을 미리 보여준다 */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', maxWidth: 420 }}>
+            {SECTION_TITLES[initialType].map((t, i) => (
+              <span key={i} style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink28,
+                border: `1px solid ${INK.hair}`, borderRadius: 20, padding: '4px 10px' }}>
+                {t}
+              </span>
+            ))}
+          </div>
+          <span style={{ fontSize: 11.5, color: INK.ink28, fontFamily: SERIF, textAlign: 'center', lineHeight: 1.6 }}>
+            {slow
+              ? '조금 더 걸리고 있습니다. 원국이 복잡할수록 오래 걸립니다.'
+              : '보통 20~40초 걸립니다. 창을 닫지 마세요.'}
+          </span>
         </div>
       )}
       {creditZero && !loading && (
@@ -601,27 +617,143 @@ function ReadingTab({ birth, initialType = 'full', cachedSections, onReadingId }
           )}
           {initialType === 'today'
             ? <TodayCards sections={reading.sections} todayPillar={reading.todayPillar} streak={reading.credit?.streak} streakReward={reading.credit?.streakReward} />
-            : reading.sections.map((s: ReadingSection, i: number) => (
-            <div key={i} style={{ padding: 20, borderRadius: 8,
-              background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
-              <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO,
-                textTransform: 'uppercase', marginBottom: 8 }}>{s.title}</p>
-              <p style={{ fontSize: 14, color: '#2a2218', lineHeight: 1.85, whiteSpace: 'pre-wrap', margin: 0 }}>{s.body}</p>
+            : <>
+                {birth?.concern && <ConcernNote concern={birth.concern} />}
+                <ReadingToc sections={reading.sections} />
+                {reading.sections.map((s: ReadingSection, i: number) => (
+                  <ReadingSectionCard key={i} section={s} index={i} />
+                ))}
+              </>}
+          {birth && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {initialType !== 'today' && reading.sections.length > 3 && (
+                <button onClick={() => document.getElementById('saju-sec-0')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
+                    borderRadius: 4, padding: '9px 18px', cursor: 'pointer', fontFamily: MONO, fontSize: 12, letterSpacing: 1 }}>
+                  ↑ 처음으로
+                </button>
+              )}
+              {onShare && (
+                <button onClick={onShare}
+                  style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
+                    borderRadius: 4, padding: '9px 18px', cursor: 'pointer', fontFamily: MONO, fontSize: 12, letterSpacing: 1 }}>
+                  카드 공유
+                </button>
+              )}
+              <button onClick={() => load(true)}
+                style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
+                  borderRadius: 4, padding: '9px 18px', cursor: 'pointer', fontFamily: MONO, fontSize: 12,
+                  letterSpacing: 1 }}>
+                ↻ 다시 풀이받기
+              </button>
             </div>
-          ))}
-          {birth && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <button onClick={() => load(true)}
-              style={{ border: `1px solid ${INK.cardLine}`, background: 'transparent', color: INK.ink45,
-                borderRadius: 4, padding: '9px 22px', cursor: 'pointer', fontFamily: MONO, fontSize: 12,
-                letterSpacing: 1 }}>
-              ↻ 다시 풀이받기
-            </button>
-            <span style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO }}>
+            <span style={{ fontSize: 10, color: INK.ink45, fontFamily: MONO, textAlign: 'center', lineHeight: 1.6 }}>
               사주 원국은 같지만 해석 표현이 새로 생성됩니다 (크레딧 1개 소모)
             </span>
           </div>}
         </motion.div>
       )}
+    </div>
+  );
+}
+
+// ── 풀이 본문 ──
+// 사용자가 "지금 뭘 읽고 있는지" 를 모르는 게 가장 큰 불친절이었다.
+// 번호 · 고정 라벨 · 후킹 제목을 분리해 스캔이 되게 하고, 위에 목차를 둔다.
+
+/** "색: 검정 · 숫자: 1, 6 · 방향: 북쪽 · 오늘 할 것: …" 한 줄을 칩으로 떼어낸다. */
+function splitRemedy(body: string): { text: string; remedy: string[] | null } {
+  const lines = body.split('\n');
+  const idx = lines.findIndex(l => /^\s*["']?색\s*:/.test(l));
+  if (idx < 0) return { text: body, remedy: null };
+  const remedy = lines[idx]
+    .replace(/^\s*["']|["']\s*$/g, '')
+    .split('·')
+    .map(t => t.trim())
+    .filter(Boolean);
+  const text = lines.slice(0, idx).join('\n').trimEnd();
+  return { text, remedy: remedy.length ? remedy : null };
+}
+
+function ReadingSectionCard({ section, index }: { section: ReadingSection; index: number }) {
+  const { m } = useContext(SajuUICtx);
+  const { text, remedy } = splitRemedy(section.body);
+  const paras = text.split(/\n{2,}/).map(t => t.trim()).filter(Boolean);
+  return (
+    <section id={`saju-sec-${index}`}
+      style={{ scrollMarginTop: m ? 84 : 108, padding: m ? '20px 18px' : '26px 28px', borderRadius: 10,
+        background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 7 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'rgba(150,120,60,0.8)' }}>
+          {String(index + 1).padStart(2, '0')}
+        </span>
+        {section.label && (
+          <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: 2, color: 'rgba(120,100,60,0.72)' }}>
+            {section.label}
+          </span>
+        )}
+      </div>
+      <h3 style={{ margin: 0, fontFamily: SERIF, fontSize: m ? 17 : 19, fontWeight: 600,
+        color: '#241d14', lineHeight: 1.45, letterSpacing: -0.2 }}>
+        {section.title}
+      </h3>
+      <div style={{ height: 1, background: 'rgba(180,165,130,0.26)', margin: '14px 0 14px' }} />
+      {paras.map((para, k) => (
+        <p key={k} style={{ fontSize: m ? 14.5 : 14, color: '#2a2218', lineHeight: 1.9,
+          whiteSpace: 'pre-wrap', margin: k === paras.length - 1 ? 0 : '0 0 13px' }}>
+          {para}
+        </p>
+      ))}
+      {remedy && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+          {remedy.map((r, k) => (
+            <span key={k} style={{ fontFamily: MONO, fontSize: 11.5, lineHeight: 1.5,
+              color: 'rgba(90,72,36,0.95)', background: 'rgba(194,163,91,0.16)',
+              border: '1px solid rgba(180,150,80,0.32)', borderRadius: 20, padding: '5px 12px' }}>
+              {r}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** 목차 — 길어진 풀이를 훑고 원하는 데로 바로 갈 수 있게. */
+function ReadingToc({ sections }: { sections: ReadingSection[] }) {
+  const { m } = useContext(SajuUICtx);
+  if (sections.length < 4) return null;
+  return (
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
+      {sections.map((s, i) => (
+        <button key={i}
+          onClick={() => document.getElementById(`saju-sec-${i}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          style={{ flex: '0 0 auto', cursor: 'pointer', whiteSpace: 'nowrap',
+            fontFamily: MONO, fontSize: m ? 11.5 : 11, letterSpacing: 0.5, color: INK.ink45,
+            border: `1px solid ${INK.cardLine}`, background: INK.card,
+            borderRadius: 20, padding: '6px 12px' }}>
+          <span style={{ color: INK.ink28, marginRight: 6 }}>{String(i + 1).padStart(2, '0')}</span>
+          {s.label || s.title}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 입력한 고민을 되돌려준다 — "내가 쓴 걸 보고 풀었구나" 가 보여야 신뢰가 생긴다. */
+function ConcernNote({ concern }: { concern: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 14px',
+      borderRadius: 10, border: `1px solid ${INK.cardLine}`, background: INK.card }}>
+      <span style={{ fontFamily: SERIF, fontSize: 15, color: INK.gold, lineHeight: 1.3 }}>問</span>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 2, color: INK.ink28 }}>
+          적어주신 고민을 반영했습니다
+        </span>
+        <span style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink70, lineHeight: 1.6 }}>
+          &ldquo;{concern}&rdquo;
+        </span>
+      </span>
     </div>
   );
 }
@@ -652,10 +784,19 @@ function TodayCards({ sections, todayPillar, streak, streakReward }: {
       <div style={{ display: 'grid', gridTemplateColumns: m ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
         {sections.slice(0, 3).map((sec, i) => (
           <div key={i} style={{ padding: m ? 16 : 18, borderRadius: 10, background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, margin: 0 }}>{sec.title}</p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 2, fontFamily: MONO, margin: 0 }}>
+                  {sec.label ?? ['에너지', '집중', '주의'][i]}
+                </p>
+                {/* title 은 이제 라벨이 아니라 오늘을 한 줄로 찌르는 문장이다 */}
+                <p style={{ fontSize: m ? 15 : 14.5, fontWeight: 600, fontFamily: SERIF, color: '#241d14',
+                  margin: '3px 0 0', lineHeight: 1.4 }}>
+                  {sec.title}
+                </p>
+              </div>
               {i === 0 && energy !== null && (
-                <span style={{ display: 'flex', gap: 3 }} aria-label={`에너지 ${energy}/5`}>
+                <span style={{ display: 'flex', gap: 3, flexShrink: 0, marginTop: 4 }} aria-label={`에너지 ${energy}/5`}>
                   {[1,2,3,4,5].map(n => <span key={n} style={{ width: 8, height: 8, borderRadius: 4, background: n <= energy ? '#c2a35b' : 'rgba(120,100,60,0.18)' }} />)}
                 </span>
               )}
@@ -842,7 +983,10 @@ function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, filter: 'blur(2px)', opacity: 0.3, pointerEvents: 'none' }} aria-hidden>
         {titles.slice(0, 3).map((t, i) => (
           <div key={i} style={{ padding: 14, borderRadius: 8, background: 'rgba(250,248,243,0.93)' }}>
-            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, margin: 0 }}>{t}</p>
+            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 2, fontFamily: MONO, margin: '0 0 4px' }}>{t}</p>
+            <p style={{ fontSize: 14, fontWeight: 600, fontFamily: SERIF, color: '#241d14', margin: 0 }}>
+              {SECTION_SUBTITLES[type][i] ?? ''}
+            </p>
           </div>
         ))}
       </div>
@@ -892,7 +1036,12 @@ function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void
         aria-hidden>
         {titles.map((t, i) => (
           <div key={i} style={{ padding: 18, borderRadius: 8, background: 'rgba(250,248,243,0.93)', border: '1px solid rgba(180,165,130,0.18)' }}>
-            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 3, fontFamily: MONO, textTransform: 'uppercase', marginBottom: 10 }}>{t}</p>
+            <p style={{ fontSize: 10, color: 'rgba(120,100,60,0.7)', letterSpacing: 2, fontFamily: MONO, margin: '0 0 4px' }}>
+              {String(i + 1).padStart(2, '0')}  {t}
+            </p>
+            <p style={{ fontSize: 15, fontWeight: 600, fontFamily: SERIF, color: '#241d14', margin: '0 0 12px' }}>
+              {SECTION_SUBTITLES[type][i] ?? ''}
+            </p>
             <div style={{ minHeight: minBody, display: 'flex', flexDirection: 'column', gap: 9 }}>
               {Array.from({ length: bodyLines }).map((_, k) => (
                 <span key={k} style={{ display: 'block', height: 11, borderRadius: 3,
@@ -2223,7 +2372,7 @@ function ResultView({ result, defaultType = 'full', cachedSections, onReadingId,
                 {!loggedIn && result.birth
                   ? <PreviewGate type={defaultType ?? 'full'} onLogin={() => onLogin?.()} />
                   : <ReadingTab birth={result.birth} initialType={defaultType ?? 'full'}
-                      cachedSections={cachedSections} onReadingId={onReadingId} />}
+                      cachedSections={cachedSections} onReadingId={onReadingId} onShare={onShare} />}
                 {loggedIn && result.birth && <NextReadings type={defaultType ?? 'full'} />}
               </Panel>
             </div>

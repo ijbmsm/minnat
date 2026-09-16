@@ -22,7 +22,7 @@ function makeSeyunPillar(year: number): Pillar {
 }
 
 // ── 버전 (캐시 키 일부) ──
-export const FACTSHEET_VERSION = '2.1.0';
+export const FACTSHEET_VERSION = '2.2.0';
 
 // ── 신살 테이블 ──
 

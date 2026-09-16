@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { callSajuLLM } from '@/lib/saju/llm';
 import { cacheGet, cacheSet, cacheDel, rateLimitOk } from '@/lib/saju/cache';
 import { buildPrompt, TOKEN_BUDGET, type ReadingType } from '@/lib/saju/prompt';
+import { parseJsonArrayLoose } from '@/lib/saju/json-repair';
 import { chargeForReading, refundCredit, maybeRewardReferrer, type ChargeVia } from '@/lib/saju/credits';
 import { reserveLLMCall, releaseLLMCall, MonthlyCapError } from '@/lib/saju/spend';
 
@@ -45,6 +46,9 @@ const RequestSchema = z.object({
 // ── 응답 타입 ──
 
 export interface ReadingSection {
+  /** 고정 카테고리 라벨 (총평·기질·오행…). 구버전 저장분에는 없을 수 있다. */
+  label?: string;
+  /** 이 사람 원국에서 나온 후킹 한 줄 */
   title: string;
   body:  string;
 }
@@ -87,7 +91,7 @@ async function callLLM(
   // 프롬프트는 "총 N토큰 이내"로 content 분량을 지시한다. max_tokens는 그보다
   // 작으면 JSON이 닫히기 전에 강제 절단되어 파싱이 깨진다(특히 5섹션 love/career).
   // 한국어는 글자당 토큰이 많으므로 지시 분량 위에 헤드룸을 둔다.
-  const maxToks = Math.round(TOKEN_BUDGET[opts.type][opts.tier] * 1.3);
+  const maxToks = Math.round(TOKEN_BUDGET[opts.type][opts.tier] * 1.45);
   const { text } = await callSajuLLM({ label: `reading:${opts.type}`, system, user, maxTokens: maxToks });
   return text;
 }
@@ -95,49 +99,27 @@ async function callLLM(
 // ── JSON 파싱 헬퍼 ──
 
 /** LLM 이 준 섹션 원형 — 필드가 문자열이 아닐 수 있어 String() 으로 정규화한다 */
-interface RawSection { title?: string | number | null; body?: string | number | null }
+interface RawSection { label?: string | number | null; title?: string | number | null; body?: string | number | null }
 
 function parsesections(raw: string): ReadingSection[] {
-  // 1) markdown 코드블록 제거
-  let cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
-
-  // 2) LLM이 앞뒤에 설명 텍스트를 붙인 경우 — JSON 배열만 추출.
-  //    응답이 절단되면 닫는 ']'가 없을 수 있으므로 '['부터 끝까지 취한다.
-  const start = cleaned.indexOf('[');
-  if (start >= 0) cleaned = cleaned.slice(start);
-
-  let parsed: RawSection[] | null;
-  try {
-    parsed = JSON.parse(cleaned) as RawSection[];
-  } catch {
-    // 3) 절단된 JSON 배열 복구 — max_tokens 초과로 중간에 끊긴 경우,
-    //    완전하게 닫힌 객체들만 살려서 최소한의 섹션이라도 반환한다.
-    parsed = salvageTruncatedArray(cleaned);
-  }
+  // 코드블록 제거 → 본문 속 날 줄바꿈 이스케이프 → 절단 복구까지 한 번에.
+  // (본문이 여러 문단이라 모델이 문자열 안에 진짜 줄바꿈을 써서 보내는 일이 잦다)
+  const parsed = parseJsonArrayLoose<RawSection>(raw);
 
   if (!Array.isArray(parsed)) throw new Error('LLM이 배열을 반환하지 않음');
   const sections = parsed
-    .map((s: RawSection) => ({
-      title: String(s?.title ?? ''),
-      body:  String(s?.body  ?? ''),
-    }))
+    .map((s: RawSection) => {
+      // label 은 선택 필드다. LLM 이 대괄호를 떼지 않고 보내는 경우가 있어 벗겨둔다.
+      const label = String(s?.label ?? '').replace(/^\[|\]$/g, '').trim();
+      return {
+        ...(label ? { label } : {}),
+        title: String(s?.title ?? ''),
+        body:  String(s?.body  ?? ''),
+      };
+    })
     .filter(s => s.title || s.body);
   if (sections.length === 0) throw new Error('파싱된 섹션 없음');
   return sections;
-}
-
-// 절단된 JSON 배열에서 완결된 객체만 추출. 마지막 닫힌 '}' 이후를 잘라
-// 배열을 강제로 닫은 뒤 재파싱한다. 실패 시 빈 배열.
-function salvageTruncatedArray(s: string): RawSection[] {
-  const lastClose = s.lastIndexOf('}');
-  if (lastClose < 0) return [];
-  const repaired = s.slice(0, lastClose + 1) + ']';
-  try {
-    const arr = JSON.parse(repaired) as RawSection[];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
 }
 
 // ── Route Handler ──

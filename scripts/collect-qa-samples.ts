@@ -10,6 +10,7 @@ import { calcSajuServer } from '../src/lib/saju/server';
 import { buildFactSheet } from '../src/lib/saju/factsheet';
 import { buildPrompt, TOKEN_BUDGET, type ReadingType } from '../src/lib/saju/prompt';
 import { callSajuLLM } from '../src/lib/saju/llm';
+import { parseJsonArrayLoose } from '../src/lib/saju/json-repair';
 import { loadEnvLocal } from './kasi';
 
 loadEnvLocal();
@@ -28,11 +29,12 @@ const CHARTS: { year: number; month: number; day: number; hour: number | null; s
   { year: 1990, month: 6,  day: 18, hour: 18,   sex: 'male' },
 ];
 
-function parseSections(raw: string): { title: string; body: string }[] {
-  let cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
-  const start = cleaned.indexOf('['); if (start >= 0) cleaned = cleaned.slice(start);
-  const parsed = JSON.parse(cleaned) as Array<{ title?: string | number | null; body?: string | number | null }>;
-  return parsed.map(s => ({ title: String(s.title ?? ''), body: String(s.body ?? '') }));
+function parseSections(raw: string): { label?: string; title: string; body: string }[] {
+  const parsed = parseJsonArrayLoose<{ label?: string | number | null; title?: string | number | null; body?: string | number | null }>(raw);
+  return parsed.map(s => {
+    const label = String(s.label ?? '').replace(/^\[|\]$/g, '').trim();
+    return { ...(label ? { label } : {}), title: String(s.title ?? ''), body: String(s.body ?? '') };
+  });
 }
 
 async function main(): Promise<void> {
@@ -47,7 +49,7 @@ async function main(): Promise<void> {
       const fp = calcSajuServer(c.year, c.month, c.day, c.hour, c.sex, 127.0, 0, 'midnight');
       const fs = buildFactSheet(fp, 'free', type);
       const { system, user } = buildPrompt(fs, { tier: 'free', type, sex: c.sex });
-      const { text } = await callSajuLLM({ label: `qa:${type}`, system, user, maxTokens: Math.round(TOKEN_BUDGET[type].free * 1.3) });
+      const { text } = await callSajuLLM({ label: `qa:${type}`, system, user, maxTokens: Math.round(TOKEN_BUDGET[type].free * 1.45) });
       const sections = parseSections(text);
       const name = `${type}-${c.year}${String(c.month).padStart(2,'0')}${String(c.day).padStart(2,'0')}-${c.hour ?? 'x'}-${c.sex}.json`;
       writeFileSync(join(outDir, name), JSON.stringify({ type, birth: { ...c, minute: 0, longitudeE: 127.0 }, sections }, null, 2));

@@ -10,7 +10,7 @@ import { compareCharts, RELATION_LABEL, type CompatAnalysis, type CompatRelation
 import { buildSeolgiIndex, type SeolgiIndex, type SeolgiRow } from "@/lib/saju/seolgi-loader";
 import { computeFourPillars, fromKST, type FourPillars } from "@/lib/saju/engine";
 import { analyzeAdvanced } from "@/lib/saju/advanced";
-import { COMPAT_SECTION_TITLES } from "@/lib/saju/sections";
+import { COMPAT_SECTION_TITLES, COMPAT_SECTION_SUBTITLES } from "@/lib/saju/sections";
 import { track } from "@/lib/analytics";
 
 // ── 절기 인덱스 (클라이언트, 1회 로드) ──
@@ -138,7 +138,7 @@ function PersonInput({
 }
 
 // ── 궁합 점수 게이지 ──
-function CompatScoreBar({ score, level }: { score: number; level: string }) {
+function CompatScoreBar({ score, level, headline }: { score: number; level: string; headline?: string }) {
   const color =
     score >= 80 ? '#c2a35b' :
     score >= 65 ? '#7e9a6f' :
@@ -158,6 +158,13 @@ function CompatScoreBar({ score, level }: { score: number; level: string }) {
         border: `1px solid ${color}`, color, fontFamily: MONO, fontSize: 12, letterSpacing: 1 }}>
         {level}
       </div>
+      {/* 숫자만 있으면 무슨 뜻인지 모른다 — 관계를 한 줄로 정의해 붙인다 */}
+      {headline && (
+        <p style={{ margin: '14px auto 0', maxWidth: 340, padding: '0 16px', fontFamily: SERIF,
+          fontSize: 15, fontWeight: 600, color: INK.ink, lineHeight: 1.55 }}>
+          {headline}
+        </p>
+      )}
 
       {/* 진행 바 */}
       <div style={{ margin: '16px auto 0', maxWidth: 280, height: 4, borderRadius: 2, background: INK.cardLine, overflow: 'hidden' }}>
@@ -190,7 +197,7 @@ function SummaryChips({ summary }: { summary: string[] }) {
 }
 
 // ── 섹션 카드 ──
-function SectionCard({ section }: { section: CompatSection }) {
+function SectionCard({ section, index }: { section: CompatSection; index?: number }) {
   const [open, setOpen] = useState(true);
   return (
     <div
@@ -201,10 +208,18 @@ function SectionCard({ section }: { section: CompatSection }) {
         style={{ width: '100%', textAlign: 'left', padding: '14px 18px', background: 'transparent',
           border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
       >
-        <span style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 500, color: INK.ink70 }}>
-          {section.title}
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, paddingRight: 10 }}>
+          {(section.label || index !== undefined) && (
+            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 2, color: INK.ink28 }}>
+              {index !== undefined ? String(index + 1).padStart(2, '0') : ''}
+              {section.label ? `  ${section.label}` : ''}
+            </span>
+          )}
+          <span style={{ fontFamily: SERIF, fontSize: 15, fontWeight: 600, color: INK.ink, lineHeight: 1.45 }}>
+            {section.title}
+          </span>
         </span>
-        <span style={{ color: INK.ink28, fontSize: 12, fontFamily: MONO }}>{open ? '▲' : '▼'}</span>
+        <span style={{ color: INK.ink28, fontSize: 12, fontFamily: MONO, flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -259,7 +274,12 @@ function CompatPreviewGate({ onLogin }: { onLogin: () => void }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, filter: 'blur(3px)', opacity: 0.5, pointerEvents: 'none' }} aria-hidden>
         {COMPAT_SECTION_TITLES.map((t, i) => (
           <div key={i} style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 10, background: INK.card, padding: '14px 18px' }}>
-            <span style={{ fontFamily: SERIF, fontSize: 14, fontWeight: 500, color: INK.ink70 }}>{t}</span>
+            <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 2, color: INK.ink28 }}>
+              {String(i + 1).padStart(2, '0')}  {t}
+            </span>
+            <p style={{ margin: '4px 0 0', fontFamily: SERIF, fontSize: 14.5, fontWeight: 600, color: INK.ink }}>
+              {COMPAT_SECTION_SUBTITLES[i]}
+            </p>
             <p style={{ margin: '10px 0 0', fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.8, color: INK.ink45 }}>
               두 사람의 일간·일지·십신 관계를 근거로 어떤 상황에서 끌리고 부딪히는지 구체적으로 써준다.
             </p>
@@ -271,7 +291,7 @@ function CompatPreviewGate({ onLogin }: { onLogin: () => void }) {
           background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
           <p style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink, margin: 0 }}>끌리는 이유, 부딪히는 이유</p>
           <p style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink45, margin: '8px 0 16px', lineHeight: 1.6 }}>
-            점수와 관계 분석은 위에 그대로 보실 수 있습니다. 풀이 4편은 로그인 후 하루 한 편.
+            점수와 관계 분석은 위에 그대로 보실 수 있습니다. 풀이 {COMPAT_SECTION_TITLES.length}편은 로그인 후 하루 한 편.
           </p>
           <button onClick={onLogin}
             style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -621,7 +641,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
 
               {/* 점수 */}
               <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 12, background: INK.card }}>
-                <CompatScoreBar score={analysis.score} level={analysis.level} />
+                <CompatScoreBar score={analysis.score} level={analysis.level} headline={result?.sections?.[0]?.title} />
               </div>
 
               {/* 분석 요약 */}
@@ -630,7 +650,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
 
               {/* AI 섹션 — 로그인 전엔 게이트, 로그인 후 로딩 중엔 스피너 */}
               {result
-                ? result.sections.map((s, i) => <SectionCard key={i} section={s} />)
+                ? result.sections.map((s, i) => <SectionCard key={i} section={s} index={i} />)
                 : loggedIn
                   ? <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 12, color: INK.ink45, padding: '20px 0' }}>{loading ? '풀이 중…' : (error ?? '')}</p>
                   : <CompatPreviewGate onLogin={handleLogin} />}
