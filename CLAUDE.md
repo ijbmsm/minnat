@@ -1,5 +1,9 @@
 # 술자리 (drinkplace) — 프로젝트 가이드
 
+> 📍 **현재 진행 상태는 [`STATUS.md`](./STATUS.md) 가 기준입니다.**
+> `plan.md` · `plan-v1.1.md` · `SAJU_BUILD_PLAN.md` 는 실제 코드보다 뒤처져 있습니다.
+> DB 복구가 필요하면 [`supabase/README.md`](./supabase/README.md) 의 런북을 따르세요.
+
 > "우리는 점수 매기지 않는다. 사회·제도의 반응을 측정만 한다."
 
 ## 프로젝트 구조
