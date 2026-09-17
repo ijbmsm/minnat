@@ -90,6 +90,11 @@ export default function RootLayout({
       lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} ${notoSerifKR.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Pretendard 동적 서브셋 — 92개 조각에 unicode-range 가 걸려 있어
+            브라우저가 실제로 쓰는 글자 범위만 받아간다 (보통 50~120KB). self-host. */}
+        <link rel="stylesheet" href="/fonts/pretendard/pretendard.css" />
+      </head>
       <body className="min-h-full bg-[#0a0a0c] text-white">
         <OrganizationJsonLd />
         <WebsiteJsonLd />

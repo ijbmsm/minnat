@@ -25,7 +25,7 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: "Pretendard Variable", var(--font-geist-sans), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 

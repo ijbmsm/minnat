@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      {
+        // Pretendard 서브셋은 파일명이 버전에 묶여 있어 내용이 바뀌지 않는다
+        source: "/fonts/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
 };
