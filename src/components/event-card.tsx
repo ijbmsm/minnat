@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { IssueEvent } from "@/types";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import { calculateEventScore } from "@/lib/score";
+import { stripLeadingActor } from "@/lib/actor-name";
 
 interface EventCardProps {
   event: IssueEvent;
@@ -57,7 +58,7 @@ export function EventCard({ event, size }: EventCardProps) {
           {event.actor_name && (
             <span className="mr-1.5 text-white/75">{event.actor_name}</span>
           )}
-          {event.summary || "사건 요약 없음"}
+          {stripLeadingActor(event.summary ?? "", event.actor_name) || "사건 요약 없음"}
         </h3>
 
         {/* 하단: 메트릭 + 점수 */}
@@ -106,7 +107,7 @@ export function EventCard({ event, size }: EventCardProps) {
               {event.actor_name && (
                 <span className="text-white/75">{event.actor_name} — </span>
               )}
-              {event.summary || "사건 요약 없음"}
+              {stripLeadingActor(event.summary ?? "", event.actor_name) || "사건 요약 없음"}
             </p>
           </div>
           {isScored && score > 0 && (
@@ -133,7 +134,7 @@ export function EventCard({ event, size }: EventCardProps) {
         {event.actor_name && (
           <span className="text-white/75">{event.actor_name} — </span>
         )}
-        {event.summary || event.category}
+        {stripLeadingActor(event.summary ?? "", event.actor_name) || event.category}
       </span>
       <span className="shrink-0 text-[10px] text-white/75">{config?.label}</span>
     </Link>
