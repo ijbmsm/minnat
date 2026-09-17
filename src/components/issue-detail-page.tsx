@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Nav } from "./nav";
 import { CreditSection } from "./credit-section";
 import { NetScoreToggle } from "./net-score-toggle";
-import type { Issue, IssueEvent, CreditEvent } from "@/types";
+import type { Issue, IssueEvent, CreditEvent, Camp } from "@/types";
 import { CATEGORY_MAP, CAMP_COLORS, SOURCE_TIER_LABEL, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
-import { calculateIssueScore, calculateEventScore, calculateNetEventScore } from "@/lib/score";
+import { calculateIssueScore, calculateNetEventScore } from "@/lib/score";
+import { splitParagraphs } from "@/lib/paragraphs";
 
 interface IssueDetailPageProps {
   issue: Issue;
@@ -17,13 +17,222 @@ interface IssueDetailPageProps {
   similarCasesSlot?: ReactNode;
 }
 
-const EASE = [0.32, 0.72, 0, 1] as const;
+/**
+ * 진영 토큰 — 스코어보드용 CAMP_COLORS 는 채도가 높아 본문 위 텍스트에 쓰면 눈이 아프다.
+ * 상세 페이지는 읽는 화면이라 점/텍스트/배경/테두리를 따로 둔다.
+ */
+const CAMP_TOKENS: Record<Camp, { dot: string; text: string; bg: string; border: string }> = {
+  blue: { dot: "#3b82f6", text: "#7aa7ff", bg: "rgba(59,130,246,.12)", border: "rgba(59,130,246,.28)" },
+  red:  { dot: "#ef4444", text: "#ff8a8a", bg: "rgba(239,68,68,.12)",  border: "rgba(239,68,68,.28)"  },
+};
+
+// ── 공통 조각 ──
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <p className="mb-5 text-[11px] font-bold tracking-[0.14em] text-[#6f6f6f]">{children}</p>;
+}
+
+function Chip({ children, color, bg, border }: { children: ReactNode; color: string; bg: string; border: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-[11px] py-[5px] text-xs font-semibold"
+      style={{ color, backgroundColor: bg, border: `1px solid ${border}` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Metric({ value, unit, label, color }: { value: string; unit?: string; label: string; color?: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-[26px] font-bold tracking-[-0.02em] tabular-nums" style={{ color: color ?? "#ffffff" }}>
+          {value}
+        </span>
+        {unit && <span className="text-[13px] font-medium text-[#8a8a8a]">{unit}</span>}
+      </div>
+      <p className="mt-[5px] text-xs text-[#6f6f6f]">{label}</p>
+    </div>
+  );
+}
+
+const shortDate = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}.${String(d.getDate()).padStart(2, "0")}`;
+};
+
+/**
+ * 이슈 라인 타임라인.
+ * 기사 한 건의 요약만으로는 "이 사건이 어떤 흐름의 일부인지" 가 안 보인다.
+ * 같은 사건으로 묶인 보도(member_issues)를 시간순 노드로 세워 흐름을 만든다.
+ */
+function IssueLine({ event, currentId }: { event: IssueEvent; currentId: string }) {
+  const nodes = [...(event.member_issues ?? [])].sort(
+    (a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime(),
+  );
+  if (nodes.length < 2) return null;
+
+  const currentIndex = nodes.findIndex((n) => n.id === currentId);
+
+  return (
+    <section className="pt-16">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <SectionLabel>이슈 라인</SectionLabel>
+          <h2 className="m-0 text-[22px] font-bold tracking-[-0.01em] text-white">
+            {event.actor_name ? `${event.actor_name} · ` : ""}
+            {CATEGORY_MAP[event.category]?.label ?? "관련 보도"}
+          </h2>
+        </div>
+        <span className="text-[13px] text-[#7d7d7d]">
+          전체 {nodes.length}건
+          {currentIndex >= 0 && ` · 이 기사는 ${currentIndex + 1}번째`}
+        </span>
+      </div>
+
+      <ol className="relative mt-8 list-none pl-[34px]">
+        <span aria-hidden className="absolute left-[6px] top-[14px] bottom-[24px] w-[2px] bg-[#232323]" />
+        {nodes.map((n) => {
+          const isCurrent = n.id === currentId;
+          const camp = CAMP_TOKENS[n.camp];
+          const body = (
+            <>
+              <div className="mb-2 flex flex-wrap items-center gap-2.5">
+                <span className="text-xs font-semibold tabular-nums text-[#8a8a8a]">{shortDate(n.published_at)}</span>
+                <span aria-hidden className="h-[3px] w-[3px] rounded-full bg-[#3a3a3a]" />
+                <span className="text-xs font-semibold" style={{ color: camp.text }}>
+                  {n.source_name}
+                </span>
+                {isCurrent && (
+                  <span className="rounded-full bg-[#e8e8e8] px-[9px] py-[3px] text-[11px] font-bold text-[#0a0a0a]">
+                    지금 보는 기사
+                  </span>
+                )}
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={
+                      isCurrent
+                        ? "m-0 text-xl font-bold leading-[1.45] tracking-[-0.01em] text-white"
+                        : "m-0 text-base font-semibold leading-[1.45] tracking-[-0.01em] text-[#d4d4d4]"
+                    }
+                  >
+                    {n.title}
+                  </p>
+                  {n.summary && (
+                    <p className="mt-[7px] line-clamp-2 max-w-[58ch] text-sm leading-[1.65] text-[#8a8a8a]">
+                      {n.summary}
+                    </p>
+                  )}
+                </div>
+                {!isCurrent && (
+                  <span aria-hidden className="flex-none pt-0.5 text-[15px] text-[#5a5a5a]">
+                    →
+                  </span>
+                )}
+              </div>
+            </>
+          );
+
+          return (
+            <li key={n.id} className="relative pb-3">
+              <span
+                aria-hidden
+                className="absolute left-[-34px] h-[14px] w-[14px] rounded-full border-[3px] border-[#0a0a0a]"
+                style={{
+                  top: isCurrent ? 24 : 22,
+                  backgroundColor: camp.dot,
+                  boxShadow: isCurrent ? "0 0 0 5px rgba(232,232,232,.12)" : undefined,
+                }}
+              />
+              {isCurrent ? (
+                <div className="block rounded-xl border border-[#3a3a44] bg-[#15151a] px-5 py-4">{body}</div>
+              ) : (
+                <Link
+                  href={`/issues/${n.id}`}
+                  className="block rounded-xl border border-[#1c1c1f] bg-[#0e0e10] px-5 py-4 transition-[background-color,border-color,transform] duration-150 hover:translate-x-[3px] hover:border-[#31313a] hover:bg-[#16161a]"
+                >
+                  {body}
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/** AI 분석 — 기본 접힘. 신뢰 정보(출처·교차검증)는 헤더로 빼고 여기엔 판단 과정만 둔다. */
+function AiAnalysisBlock({ issue, crossNames }: { issue: Issue; crossNames: string[] }) {
+  const [open, setOpen] = useState(false);
+  const ai = issue.ai_analysis;
+  if (!ai) return null;
+  const pct = Math.round(ai.confidence * 100);
+
+  return (
+    <section className="pt-11">
+      <div className="overflow-hidden rounded-[14px] border border-[#1e1e1e] bg-[#0e0e0e]">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls="ai-analysis-body"
+          className="flex w-full items-center gap-3 px-[22px] py-[18px] text-left transition-colors hover:bg-[#131313]"
+        >
+          <span className="text-xs font-bold text-[#a8a8a8]">AI 분석</span>
+          <span className="text-xs text-[#6f6f6f]">
+            분류 신뢰도 {pct}% · 판단 근거{crossNames.length > 0 ? " · 교차검증" : ""}
+          </span>
+          <span className="ml-auto shrink-0 text-xs text-[#6f6f6f]">{open ? "접기 —" : "펼치기 +"}</span>
+        </button>
+
+        {open && (
+          <div id="ai-analysis-body" className="border-t border-[#1a1a1a] px-[22px] pt-1 pb-6">
+            <div className="my-[22px] flex items-center gap-3.5">
+              <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-[#1c1c1c]">
+                <span className="block h-full rounded-full bg-[#4ade80]" style={{ width: `${pct}%` }} />
+              </span>
+              <span className="text-[13px] tabular-nums text-[#b9b9b9]">{pct}%</span>
+            </div>
+
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))]">
+              <div>
+                <p className="mb-[7px] text-xs text-[#6f6f6f]">판단 근거</p>
+                <p className="m-0 text-sm leading-[1.7] text-[#c4c4c4]">{ai.reasoning}</p>
+              </div>
+              <div>
+                <p className="mb-[7px] text-xs text-[#6f6f6f]">진영 판단</p>
+                <p className="m-0 text-sm leading-[1.7] text-[#c4c4c4]">{ai.camp_reasoning}</p>
+              </div>
+            </div>
+
+            {ai.evidence_sentence && (
+              <p className="mt-[22px] border-l-2 border-[#2a2a2a] pl-4 text-sm italic leading-[1.75] text-[#9a9a9a]">
+                &ldquo;{ai.evidence_sentence}&rdquo;
+              </p>
+            )}
+
+            <p className="mt-[22px] text-[13px] leading-[1.7] text-[#6f6f6f]">
+              {crossNames.length > 0 && <>교차검증 매체: {crossNames.join(" · ")}. </>}
+              분류와 진영 판단은 자동 분석 결과입니다.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── 페이지 ──
 
 export function IssueDetailPage({ issue, event, credits = [], similarCasesSlot }: IssueDetailPageProps) {
   const [scoreMode, setScoreMode] = useState<"gross" | "net">("net");
 
   const config = CATEGORY_MAP[issue.category];
-  const colors = CAMP_COLORS[issue.camp];
+  const camp = CAMP_TOKENS[issue.camp];
   const isArchive = config?.isArchive ?? false;
   const isScored = config?.isScored ?? false;
 
@@ -32,11 +241,13 @@ export function IssueDetailPage({ issue, event, credits = [], similarCasesSlot }
     : { grossScore: calculateIssueScore(issue), creditRatio: 0, netScore: calculateIssueScore(issue) };
   const score = scoreMode === "net" ? netScoreData.netScore : netScoreData.grossScore;
   const hasCredits = credits.length > 0;
+
   const coverageCount = event?.coverage_count ?? issue.coverage_count;
   const headlineDays = event?.headline_days ?? issue.headline_days;
   const posWeight = event?.position_weight ?? issue.position_weight;
   const criminalStage = event?.criminal_stage ?? issue.criminal_stage;
   const crossSources = event?.cross_verified_sources ?? issue.cross_verified_sources;
+  const crossNames = crossSources.map((s) => s.name);
 
   const publishedDate = new Date(issue.published_at).toLocaleDateString("ko-KR", {
     year: "numeric",
@@ -44,430 +255,177 @@ export function IssueDetailPage({ issue, event, credits = [], similarCasesSlot }
     day: "numeric",
   });
 
+  const leadParagraphs = splitParagraphs(issue.summary);
+
+  const scoreRows: [string, string][] = [
+    ["보도 매체", `${coverageCount}개`],
+    ...(criminalStage
+      ? ([["형사 단계", `${CRIMINAL_STAGE_LABEL[criminalStage]} (${CRIMINAL_STAGE_WEIGHT[criminalStage]}/10)`]] as [string, string][])
+      : []),
+    ["지속일수", `${headlineDays}일`],
+    ["직책 가중치", `×${posWeight}`],
+  ];
+
   return (
     <>
       <Nav />
 
-      {/* ── 상단 사건 개요 ── */}
-      <section
-        className="relative overflow-hidden border-b border-white/5"
-        style={{
-          background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${colors.primary}08, transparent 70%), #0a0a0c`,
-        }}
-      >
-        {/* 그라데이션 바 — 진영 표시 */}
-        <div
-          className="absolute top-0 left-0 h-[2px] w-full"
-          style={{
-            background: `linear-gradient(90deg, transparent, ${colors.primary}40, transparent)`,
-          }}
-        />
+      <main className="min-h-screen bg-[#0a0a0a] px-6 pb-[120px] text-[#e8e8e8]">
+        <div className="mx-auto w-full max-w-[1040px]">
 
-        <div className="mx-auto w-full max-w-5xl px-6 pt-24 pb-16 md:px-8">
-          {/* 뒤로가기 */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: EASE }}
-          >
-            <Link
-              href="/issues"
-              className="mb-8 inline-flex items-center gap-2 text-sm text-white/75 transition-colors duration-300 hover:text-white"
-            >
-              <span>&larr;</span>
-              <span>타임라인</span>
+          {/* 뒤로 */}
+          <div className="pt-28">
+            <Link href="/issues" className="text-[13px] text-[#8a8a8a] transition-colors hover:text-white">
+              ← 타임라인
             </Link>
-          </motion.div>
+          </div>
 
-          {/* Eyebrow 뱃지들 */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: EASE }}
-            className="mb-5 flex flex-wrap items-center gap-2.5"
-          >
-            <span
-              className="rounded-full px-3 py-1 text-[10px] font-medium tracking-[0.15em] uppercase"
-              style={{
-                backgroundColor: `${colors.primary}15`,
-                color: colors.glow,
-              }}
+          {/* 헤더 */}
+          <header className="border-b border-[#1e1e1e] pt-14 pb-11">
+            <div className="mb-[22px] flex flex-wrap gap-2">
+              <Chip color={camp.text} bg={camp.bg} border={camp.border}>
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: camp.dot }} />
+                {CAMP_COLORS[issue.camp].label}
+              </Chip>
+              <Chip color="#a8a8a8" bg="#151515" border="#242424">
+                {config?.label}
+              </Chip>
+              {isArchive && (
+                <Chip color="#d3a24a" bg="rgba(211,162,74,.1)" border="rgba(211,162,74,.26)">
+                  점수 없음 · 기록
+                </Chip>
+              )}
+              {criminalStage && (
+                <Chip color="#ff8a8a" bg="rgba(239,68,68,.12)" border="rgba(239,68,68,.28)">
+                  {CRIMINAL_STAGE_LABEL[criminalStage]}
+                </Chip>
+              )}
+            </div>
+
+            <h1
+              className="m-0 max-w-[20ch] font-extrabold leading-[1.22] tracking-[-0.02em] text-white"
+              style={{ fontSize: "clamp(30px, 4.4vw, 50px)", textWrap: "pretty" }}
             >
-              {colors.label}
-            </span>
-            <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.1em] text-white/75 uppercase">
-              {config?.label}
-            </span>
-            {criminalStage && (
-              <span className="rounded-full bg-red-500/10 px-3 py-1 text-[10px] font-medium text-red-400/60">
-                {CRIMINAL_STAGE_LABEL[criminalStage]}
-              </span>
-            )}
-            {isArchive && (
-              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-[10px] text-amber-400/50">
-                기록
-              </span>
-            )}
-            {event && event.issue_count > 1 && (
-              <span className="rounded-full bg-blue-500/10 px-3 py-1 text-[10px] text-blue-400/50">
-                {event.issue_count}개 보도 종합
-              </span>
-            )}
-          </motion.div>
+              {issue.title}
+            </h1>
 
-          {/* 제목 — 대형 타이포 */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: EASE }}
-            className="mb-6 max-w-4xl text-3xl font-bold leading-tight tracking-tight text-white/95 sm:text-4xl md:text-5xl"
-          >
-            {issue.title}
-          </motion.h1>
+            {/* 출처·교차검증은 접힌 블록에 숨기지 않는다 — 신뢰 정보라 제목 바로 아래 둔다 */}
+            <div className="mt-[26px] flex flex-wrap items-center gap-[18px] text-[13px] text-[#7d7d7d]">
+              {issue.actor_name && <span className="font-semibold text-[#b9b9b9]">{issue.actor_name}</span>}
+              <span>{publishedDate}</span>
+              <span>
+                {issue.source_name} <span className="text-[#5f5f5f]">({SOURCE_TIER_LABEL[issue.source_tier]})</span>
+                {crossNames.length > 0 && ` · 교차검증 ${crossNames.length}곳`}
+              </span>
+              <a
+                href={issue.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#7aa7ff] transition-opacity hover:opacity-80"
+              >
+                원문 보기 ↗
+              </a>
+            </div>
 
-          {/* 메타 라인 */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 0.4, ease: EASE }}
-            className="mb-8 flex flex-wrap items-center gap-4 text-sm text-white/75"
-          >
-            {issue.actor_name && (
-              <span className="text-white/75">{issue.actor_name}</span>
-            )}
-            <span>{publishedDate}</span>
-            <span>{SOURCE_TIER_LABEL[issue.source_tier]}</span>
-            {coverageCount > 1 && <span>{coverageCount}개 매체 보도</span>}
-          </motion.div>
-
-          {/* 점수 — 대형 (scored일 때만) */}
-          {isScored && score > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.5, ease: EASE }}
-            >
-              <div className="flex items-end gap-3">
-                <span
-                  className="font-mono text-6xl font-bold tabular-nums leading-none transition-all duration-300 md:text-7xl"
-                  style={{
-                    color: colors.glow,
-                    textShadow: `0 0 40px ${colors.primary}50`,
-                  }}
-                >
-                  {score.toFixed(1)}
-                </span>
-                <span className="mb-2 text-lg text-white/75">/100</span>
-                {hasCredits && scoreMode === "net" && (
-                  <span className="mb-2 text-sm text-emerald-400/50">
-                    ↓{Math.round(netScoreData.creditRatio * 100)}% 감경
-                  </span>
-                )}
-              </div>
-              {hasCredits && (
-                <div className="mt-3">
-                  <NetScoreToggle mode={scoreMode} onChange={setScoreMode} />
+            {/* 지표 */}
+            <div className="mt-[34px] flex flex-wrap gap-9">
+              <Metric value={String(coverageCount)} unit="개 매체" label="이 기사를 보도" />
+              <Metric value={String(headlineDays)} unit="일" label="이슈 라인 지속" />
+              {event && event.issue_count > 1 && (
+                <Metric value={String(event.issue_count)} unit="건" label="묶인 보도" />
+              )}
+              {isScored && score > 0 && (
+                <div>
+                  <div className="flex items-baseline gap-1">
+                    <span
+                      className="text-[26px] font-bold tracking-[-0.02em] tabular-nums"
+                      style={{ color: CAMP_COLORS[issue.camp].glow }}
+                    >
+                      {score.toFixed(1)}
+                    </span>
+                    <span className="text-[13px] font-medium text-[#8a8a8a]">/100</span>
+                    {hasCredits && scoreMode === "net" && (
+                      <span className="text-[13px] font-medium text-emerald-400/60">
+                        ↓{Math.round(netScoreData.creditRatio * 100)}%
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-[5px] text-xs text-[#6f6f6f]">
+                    {hasCredits && scoreMode === "net" ? "감경 후 점수" : "가중 점수"}
+                  </p>
                 </div>
               )}
-            </motion.div>
+            </div>
+
+            {isScored && hasCredits && (
+              <div className="mt-4">
+                <NetScoreToggle mode={scoreMode} onChange={setScoreMode} />
+              </div>
+            )}
+          </header>
+
+          {/* 무슨 일이 있었나 */}
+          {leadParagraphs.length > 0 && (
+            <section style={{ paddingTop: 52, paddingBottom: 8 }}>
+              <SectionLabel>무슨 일이 있었나</SectionLabel>
+              <div className="max-w-[62ch] space-y-5">
+                {leadParagraphs.map((p, i) => (
+                  <p
+                    key={i}
+                    className="m-0 leading-[1.75] text-[#dcdcdc]"
+                    style={{ fontSize: "clamp(18px, 2.1vw, 23px)", textWrap: "pretty" }}
+                  >
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </section>
           )}
 
-        </div>
-      </section>
+          {/* 이슈 라인 */}
+          {event && <IssueLine event={event} currentId={issue.id} />}
 
-      {/* ── 본문 콘텐츠 ── */}
-      <main className="mx-auto max-w-5xl px-6 py-24 md:px-8">
-        {/* 2열 레이아웃: 좌=본문, 우=메타 */}
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1fr_340px]">
+          {/* 점수 근거 */}
+          {isScored && (
+            <section style={{ paddingTop: 52 }}>
+              <SectionLabel>점수 근거</SectionLabel>
+              <div className="rounded-[14px] border border-[#1e1e1e] bg-[#0e0e0e] px-[22px] py-5">
+                <p className="mb-5 text-[13px] leading-[1.7] text-[#6f6f6f]">
+                  base = 보도량(×0.40) + 공식처리(×0.35) + 지속일수(×0.25) → ×다양도 ×직책 ×시간감쇠
+                  {event && event.issue_count > 1 && ` · ${event.issue_count}개 보도를 묶은 사건 단위로 산출`}
+                </p>
+                <dl className="grid gap-x-9 [grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))]">
+                  {scoreRows.map(([k, v]) => (
+                    <div key={k} className="flex justify-between border-b border-[#18181b] py-3">
+                      <dt className="text-[13px] text-[#8a8a8a]">{k}</dt>
+                      <dd className="m-0 text-[13px] tabular-nums text-[#d4d4d4]">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
 
-          {/* 좌측: 본문 */}
-          <div className="space-y-10">
-            {/* 요약 */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: EASE }}
-            >
-              <p className="text-lg leading-relaxed text-white/75 md:text-xl md:leading-relaxed">
-                {issue.summary}
+              {hasCredits && (
+                <div className="mt-3">
+                  <CreditSection credits={credits} netScore={netScoreData} campColor={CAMP_COLORS[issue.camp].glow} />
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 기록 안내 — 점수를 매기지 않는 카테고리의 편집 원칙 */}
+          {isArchive && (
+            <section style={{ paddingTop: 52 }}>
+              <p className="m-0 max-w-[62ch] border-l-2 border-[rgba(211,162,74,.4)] pl-4 text-[15px] leading-[1.75] text-[#9a9a9a]">
+                공식 처분이 아닌 기록입니다. 점수를 매기지 않고 원문과 맥락만 보존하며, 판단은 읽는 사람의 몫입니다.
               </p>
-            </motion.div>
+            </section>
+          )}
 
-            {/* 사건 맥락 — 관련 보도 */}
-            {event && event.member_issues && event.member_issues.length > 1 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: EASE }}
-              >
-                {/* Doppelrand shell */}
-                <div className="rounded-[1.5rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
-                  <div className="rounded-[calc(1.5rem-1px)] bg-[#0c0c10] p-6 md:p-8">
-                    <div className="mb-6 flex items-center gap-3">
-                      <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
-                        사건 맥락
-                      </span>
-                      <span className="text-xs text-white/75">
-                        {event.issue_count}개 보도 · {event.headline_days}일간 지속
-                      </span>
-                    </div>
+          {/* AI 분석 */}
+          <AiAnalysisBlock issue={issue} crossNames={crossNames} />
 
-                    {/* 타임라인 */}
-                    <div className="mb-6 flex items-center gap-2 text-[11px] text-white/75">
-                      <span>{new Date(event.first_reported_at).toLocaleDateString("ko-KR")}</span>
-                      <div className="h-px flex-1 bg-gradient-to-r from-white/10 via-white/5 to-white/10" />
-                      <span>{new Date(event.last_reported_at).toLocaleDateString("ko-KR")}</span>
-                    </div>
-
-                    {/* 보도 목록 */}
-                    <div className="space-y-2">
-                      {event.member_issues.map((mi) => {
-                        const isCurrent = mi.id === issue.id;
-                        return (
-                          <div
-                            key={mi.id}
-                            className={`flex items-start justify-between gap-3 rounded-xl px-4 py-3 transition-colors ${
-                              isCurrent
-                                ? "bg-white/[0.05] ring-1 ring-white/10"
-                                : "hover:bg-white/[0.02]"
-                            }`}
-                          >
-                            <div className="min-w-0 flex-1">
-                              {isCurrent ? (
-                                <p className="text-sm text-white">
-                                  {mi.title}
-                                  <span className="ml-2 rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/75">
-                                    현재
-                                  </span>
-                                </p>
-                              ) : (
-                                <Link
-                                  href={`/issues/${mi.id}`}
-                                  className="block text-sm text-white/75 transition-colors duration-300 hover:text-white"
-                                >
-                                  {mi.title}
-                                </Link>
-                              )}
-                              <p className="mt-1 text-[11px] text-white/75">
-                                {mi.source_name} · {new Date(mi.published_at).toLocaleDateString("ko-KR")}
-                              </p>
-                            </div>
-                            {!isCurrent && mi.source_url && (
-                              <a
-                                href={mi.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="shrink-0 rounded-full border border-white/5 px-3 py-1 text-[10px] text-white/75 transition-colors duration-300 hover:border-white/15 hover:text-white"
-                              >
-                                원문
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* AI 분석 */}
-            {issue.ai_analysis && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: EASE }}
-              >
-                <div className="rounded-[1.5rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
-                  <div className="rounded-[calc(1.5rem-1px)] bg-[#0c0c10] p-6 md:p-8">
-                    <span className="mb-6 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
-                      AI 분석
-                    </span>
-
-                    {/* 신뢰도 바 */}
-                    <div className="mb-6">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="text-xs text-white/75">분류 신뢰도</span>
-                        <span className="font-mono text-sm tabular-nums text-white/75">
-                          {Math.round(issue.ai_analysis.confidence * 100)}%
-                        </span>
-                      </div>
-                      <div className="h-1 overflow-hidden rounded-full bg-white/5">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: `${issue.ai_analysis.confidence * 100}%` }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 1, delay: 0.3, ease: EASE }}
-                          className="h-full rounded-full bg-green-500/50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-5 text-sm">
-                      <div>
-                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">판단 근거</p>
-                        <p className="leading-relaxed text-white/75">{issue.ai_analysis.reasoning}</p>
-                      </div>
-                      <div>
-                        <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">진영 판단</p>
-                        <p className="leading-relaxed text-white/75">{issue.ai_analysis.camp_reasoning}</p>
-                      </div>
-                      {issue.ai_analysis.evidence_sentence && (
-                        <div>
-                          <p className="mb-1.5 text-[11px] font-medium tracking-wide text-white/75 uppercase">근거 문장</p>
-                          <p className="border-l-2 border-white/10 pl-4 leading-relaxed text-white/75 italic">
-                            &ldquo;{issue.ai_analysis.evidence_sentence}&rdquo;
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* 유사 사례 (Suspense 스트리밍) */}
-            {similarCasesSlot}
-          </div>
-
-          {/* 우측 사이드바: 메타 정보 (데스크탑) */}
-          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-            {/* 점수 근거 */}
-            {isScored && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: EASE }}
-              >
-                <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
-                  <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                    <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
-                      점수 근거
-                    </span>
-
-                    {event && event.issue_count > 1 && (
-                      <p className="mb-4 text-[11px] text-blue-400/40">
-                        {event.issue_count}개 보도 종합 사건 단위 산출
-                      </p>
-                    )}
-
-                    <p className="mb-4 text-[10px] leading-relaxed text-white/75">
-                      base = 보도량(×0.40) + 공식처리(×0.35) + 지속일수(×0.25)
-                      <br />→ ×다양도 ×직책 ×시간감쇠
-                    </p>
-
-                    <div className="space-y-3 text-[13px]">
-                      <div className="flex justify-between">
-                        <span className="text-white/75">보도 매체</span>
-                        <span className="font-mono tabular-nums text-white/75">{coverageCount}개</span>
-                      </div>
-                      {criminalStage && (
-                        <div className="flex justify-between">
-                          <span className="text-white/75">형사 단계</span>
-                          <span className="font-mono tabular-nums text-white/75">
-                            {CRIMINAL_STAGE_LABEL[criminalStage]} ({CRIMINAL_STAGE_WEIGHT[criminalStage]}/10)
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-white/75">지속일수</span>
-                        <span className="font-mono tabular-nums text-white/75">{headlineDays}일</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-white/75">직책 가중치</span>
-                        <span className="font-mono tabular-nums text-white/75">×{posWeight}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* 감경 요소 */}
-            {isScored && hasCredits && (
-              <CreditSection
-                credits={credits}
-                netScore={netScoreData}
-                campColor={colors.glow}
-              />
-            )}
-
-            {/* Archive 안내 */}
-            {isArchive && (
-              <div className="rounded-[1.25rem] bg-amber-500/[0.03] p-[1px] ring-1 ring-amber-500/15">
-                <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                  <span className="mb-3 inline-block rounded-full bg-amber-500/10 px-3 py-1 text-[10px] font-medium text-amber-400/60">
-                    기록 — 점수 없음
-                  </span>
-                  <p className="text-sm leading-relaxed text-white/75">
-                    공식 처분이 아닌 기록입니다. 원문과 맥락을 보존하며, 판단은 사용자의 몫입니다.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* 출처 */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: EASE }}
-            >
-              <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
-                <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                  <span className="mb-4 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
-                    출처
-                  </span>
-
-                  <p className="mb-1 text-sm text-white/75">{issue.source_name}</p>
-                  <p className="mb-4 text-[11px] text-white/75">
-                    {SOURCE_TIER_LABEL[issue.source_tier]} (Tier {issue.source_tier})
-                  </p>
-
-                  <a
-                    href={issue.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/8 px-4 py-2.5 text-xs text-white/75 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-white/20 hover:text-white"
-                  >
-                    원문 보기
-                    <span className="text-[10px]">&nearr;</span>
-                  </a>
-
-                  {/* 교차검증 */}
-                  {crossSources.length > 0 && (
-                    <div className="mt-4 border-t border-white/5 pt-4">
-                      <p className="mb-2 text-[10px] text-white/75">교차검증 매체</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {crossSources.map((s, i) => (
-                          <span
-                            key={i}
-                            className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] text-white/75"
-                          >
-                            {s.name}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* 본인 입장 */}
-            <div className="rounded-[1.25rem] bg-white/[0.02] p-[1px] ring-1 ring-white/5">
-              <div className="rounded-[calc(1.25rem-1px)] bg-[#0c0c10] p-5">
-                <span className="mb-3 inline-block rounded-full bg-white/5 px-3 py-1 text-[10px] font-medium tracking-[0.15em] text-white/75 uppercase">
-                  본인 입장
-                </span>
-                <p className="text-xs text-white/75">확인되지 않음</p>
-              </div>
-            </div>
-          </div>
+          {/* 같은 카테고리 사건 */}
+          {similarCasesSlot && <section style={{ paddingTop: 52 }}>{similarCasesSlot}</section>}
         </div>
       </main>
     </>
