@@ -1,20 +1,26 @@
 /**
- * 사주 크레딧 판정 — 서버 전용. 무료 정책 v3 "하루 한 편" (2026-09-17).
+ * 사주 크레딧 판정 — 서버 전용. 무료 정책 v4 "크레딧 하나로" (2026-09-17).
+ *
+ * v3 는 dailyFree(불리언) + balance(획득분) 두 개념이 따로 돌아서 화면 문구가
+ * 네 갈래로 갈라졌다. v4 는 통화를 크레딧 하나로 합친다.
  *
  * 규칙 (한 곳에):
- *   어드민(SAJU_ADMIN_USER_ID)                                           → 항상 통과
+ *   어드민(SAJU_ADMIN_USER_ID)                                          → 항상 통과
  *   이미 본 것 (saju_readings 에 (user, cacheKey) 있음, refresh=false)  → 소모 없음, LLM 도 안 부른다
- *   오늘 일일 무료를 아직 안 씀 (refresh 아님)                            → 소모 없음 (타입 무관 하루 1편)
- *   balance > 0                                                          → 크레딧 1 소모
- *   그 외                                                                → 402 { error:'credit', balance, earn }
+ *   그 외                                                                → 자정 충전 반영 후 크레딧 1 소모
+ *   잔액 0                                                               → 402 { error:'credit', balance, earn }
  *
- * 다섯 편(命·日·緣·財·合)을 다 보려면 5일이 걸린다. 빨리 보려면 크레딧을 쓴다.
+ * 자정(KST)에 잔액을 DAILY_CAP(=1)까지 채운다. 쌓이지 않는다 —
+ * 매일 +1 로 누적되면 안 보고 묵혀서 30개를 만들 수 있고 킬스위치 비용 모델이 깨진다.
  * 결제가 없으므로 막다른 길을 만들지 않는다 — 하루만 기다리면 다시 열린다.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export type ChargeVia = 'admin' | 'seen' | 'daily' | 'credit' | 'invite';
+
+/** 자정마다 여기까지 채워준다. 화면의 N/1 에서 분모. */
+export const DAILY_CAP = 1;
 
 export type SajuReadingType = 'full' | 'today' | 'love' | 'career' | 'compat';
 
@@ -34,12 +40,17 @@ export type ChargeOutcome =
   | { ok: false; balance: number; earn: EarnHint[] };
 
 export interface CreditState {
-  /** 남은 크레딧 (획득분) */
+  /**
+   * 지금 쓸 수 있는 크레딧. 자정 충전이 아직 DB 에 반영되지 않았어도
+   * 사용자가 실제로 받게 될 값을 준다 (충전은 읽을 때 일어난다).
+   */
   balance:   number;
+  /** 자정마다 채워지는 상한 — 화면의 N/1 에서 분모 */
+  dailyCap:  number;
   /** 첫 풀이를 본 적 있는지 — 랜딩 문구용 */
   onboarded: boolean;
-  /** 오늘 일일 무료 1편이 아직 남았으면 true */
-  dailyFree: boolean;
+  /** 오늘 자정 충전분이 아직 안 반영됐으면 true (툴팁 문구용) */
+  pendingRefill: boolean;
   /** 연속 사용일 (7일이면 크레딧 +1) */
   streak:    number;
   /** 이미 읽은 풀이 타입 — "N/5" 표시용 */
@@ -87,10 +98,15 @@ export async function getCreditState(supabase: SupabaseClient, userId: string): 
       .limit(200),
   ]);
   const seen = new Set<string>((readings.data as { type: string }[] | null ?? []).map(r => r.type));
+  const stored = credits.data?.balance ?? 0;
+  // 충전은 실제로 읽을 때(chargeForReading) 일어난다. 조회는 쓰기를 하지 않으므로
+  // 여기서는 "오늘 읽으면 받게 될 값" 을 계산해서 보여준다. 둘은 항상 같은 수다.
+  const pendingRefill = (credits.data?.daily_last_date ?? null) !== kstToday();
   return {
-    balance:   credits.data?.balance ?? 0,
+    balance:   pendingRefill ? Math.max(stored, DAILY_CAP) : stored,
+    dailyCap:  DAILY_CAP,
     onboarded: credits.data?.free_used ?? false,
-    dailyFree: (credits.data?.daily_last_date ?? null) !== kstToday(),
+    pendingRefill,
     streak:    credits.data?.streak_count ?? 0,
     readTypes: ALL_READING_TYPES.filter(t => seen.has(t)),
   };
@@ -112,31 +128,39 @@ export async function chargeForReading(args: {
     return { ok: true, via: 'seen', balance: await currentBalance(supabase, userId) };
   }
 
-  // 하루 한 편 (타입 무관). 다시 풀이받기는 제외.
-  if (!refresh) {
-    const { data, error } = await supabase.rpc('saju_use_daily', { p_today: kstToday() });
-    if (!error) {
-      if (data && typeof data === 'object') {
-        const r = data as { free: boolean; streak: number; reward: boolean };
-        if (r.free) {
-          return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId), streak: r.streak, streakReward: r.reward };
+  // 1) 자정 충전 — 잔액을 DAILY_CAP 까지 끌어올린다. 하루 한 번만 걸린다.
+  //    "다시 풀이받기(refresh)" 도 크레딧을 쓰므로 충전은 똑같이 반영한다.
+  let streak: number | undefined;
+  let streakReward = false;
+  {
+    const { data, error } = await supabase.rpc('saju_refill_daily', { p_today: kstToday() });
+    if (!error && data && typeof data === 'object') {
+      const r = data as { refilled: boolean; balance: number; streak: number; reward: boolean };
+      streak = r.streak;
+      streakReward = r.reward;
+    } else if (error) {
+      // 023 미적용 폴백 — 배포와 마이그레이션 사이 시차에 서비스가 죽지 않게 v3 경로로 동작시킨다.
+      // 023 을 적용하면 이 분기는 다시 타지 않는다.
+      console.warn('[saju credits] saju_refill_daily 없음 → v3 폴백:', error.message);
+      if (!refresh) {
+        const { data: d3, error: e3 } = await supabase.rpc('saju_use_daily', { p_today: kstToday() });
+        if (!e3 && d3 && typeof d3 === 'object') {
+          const r3 = d3 as { free: boolean; streak: number; reward: boolean };
+          if (r3.free) {
+            return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId), streak: r3.streak, streakReward: r3.reward };
+          }
         }
-      }
-    } else {
-      // 019 미적용 폴백 — 배포와 마이그레이션 사이 시차에 서비스가 죽지 않게 v2 경로로 동작시킨다.
-      // 019 를 적용하면 이 분기는 다시 타지 않는다.
-      console.warn('[saju credits] saju_use_daily 없음 → v2 폴백:', error.message);
-      const { data: usedNow, error: legacyErr } = await supabase.rpc('saju_use_free');
-      if (!legacyErr && usedNow === true) {
-        return { ok: true, via: 'daily', balance: await currentBalance(supabase, userId) };
       }
     }
   }
 
+  // 2) 크레딧 1 소모 — 일일분이든 보너스든 같은 통화다
   const { data, error } = await supabase.rpc('saju_consume_credit', { p_reason: refresh ? 'refresh' : 'reading', p_ref: cacheKey });
   if (!error && data && typeof data === 'object') {
     const r = data as { ok: boolean; balance: number };
-    if (r.ok) return { ok: true, via: 'credit', balance: r.balance };
+    if (r.ok) {
+      return { ok: true, via: 'credit', balance: r.balance, ...(streak !== undefined ? { streak } : {}), ...(streakReward ? { streakReward: true } : {}) };
+    }
     return { ok: false, balance: r.balance, earn: EARN_HINTS };
   }
   return { ok: false, balance: 0, earn: EARN_HINTS };

@@ -291,7 +291,7 @@ function CompatPreviewGate({ onLogin }: { onLogin: () => void }) {
           background: 'rgba(12,9,7,0.94)', border: `1px solid ${INK.cardLine}`, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
           <p style={{ fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink, margin: 0 }}>끌리는 이유, 부딪히는 이유</p>
           <p style={{ fontFamily: SERIF, fontSize: 13, color: INK.ink45, margin: '8px 0 16px', lineHeight: 1.6 }}>
-            점수와 관계 분석은 위에 그대로 보실 수 있습니다. 풀이 {COMPAT_SECTION_TITLES.length}편은 로그인 후 하루 한 편.
+            점수와 관계 분석은 위에 그대로 보실 수 있습니다. 풀이 {COMPAT_SECTION_TITLES.length}편은 로그인 후 크레딧 1개.
           </p>
           <button onClick={onLogin}
             style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -374,8 +374,8 @@ function CompatCreditZero({ onInvite }: { onInvite: () => void }) {
     <div style={{ border: `1px solid ${INK.cardLine}`, borderRadius: 14, background: INK.card, padding: '20px 18px' }}>
       <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽으셨습니다</p>
       <p style={{ margin: '6px 0 14px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-        풀이는 하루 한 편씩 열립니다. 다만 궁합은 길이 하나 더 있습니다. 상대에게 초대 링크를 보내시면
-        <b style={{ color: INK.ink70 }}> 오늘 몫과 상관없이 두 분 다 무료</b>로 보시고, 두 분 다 크레딧 +1입니다.
+        풀이 한 편에 크레딧 1개입니다. 다만 궁합은 길이 하나 더 있습니다. 상대에게 초대 링크를 보내시면
+        <b style={{ color: INK.ink70 }}> 크레딧을 쓰지 않고 두 분 다</b> 보시고, 두 분 다 크레딧 +1입니다.
       </p>
       <button onClick={onInvite} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', cursor: 'pointer', background: INK.gold, color: '#1a140c', fontFamily: SERIF, fontSize: 14, fontWeight: 600 }}>
         초대 링크로 보내기
@@ -620,7 +620,7 @@ export function SajuCompatPage({ loggedIn = true, initialMode = 'both', readingI
             <p style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, color: INK.ink28, margin: 0, lineHeight: 1.6 }}>
               {mode === 'invite'
                 ? '상대가 생년월일을 입력하면 두 분 다 무료로 결과를 보십니다. 상대에게 내 생년월일은 보이지 않습니다.'
-                : '점수·관계 분석은 무료 · 풀이는 로그인 후 하루 한 편'}
+                : '점수·관계 분석은 무료 · 풀이는 로그인 후 크레딧 1개'}
             </p>
           </div>
         ) : (

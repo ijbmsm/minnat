@@ -463,7 +463,7 @@ export function IssueDetailPage({ issue, event, credits = [], stances = null, fi
       <Nav />
 
       <main className="min-h-screen bg-[#0a0a0a] px-6 pb-[120px] text-[#e8e8e8]">
-        <div className="mx-auto w-full max-w-[1040px]">
+        <div className="mx-auto w-full max-w-[880px]">
 
           {/* 뒤로 */}
           <div className="pt-28">
@@ -495,7 +495,7 @@ export function IssueDetailPage({ issue, event, credits = [], stances = null, fi
             </div>
 
             <h1
-              className="m-0 max-w-[20ch] font-extrabold leading-[1.22] tracking-[-0.02em] text-white"
+              className="m-0 font-extrabold leading-[1.22] tracking-[-0.02em] text-white"
               style={{ fontSize: "clamp(30px, 4.4vw, 50px)", textWrap: "pretty" }}
             >
               {issue.title}
@@ -560,7 +560,7 @@ export function IssueDetailPage({ issue, event, credits = [], stances = null, fi
           {leadParagraphs.length > 0 && (
             <section style={{ paddingTop: 52, paddingBottom: 8 }}>
               <SectionLabel>무슨 일이 있었나</SectionLabel>
-              <div className="max-w-[62ch] space-y-5">
+              <div className="space-y-5">
                 {leadParagraphs.map((p, i) => (
                   <p
                     key={i}
@@ -613,7 +613,7 @@ export function IssueDetailPage({ issue, event, credits = [], stances = null, fi
           {/* 기록 안내 — 점수를 매기지 않는 카테고리의 편집 원칙 */}
           {isArchive && (
             <section style={{ paddingTop: 52 }}>
-              <p className="m-0 max-w-[62ch] border-l-2 border-[rgba(211,162,74,.4)] pl-4 text-[15px] leading-[1.75] text-[#9a9a9a]">
+              <p className="m-0 border-l-2 border-[rgba(211,162,74,.4)] pl-4 text-[15px] leading-[1.75] text-[#9a9a9a]">
                 공식 처분이 아닌 기록입니다. 점수를 매기지 않고 원문과 맥락만 보존하며, 판단은 읽는 사람의 몫입니다.
               </p>
             </section>

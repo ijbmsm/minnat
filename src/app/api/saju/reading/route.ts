@@ -225,7 +225,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const charge = await chargeForReading({ supabase, userId: authUser.id, type, cacheKey, refresh });
   if (!charge.ok) {
     return NextResponse.json(
-      { error: 'credit', message: '오늘 무료 한 편은 다 썼어. 내일 다시 열려.', balance: charge.balance, earn: charge.earn },
+      { error: 'credit', message: '크레딧을 다 썼어. 자정에 1개 채워져.', balance: charge.balance, earn: charge.earn },
       { status: 402 },
     );
   }

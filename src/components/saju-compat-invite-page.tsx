@@ -240,7 +240,7 @@ export function SajuCompatInvitePage({ token, invite, loggedIn, isInviter }: {
                   <div style={{ width: '100%', maxWidth: 340, textAlign: 'center', padding: '22px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.95)', border: `1px solid ${INK.cardLine}` }}>
                     <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600 }}>풀이 4편이 준비되어 있습니다</p>
                     <p style={{ margin: '8px 0 16px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.6 }}>
-                      초대로 보는 궁합은 오늘 몫과 상관없이 두 분 다 무료입니다. 결과를 저장하시려면 로그인이 필요합니다.
+                      초대로 보는 궁합은 크레딧을 쓰지 않고 두 분 다 보실 수 있습니다. 결과를 저장하시려면 로그인이 필요합니다.
                     </p>
                     {error && <p style={{ color: '#c4685a', fontFamily: MONO, fontSize: 12, margin: '0 0 10px' }}>{error}</p>}
                     <button onClick={loggedIn ? accept : goLogin} disabled={loading}
