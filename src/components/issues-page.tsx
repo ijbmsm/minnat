@@ -7,6 +7,7 @@ import { Nav } from "./nav";
 import { IssueFilter, type FilterState, type EventTypeFilter } from "./issue-filter";
 import { calculateEventScore } from "@/lib/score";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
+import { buildHeadline, buildSubline } from "@/lib/headline";
 import type { IssueEvent } from "@/types";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
@@ -120,24 +121,12 @@ function relativeTimeLabel(iso: string): string {
 
 // ── 진영별 카드 ──
 
-function buildHeadline(event: IssueEvent): string {
-  // summary 첫 문장을 헤드라인으로 사용
-  const summary = event.summary || "";
-  const firstSentence = summary.split(/[.。!]\s*/)[0];
-  if (firstSentence && firstSentence.length > 5) {
-    return firstSentence.length > 60 ? firstSentence.slice(0, 60) + "…" : firstSentence;
-  }
-  // fallback: actor + category
-  const config = CATEGORY_MAP[event.category];
-  const actor = event.actor_name || "";
-  return actor ? `${actor}, ${config?.description || config?.label || ""}` : config?.label || "";
-}
-
 function CampCard({ event }: { event: IssueEvent }) {
   const colors = CAMP_COLORS[event.camp];
   const config = CATEGORY_MAP[event.category];
   const score = calculateEventScore(event);
   const headline = buildHeadline(event);
+  const subline = buildSubline(event, headline);
 
   const timeLabel = relativeTimeLabel(event.last_reported_at || event.created_at);
   const hasMetrics = event.coverage_count > 1 || event.issue_count > 1 || event.headline_days > 1;
@@ -176,10 +165,10 @@ function CampCard({ event }: { event: IssueEvent }) {
             {headline}
           </h3>
 
-          {/* 보조 요약 — 1줄 */}
-          {event.summary && (
+          {/* 보조 요약 — 헤드라인과 겹치지 않을 때만 */}
+          {subline && (
             <p className="mb-2 line-clamp-1 text-[13px] leading-snug text-white/75">
-              {event.summary}
+              {subline}
             </p>
           )}
 
