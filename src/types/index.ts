@@ -159,6 +159,8 @@ export interface IssueEvent {
   source_tier: SourceTier;
   summary: string | null;
   is_active: boolean;
+  /** 확정된 예정 일정 1건 (021). 크롤러가 채운다 — 없으면 null */
+  next_branch?: { date: string; title: string; description?: string; source_url?: string } | null;
   member_issues?: Issue[];
   created_at: string;
 }

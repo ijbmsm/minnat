@@ -3,7 +3,7 @@ import { IssueDetailPage } from "@/components/issue-detail-page";
 import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/json-ld";
 import { SimilarCasesLoader } from "@/components/similar-cases-loader";
 import { SimilarCasesSkeleton } from "@/components/similar-cases-section";
-import { getIssueById, getEventByIssueId, getCreditsForEvent } from "@/lib/data";
+import { getIssueById, getEventByIssueId, getCreditsForEvent, getStances, getIssueFigures } from "@/lib/data";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
@@ -48,11 +48,14 @@ export default async function Page({ params }: Props) {
   const issue = await getIssueById(id);
   if (!issue) notFound();
 
-  // 병렬 로딩: 이벤트 + 감경 데이터
-  const [event, credits] = await Promise.all([
+  // 병렬 로딩: 이벤트 + 감경 + 맞불 구도
+  const [event, credits, stances] = await Promise.all([
     getEventByIssueId(id),
     issue.event_id ? getCreditsForEvent(issue.event_id) : Promise.resolve([]),
+    getStances(issue),
   ]);
+  // 등장 정치인은 맞불 결과에 의존하므로 그 다음
+  const figures = await getIssueFigures(issue, stances);
 
   return (
     <>
@@ -73,6 +76,8 @@ export default async function Page({ params }: Props) {
         issue={issue}
         event={event}
         credits={credits}
+        stances={stances}
+        figures={figures}
         similarCasesSlot={
           event ? (
             <Suspense fallback={<SimilarCasesSkeleton />}>
