@@ -10,6 +10,7 @@ import type { ScoreView } from "@/lib/score";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import type { IssueEvent, CriminalStage, DisplayCamp } from "@/types";
 import { createClient } from "@/lib/supabase/client";
+import { stripLeadingActor } from "@/lib/actor-name";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -93,9 +94,9 @@ function FeedCard({ event, index }: { event: IssueEvent; index: number }) {
               <p className="mb-1 text-xs font-semibold text-white/75">{event.actor_name}</p>
             )}
 
-            {/* 요약 */}
+            {/* 요약 — 위에 이름을 따로 붙이므로 요약이 이름으로 시작하면 떼어낸다 */}
             <p className="line-clamp-2 text-[15px] leading-relaxed text-white/75 transition-colors duration-300 group-hover:text-white">
-              {event.summary || config?.label}
+              {stripLeadingActor(event.summary ?? '', event.actor_name) || config?.label}
             </p>
 
             {/* 하단 메트릭 */}
@@ -152,7 +153,7 @@ function SideFeed({ camp, events }: { camp: "blue" | "red"; events: IssueEvent[]
                     {event.actor_name && (
                       <span className="font-medium text-white/75">{event.actor_name} </span>
                     )}
-                    {event.summary || config?.label}
+                    {stripLeadingActor(event.summary ?? '', event.actor_name) || config?.label}
                   </p>
                   <span className="mt-1 block text-[10px] text-white/75">{formatRelative(getRefDate(event))}</span>
                 </div>
