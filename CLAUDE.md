@@ -104,15 +104,25 @@ score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간�
 ## 알려진 이슈 (해결 필요)
 
 ### 정치 플랫폼
-1. **dedup 미흡** — 같은 사건이 3건씩 중복 저장됨. actor + category + 7일 이내 = 같은 사건으로 병합 필요
-2. **criminal_conviction 오분류** — 기사 주제가 선거인데 과거 전과 "언급만" → media_coverage여야 함
+1. **dedup 미흡** — 같은 사건이 3건씩 중복 저장됨.
+   **원인 일부 규명(2026-09-17)**: OpenAI 크레딧 소진으로 임베딩이 전부 영벡터/NULL 이라
+   Stage 2(임베딩 비교) 매칭이 몇 달간 꺼져 있었다. 크레딧 충전 + 임베딩 재생성 후 재평가할 것.
+   그래도 남으면 actor + category + 7일 이내 병합 규칙을 손봐야 한다.
+2. **criminal_conviction 오분류** — 기사 주제가 선거인데 과거 전과 "언급만" → media_coverage여야 함.
+   프롬프트에 엄격 규칙 6개가 들어가 있다. 그래도 남으면 그때가 모델 문제.
 3. **배경 깜빡임** — 뷰 탭 전환 시 width 변화 + blur 레이어 reflow. CSS transition으로 변경함, 확인 필요
 4. **시드 데이터 부족** — 네이버 날짜 필터(ds/de) 추가했으나 재실행 필요
 5. **경계선 직선 2개** — 파랑/빨강 gradient 끝이 겹치는 부분. overlap 조정 필요
+6. **유사 사례 무작위 (마이그레이션 대기)** — `match_similar_events` 가 유사도로 `NaN` 을 돌려준다.
+   영벡터 → pgvector `<=>` 가 NaN → Postgres 가 NaN 을 최댓값으로 취급 → 임계값 통과·정렬 1위.
+   `supabase/022-embedding-nan-guard.sql` 를 프로덕션에 적용하면 증상은 멈춘다(빈 목록).
+   실제 복구는 OpenAI 크레딧 충전 후 임베딩 재생성.
 
 ### 사주 서비스
-6. **profile PATCH 500** — `/api/user/profile` PATCH 시 Supabase 400 반환. 원인: migration 012 (`supabase/012-profile-birth.sql`) 프로덕션 미적용 가능성. 해결: Supabase SQL Editor에서 012 실행. 에러 로그는 Vercel 함수 로그 `[profile PATCH] supabase error:` 로 확인.
-7. **SAJU_ADMIN_USER_ID 미설정** — Vercel 환경변수에 어드민 Supabase user UUID 추가해야 일일 캡(3회) 면제 작동.
+7. **profile PATCH 500** — `/api/user/profile` PATCH 시 Supabase 400 반환. 원인: migration 012 (`supabase/012-profile-birth.sql`) 프로덕션 미적용 가능성. 해결: Supabase SQL Editor에서 012 실행. 에러 로그는 Vercel 함수 로그 `[profile PATCH] supabase error:` 로 확인.
+8. **SAJU_ADMIN_USER_ID 미설정** — Vercel 환경변수에 어드민 Supabase user UUID 추가해야 크레딧 면제 작동.
+9. **월 호출 상한 재검토** — 풀이 분량을 늘리면서 회당 약 $0.033 → $0.053 이 됐다.
+   `SAJU_MONTHLY_CALL_LIMIT=3000` 이면 상한이 약 $100 → $160.
 
 ## 환경변수
 
@@ -422,13 +432,16 @@ DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이�
 | 파일 | 역할 |
 |---|---|
 | `lib/saju/kst-offset.ts` | 표준시·서머타임 이력 (tzdata Asia/Seoul) → `fromKST()` 가 사용 |
-| `lib/saju/credits.ts` | 크레딧 규칙 한 곳 (재열람 무료 → 하루 한 편 → 크레딧 → 402) |
+| `lib/saju/credits.ts` | 크레딧 규칙 한 곳. v4(2026-09-17): 통화는 크레딧 하나, 자정에 1까지 top-up (재열람 무료 → 충전 → 소비 → 402) |
 | `lib/saju/spend.ts` | 월 LLM 호출 킬스위치 (Postgres `saju_spend`) |
 | `lib/saju/llm.ts` | Sonnet 5 공통 호출, system cache_control, usage 로그 |
 | `lib/saju/prompt.ts` | 풀이 프롬프트 빌더 (system 불변 / user 가변) |
 | `lib/saju/compat-server.ts`, `invite-server.ts`, `hooks.ts` | 궁합 계산·저장, 초대 로드, 후킹 템플릿 50개 |
 | `lib/saju/reading-public.ts` | 공개 공유 로더 (출생정보 미노출) |
 | `supabase/016~020` | chart 스냅샷·anon 컬럼 제한 / 크레딧 원장·RPC / 초대·compat 리딩 / 하루 한 편(`saju_use_daily`) / 월 호출 카운터(`saju_spend`) |
+| `supabase/021~023` | **프로덕션 미적용.** 이슈 팔로우·댓글·`next_branch` / 임베딩 영벡터 정리·RPC NaN 가드 / 크레딧 통일(`saju_refill_daily`). 전부 로컬 Postgres 로 검증했다 — `STATUS.md` §F |
+| `lib/saju/json-repair.ts` | LLM JSON 복구. 본문이 여러 문단이 되자 모델이 문자열 안에 날 줄바꿈을 넣어 `JSON.parse` 가 죽었다(502) |
+| `lib/actor-name.ts`, `lib/paragraphs.ts`, `lib/headline.ts` | 정치 카드·상세 표기 헬퍼 (이름 중복 제거 / 요약 문단화 / 헤드라인·보조요약 중복 제거) |
 | `scripts/verify-*-kasi.ts`, `saju-qa.ts` | KASI 전수 대조, 통변 QA (`npm run verify:kasi:*`, `qa:saju`) |
 
 ---
