@@ -106,17 +106,18 @@ score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간�
 ### 정치 플랫폼
 1. **dedup 미흡** — 같은 사건이 3건씩 중복 저장됨.
    **원인 일부 규명(2026-09-17)**: OpenAI 크레딧 소진으로 임베딩이 전부 영벡터/NULL 이라
-   Stage 2(임베딩 비교) 매칭이 몇 달간 꺼져 있었다. 크레딧 충전 + 임베딩 재생성 후 재평가할 것.
+   Stage 2(임베딩 비교) 매칭이 몇 달간 꺼져 있었다. 크레딧은 2026-09-18 충전됐다 —
+   이제 **임베딩 재생성 후 재평가**가 남았다(재생성 전까지는 Stage 2 가 여전히 빈손이다).
    그래도 남으면 actor + category + 7일 이내 병합 규칙을 손봐야 한다.
 2. **criminal_conviction 오분류** — 기사 주제가 선거인데 과거 전과 "언급만" → media_coverage여야 함.
    프롬프트에 엄격 규칙 6개가 들어가 있다. 그래도 남으면 그때가 모델 문제.
 3. **배경 깜빡임** — 뷰 탭 전환 시 width 변화 + blur 레이어 reflow. CSS transition으로 변경함, 확인 필요
 4. **시드 데이터 부족** — 네이버 날짜 필터(ds/de) 추가했으나 재실행 필요
 5. **경계선 직선 2개** — 파랑/빨강 gradient 끝이 겹치는 부분. overlap 조정 필요
-6. **유사 사례 무작위 (마이그레이션 대기)** — `match_similar_events` 가 유사도로 `NaN` 을 돌려준다.
-   영벡터 → pgvector `<=>` 가 NaN → Postgres 가 NaN 을 최댓값으로 취급 → 임계값 통과·정렬 1위.
-   `supabase/022-embedding-nan-guard.sql` 를 프로덕션에 적용하면 증상은 멈춘다(빈 목록).
-   실제 복구는 OpenAI 크레딧 충전 후 임베딩 재생성.
+6. **유사 사례 무작위 (022 적용 완료 2026-09-18, 데이터 복구 대기)** — `match_similar_events` 가
+   유사도로 `NaN` 을 돌려주던 버그. 영벡터 → pgvector `<=>` 가 NaN → Postgres 가 NaN 을
+   최댓값으로 취급 → 임계값 통과·정렬 1위. `supabase/022-embedding-nan-guard.sql` 적용으로
+   **증상은 멈췄다**(무작위 → 빈 목록). 실제 복구는 크롤러 재실행으로 임베딩을 다시 채우는 것.
 
 ### 사주 서비스
 7. **profile PATCH 500** — `/api/user/profile` PATCH 시 Supabase 400 반환. 원인: migration 012 (`supabase/012-profile-birth.sql`) 프로덕션 미적용 가능성. 해결: Supabase SQL Editor에서 012 실행. 에러 로그는 Vercel 함수 로그 `[profile PATCH] supabase error:` 로 확인.
@@ -439,7 +440,7 @@ DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이�
 | `lib/saju/compat-server.ts`, `invite-server.ts`, `hooks.ts` | 궁합 계산·저장, 초대 로드, 후킹 템플릿 50개 |
 | `lib/saju/reading-public.ts` | 공개 공유 로더 (출생정보 미노출) |
 | `supabase/016~020` | chart 스냅샷·anon 컬럼 제한 / 크레딧 원장·RPC / 초대·compat 리딩 / 하루 한 편(`saju_use_daily`) / 월 호출 카운터(`saju_spend`) |
-| `supabase/021~023` | **프로덕션 미적용.** 이슈 팔로우·댓글·`next_branch` / 임베딩 영벡터 정리·RPC NaN 가드 / 크레딧 통일(`saju_refill_daily`). 전부 로컬 Postgres 로 검증했다 — `STATUS.md` §F |
+| `supabase/021~023` | **프로덕션 적용 완료 (2026-09-18).** 이슈 팔로우·댓글·`next_branch` / 임베딩 영벡터 정리·RPC NaN 가드 / 크레딧 통일(`saju_refill_daily`). 전부 로컬 Postgres 로 검증했다 — `STATUS.md` §F |
 | `lib/saju/json-repair.ts` | LLM JSON 복구. 본문이 여러 문단이 되자 모델이 문자열 안에 날 줄바꿈을 넣어 `JSON.parse` 가 죽었다(502) |
 | `lib/actor-name.ts`, `lib/paragraphs.ts`, `lib/headline.ts` | 정치 카드·상세 표기 헬퍼 (이름 중복 제거 / 요약 문단화 / 헤드라인·보조요약 중복 제거) |
 | `scripts/verify-*-kasi.ts`, `saju-qa.ts` | KASI 전수 대조, 통변 QA (`npm run verify:kasi:*`, `qa:saju`) |

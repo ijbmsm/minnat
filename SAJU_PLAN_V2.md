@@ -79,7 +79,7 @@ P4  검증          KASI 대조·LLM QA         P1부터 병행
   - 저장 시 채움. 이력에서 열 때 **저장된 chart 로 렌더**. 동시에 현재 엔진으로 재계산해 4주 gz 가 다르면 상단에 "계산 규칙이 업데이트됐어. 최신 계산으로 다시 보기" 배너(다시 풀이받기 = 크레딧 소모 경로).
 - **완료 기준**: 마이그레이션 멱등(`IF NOT EXISTS`). 이력 열람 시 네트워크에 `/api/saju/reading` 호출 없음. 테스트: `engine_version` 다른 row 를 넣고 배너 노출 확인.
 
-### P0-5. 모델 단일화 + 프롬프트 캐시 + 비용 로그 ✅ 구현 완료 — 캐시 적중 실측은 Anthropic 크레딧 충전 후 (`[saju usage]` 로그)
+### P0-5. 모델 단일화 + 프롬프트 캐시 + 비용 로그 ✅ 구현 완료 — 크레딧은 2026-09-18 충전됨. 캐시 적중 실측만 남음 (`[saju usage]` 로그)
 - **파일**: `reading/route.ts` (`callLLM`, `buildPrompt`), `compat/route.ts`, `src/lib/saju/compat.ts` `buildCompatPrompt`
 - **변경**:
   - 모델을 `claude-sonnet-5` 로 통일. `tier` 파라미터는 스키마 호환을 위해 남기되 모델 분기 제거. `output_config: { effort: 'medium' }`.
@@ -275,9 +275,9 @@ P4  검증          KASI 대조·LLM QA         P1부터 병행
 | P1 | ✅ 3/3 (GA4 DebugView 확인은 배포 후) |
 | P2 | ✅ 6/6 |
 | P3 | ✅ 4/5 + P3-5 실기기 점검은 사람 |
-| P4 | ◐ 스크립트 4/4 작성, 실행은 API 키·크레딧 후 / P4-4 사람 |
+| P4 | ◐ 스크립트 4/4 작성. 크레딧 충전(2026-09-18) 으로 실행 조건은 갖춰짐 / P4-4 사람 |
 
-배포 전 체크: **`supabase/UPGRADE-016-018.sql` 전체를 SQL Editor 에 붙여넣어 실행** (SETUP.sql 은 신규 DB 전용 — 데이터가 있으면 사전 점검에서 중단됨), Vercel 환경변수에 `SUPABASE_SERVICE_KEY`·`SAJU_MONTHLY_CALL_LIMIT` 추가, Anthropic 크레딧 충전. 검증: `npm run typecheck` · `npm test`(105) · `npm run build` 모두 통과 (2026-09-16).
+배포 전 체크(**2026-09-18 전부 완료**): `supabase/UPGRADE-016-018.sql`·`UPGRADE-saju-v3.sql`(019)·`021`~`023` SQL Editor 실행, Vercel 환경변수 `SUPABASE_SERVICE_KEY`·`SAJU_MONTHLY_CALL_LIMIT`, Anthropic 크레딧 충전. 검증: `npm run typecheck` · `npm test` · `npm run build` 모두 통과.
 남은 사람 작업: P3-5 실기기 캡처, P4-4 블라인드 QA·외부 만세력 대조, 후킹 템플릿 50개 톤 검토(`src/lib/saju/hooks.ts`).
 
 ## 4-2. 풀이 밀도·가독성 개편 (2026-09-17)
@@ -312,7 +312,7 @@ P4  검증          KASI 대조·LLM QA         P1부터 병행
 
 **비용 영향** — full 출력 3,000 → 약 5,100토큰. Sonnet 5 기준 회당 약 $0.033 → $0.053 (실측 1건, prompt cache 적중 시). 월 3,000회 킬스위치면 상한이 약 $100 → $160 수준. 한도 재검토 필요.
 
-**상태 (2026-09-18)** — PR #2 로 `main` 머지 완료. 무료 정책은 이후 v4(크레딧 통일)로 다시 개정됐다(PR #7, 미머지 · 마이그레이션 `023`).
+**상태 (2026-09-18)** — PR #2 로 `main` 머지 완료. 무료 정책은 이후 v4(크레딧 통일)로 다시 개정됐고, PR #7 머지 + 마이그레이션 `023` 프로덕션 적용까지 끝났다.
 
 **남은 것** — 로그인 상태의 실제 풀이 화면은 미확인(로컬에서 로그인 불가). 배포 후 full·love·career·today·compat 각 1건씩 눈으로 확인할 것.
 
