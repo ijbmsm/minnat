@@ -9,7 +9,14 @@
  */
 import { createServiceClient } from '@/lib/supabase/service';
 
-const DEFAULT_MONTHLY_CALL_LIMIT = 3000;
+/**
+ * 2026-09-18 결정: 목표 사용자 20명 기준으로 100 회.
+ * 1인당 새 풀이는 보통 2~3회다(같은 차트·타입·고민은 캐시 히트라 세지 않는다).
+ * 20명 × 2~3회 = 40~60 회에 여유 1.7배를 얹은 값. 회당 $0.053 이므로 월 상한 약 $5.
+ * 이전 값은 3000(≈ $160) 이었는데, 그건 목표 인원의 50배였다.
+ * 여기 닿으면 사업자등록·PG 를 검토할 시점으로 본다.
+ */
+const DEFAULT_MONTHLY_CALL_LIMIT = 100;
 
 export function monthlyCallLimit(): number {
   const raw = Number(process.env.SAJU_MONTHLY_CALL_LIMIT);
