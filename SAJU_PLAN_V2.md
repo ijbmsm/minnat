@@ -184,9 +184,9 @@ P4  검증          KASI 대조·LLM QA         P1부터 병행
 - **개인정보**: B 의 정보는 A 에게 "일주·오행·결과"만 보이고 생년월일시는 안 보임(역방향도 동일). 고지 문구 + 삭제 시 양쪽 reading 의 상대 필드 null.
 - **완료 기준**: 시크릿 창 B 시나리오 — 링크 → 입력 → 미리보기 → 가입 → 결과까지 **탭 5회 이내, 재입력 0회**. A 이력에 결과 등장. 양쪽 balance +1. Anthropic 호출 1회.
 
-### P2-6. 월 비용 킬스위치 ✅ 완료 — `src/lib/saju/spend.ts` (`SAJU_MONTHLY_CALL_LIMIT`, 기본 3000 ≈ 월 $40~120, 실패 시 decr, 80% 경고), 503 `monthly_cap`
+### P2-6. 월 비용 킬스위치 ✅ 완료 — `src/lib/saju/spend.ts` (`SAJU_MONTHLY_CALL_LIMIT`, 기본 100 ≈ 월 $5 · 목표 20명 기준, 실패 시 decr, 80% 경고), 503 `monthly_cap`
 - **파일**: `src/lib/saju/credits.ts` 또는 신규 `src/lib/saju/spend.ts`, `reading/route.ts`·`compat/route.ts` LLM 호출 직전
-- **변경**: Redis `saju:spend:{YYYYMM}` INCR (LLM 실제 호출 시만). `SAJU_MONTHLY_CALL_LIMIT` env(기본 3000 — 2026-09-17 결정. 여기 닿으면 사업자·PG 검토 시점). 초과 시 503 `{error:'monthly_cap'}` + UI "이번 달 준비된 풀이가 다 나갔어. 다음 달 1일에 다시 열려". 어드민 면제. 80% 도달 시 `console.warn` 1회.
+- **변경**: Redis `saju:spend:{YYYYMM}` INCR (LLM 실제 호출 시만). `SAJU_MONTHLY_CALL_LIMIT` env(기본 100 — 2026-09-18 결정, 목표 20명 × 1인 2~3회 + 여유. 2026-09-17 의 3000 은 목표 인원의 50배였다. 여기 닿으면 사업자·PG 검토 시점). 초과 시 503 `{error:'monthly_cap'}` + UI "이번 달 준비된 풀이가 다 나갔어. 다음 달 1일에 다시 열려". 어드민 면제. 80% 도달 시 `console.warn` 1회.
 - **완료 기준**: env 를 3 으로 놓고 4번째 호출이 503. 캐시 히트·DB 폴백·미리보기는 카운트 안 됨.
 
 ---
