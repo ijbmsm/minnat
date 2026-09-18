@@ -76,7 +76,7 @@ export function SimilarCasesContent({ cases }: { cases: SimilarCase[] }) {
                 )}
               </div>
 
-              <p className="m-0 line-clamp-2 max-w-[62ch] text-[15px] leading-[1.6] text-[#d4d4d4]">
+              <p className="m-0 line-clamp-2 text-[15px] leading-[1.6] text-[#d4d4d4]">
                 {c.summary || config?.label}
               </p>
             </Link>

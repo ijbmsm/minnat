@@ -45,9 +45,33 @@ const SAJU_TYPES = [
   { id: 'compat', href: '/saju/compat', seal: '合', ko: '궁합',        tagline: '두 사주로 보는 케미.\n끌리는 이유, 부딪히는 이유.' },
 ];
 
-// ── CreditBadge — 오늘 무엇을 볼 수 있는지 한 줄로 ──
-// 정책 v3: 로그인하면 타입 무관 하루 한 편 무료. 더 보려면 크레딧, 아니면 내일.
-function CreditBadge({ loggedIn, credits }: { loggedIn: boolean | null; credits: CreditsResponse | null }) {
+// ── CreditCoin — 있음/없음이 한눈에 갈리는 아이콘 ──
+// 6px 점으로는 "1개 있음" 과 "다 씀" 이 구분되지 않았다. 찬 동전 / 빈 테두리로 바꾼다.
+function CreditCoin({ filled }: { filled: boolean }) {
+  return (
+    <span aria-hidden style={{
+      width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      border: `1.5px solid ${filled ? INK.gold : INK.ink28}`,
+      background: filled ? INK.gold : 'transparent',
+      boxShadow: filled ? `0 0 0 3px ${INK.gold}22` : 'none',
+      transition: 'background-color .15s, border-color .15s',
+    }}>
+      {/* 찼을 때만 가운데 각인 — 멀리서도 채워짐이 보인다 */}
+      {filled && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1a140c' }} />}
+    </span>
+  );
+}
+
+// ── CreditBadge — 지금 몇 편 볼 수 있는지 ──
+// 정책 v4: 통화는 크레딧 하나. 자정에 1까지 채워진다. N/1 로만 읽힌다.
+function CreditBadge({ loggedIn, credits, align = 'right' }: {
+  loggedIn: boolean | null;
+  credits: CreditsResponse | null;
+  /** 배지가 좌/우 어디에 붙어 있는지 — 툴팁이 화면 밖으로 나가지 않게 한다 */
+  align?: 'left' | 'right';
+}) {
+  const [tip, setTip] = useState(false);
   const base: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: 9,
     border: `1px solid ${INK.cardLine}`, borderRadius: 999,
@@ -58,16 +82,43 @@ function CreditBadge({ loggedIn, credits }: { loggedIn: boolean | null; credits:
   if (!loggedIn) return <div style={base}>원국은 로그인 없이 · 풀이는 로그인 후 매일 한 편</div>;
   if (!credits) return <div style={{ ...base, opacity: 0.6 }}>확인 중</div>;
 
-  const live = credits.dailyFree || credits.balance > 0;
-  const label = credits.dailyFree
-    ? (credits.balance > 0 ? `오늘 무료 한 편 · 크레딧 ${credits.balance}` : '오늘 무료 한 편 남았습니다')
-    : credits.balance > 0
-      ? `크레딧 ${credits.balance}개로 더 보실 수 있습니다`
-      : '오늘 몫을 다 읽으셨습니다 · 내일 자정에 한 편';
+  const n = credits.balance;
+  const has = n > 0;
+  const tipText = has
+    ? `풀이 한 편에 크레딧 1개를 씁니다.\n자정마다 ${credits.dailyCap}개까지 자동으로 채워집니다.`
+    : `자정에 ${credits.dailyCap}개가 채워집니다.\n궁합 초대·공유로 더 모을 수 있습니다.`;
+
   return (
-    <div style={{ ...base, borderColor: live ? `${INK.gold}55` : INK.cardLine, color: live ? INK.ink : INK.ink45 }}>
-      <span style={{ width: 6, height: 6, borderRadius: 3, background: live ? INK.gold : INK.ink28 }} />
-      {label}
+    <div style={{ position: 'relative' }}
+      onMouseEnter={() => setTip(true)} onMouseLeave={() => setTip(false)}>
+      <button type="button"
+        onClick={() => setTip(v => !v)}
+        aria-label={`크레딧 ${n}개 (자정마다 ${credits.dailyCap}개까지 충전)`}
+        style={{
+          ...base, cursor: 'help',
+          borderColor: has ? `${INK.gold}55` : INK.cardLine,
+          color: has ? INK.ink : INK.ink45,
+        }}>
+        <CreditCoin filled={has} />
+        <span>크레딧</span>
+        <span style={{ fontSize: 13, letterSpacing: 0, color: has ? INK.gold : INK.ink45 }}>
+          <b style={{ fontWeight: 700 }}>{n}</b>
+          <span style={{ opacity: 0.5 }}>/{credits.dailyCap}</span>
+        </span>
+      </button>
+      {tip && (
+        <div role="tooltip" style={{
+          position: 'absolute', top: 'calc(100% + 8px)', zIndex: 20,
+          ...(align === 'left' ? { left: 0 } : { right: 0 }),
+          width: 230, maxWidth: '78vw', padding: '10px 12px', borderRadius: 8,
+          border: `1px solid ${INK.cardLine}`, background: 'rgba(12,9,7,0.98)',
+          boxShadow: '0 12px 34px rgba(0,0,0,0.55)',
+          fontFamily: SERIF, fontSize: 12, lineHeight: 1.6, color: INK.ink70,
+          whiteSpace: 'pre-line', textAlign: 'left',
+        }}>
+          {tipText}
+        </div>
+      )}
     </div>
   );
 }
@@ -177,7 +228,7 @@ export function SajuCards() {
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'flex-start' : 'flex-end', gap: 9 }}>
-            <CreditBadge loggedIn={isLoggedIn} credits={credits} />
+            <CreditBadge loggedIn={isLoggedIn} credits={credits} align={isMobile ? 'left' : 'right'} />
             {credits && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -190,7 +241,7 @@ export function SajuCards() {
                 <span style={{ fontFamily: MONO, fontSize: 10.5, color: INK.ink45 }}>
                   {credits.readTypes.length === credits.totalTypes
                     ? `다섯 편 모두 읽으셨습니다`
-                    : `${credits.readTypes.length}/${credits.totalTypes} 읽음 · 하루 한 편씩`}
+                    : `${credits.readTypes.length}/${credits.totalTypes} 읽음`}
                 </span>
               </div>
             )}

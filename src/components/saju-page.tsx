@@ -968,8 +968,8 @@ function NextReadings({ type }: { type: ReadingType }) {
   );
 }
 
-// ── 오늘 몫 소진 (402) — "하루 한 편" 을 설명하고 길을 두 개 준다 ──
-// 서버가 크레딧이 있으면 자동으로 쓰므로, 이 화면이 뜬다 = 오늘 무료도 크레딧도 없다.
+// ── 크레딧 소진 (402) — 자정 충전을 설명하고 길을 두 개 준다 ──
+// 서버가 크레딧이 있으면 자동으로 쓰므로, 이 화면이 뜬다 = 잔액 0 이다.
 function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]; type: ReadingType }) {
   const router = useRouter();
   const titles = SECTION_TITLES[type];
@@ -991,13 +991,13 @@ function CreditZeroPanel({ earn, type }: { earn: { key: string; text: string }[]
         ))}
       </div>
       <div style={{ marginTop: -60, position: 'relative', padding: '20px 18px', borderRadius: 14, background: 'rgba(12,9,7,0.96)', border: `1px solid ${INK.cardLine}` }}>
-        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>오늘 한 편은 이미 읽으셨습니다</p>
+        <p style={{ margin: 0, fontFamily: SERIF, fontSize: 16, fontWeight: 600, color: INK.ink }}>크레딧을 다 쓰셨습니다</p>
         <p style={{ margin: '6px 0 16px', fontFamily: SERIF, fontSize: 13, color: INK.ink45, lineHeight: 1.65 }}>
-          풀이는 하루에 한 편씩 열립니다. 다음 편은 <b style={{ color: INK.ink70 }}>{tomorrow}</b>(자정)에 열리고,
-          이미 읽으신 풀이는 몇 번을 다시 보셔도 무료입니다.
+          풀이 한 편에 크레딧 1개입니다. 크레딧은 <b style={{ color: INK.ink70 }}>{tomorrow}</b>(자정)에 1개 채워지고,
+          이미 읽으신 풀이는 몇 번을 다시 보셔도 크레딧이 들지 않습니다.
         </p>
         <p style={{ margin: '0 0 8px', fontFamily: MONO, fontSize: 11, letterSpacing: 1, color: INK.ink28 }}>
-          지금 바로 보시려면 — 크레딧 1개
+          기다리지 않고 모으려면
         </p>
         <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {earn.map(e => (
@@ -1066,7 +1066,7 @@ function PreviewGate({ type, onLogin }: { type: ReadingType; onLogin: () => void
             </p>
             <p style={{ fontFamily: SERIF, fontSize: 13.5, color: INK.ink45, margin: '8px 0 18px', lineHeight: 1.65 }}>
               위의 사주 원국은 로그인 없이 계속 보실 수 있습니다.
-              풀이는 로그인하시면 하루 한 편씩 무료로 읽으실 수 있습니다.
+              풀이는 로그인하시면 크레딧 1개로 읽으실 수 있고, 크레딧은 자정마다 채워집니다.
             </p>
             <button onClick={onLogin}
               style={{ width: '100%', padding: '13px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
