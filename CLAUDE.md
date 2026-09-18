@@ -122,8 +122,9 @@ score = base × 진영다양도(0.7~1.3) × 직책가중치(0.5~1.2) × 시간�
 ### 사주 서비스
 7. **profile PATCH 500** — `/api/user/profile` PATCH 시 Supabase 400 반환. 원인: migration 012 (`supabase/012-profile-birth.sql`) 프로덕션 미적용 가능성. 해결: Supabase SQL Editor에서 012 실행. 에러 로그는 Vercel 함수 로그 `[profile PATCH] supabase error:` 로 확인.
 8. **SAJU_ADMIN_USER_ID 미설정** — Vercel 환경변수에 어드민 Supabase user UUID 추가해야 크레딧 면제 작동.
-9. ~~월 호출 상한 재검토~~ — **2026-09-18 결정: 기본값 3000 → 100**.
-   목표 사용자 20명 × 1인당 2~3회 = 40~60 회에 여유를 얹은 값. 회당 $0.053 이므로 월 약 $5.
+9. ~~월 호출 상한 재검토~~ — **2026-09-18 결정: 기본값 3000 → 800 (목표 DAU 20)**.
+   하루 크레딧 1개 × DAU 20 × 30일 = 600 이 이론 천장, 연속 보너스까지 700~750,
+   여유 10% 를 더해 800. 회당 $0.053 이므로 월 최대 약 $42.
    Vercel 에 `SAJU_MONTHLY_CALL_LIMIT` 이 설정돼 있지 않아 코드 기본값이 그대로 상한이다.
 
 ## 환경변수
@@ -425,7 +426,7 @@ UPSTASH_REDIS_REST_TOKEN=
 ANTHROPIC_API_KEY=           ← LLM 호출 (Sonnet 5 단일)
 SAJU_ADMIN_USER_ID=          ← 어드민 UUID (크레딧·킬스위치 면제)
 SUPABASE_SERVICE_KEY=        ← 공개 공유 조회·초대·크레딧 지급 (서버 전용)
-SAJU_MONTHLY_CALL_LIMIT=     ← 월 LLM 호출 상한 (기본 100 ≈ $5, 목표 20명 기준. 미설정이면 기본값)
+SAJU_MONTHLY_CALL_LIMIT=     ← 월 LLM 호출 상한 (기본 800 ≈ $42, 목표 DAU 20 기준. 미설정이면 기본값)
 DATA_GO_KR_API_KEY=          ← scripts/verify-*-kasi.ts 전용 (공공데이터포털)
 ```
 
