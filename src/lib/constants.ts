@@ -1,4 +1,4 @@
-import type { CategoryConfig, IssueCategory, CriminalStage, CreditCategory, CreditType } from "@/types";
+import type { CategoryConfig, IssueCategory, CriminalStage, CreditCategory, CreditType, EvidenceGrade } from "@/types";
 
 // ── 카테고리 설정 v1.1 ──
 export const CATEGORIES: CategoryConfig[] = [
@@ -141,3 +141,38 @@ export const CREDIT_CATEGORY_CONFIG: Record<CreditCategory, {
   oversight_active:        { label: "감사 활동",       type: "general", defaultValue: 0.05, description: "국정감사 질의 상위 20%" },
   donation_legal:          { label: "합법 후원",       type: "general", defaultValue: 0.03, description: "공직선거법 범위 내 공익 활동" },
 };
+
+// ── 근거 등급 토큰 (사안 페이지) ──
+//
+// 확정된 사실 / 수사기관의 혐의 / 한쪽의 주장. 인터넷 검색으로는 이 셋이 전부
+// 섞여 나오고, 그래서 독자는 전부를 사실로 읽는다. 색과 라벨로 항상 갈라 둔다.
+// 금색(#d3a24a)은 이미 "점수 없음·기록"·"다음 분기점"에 쓰는 '아직 확정 아님' 색이라
+// 혐의 단계에 그대로 쓴다.
+export const EVIDENCE_GRADE: Record<
+  EvidenceGrade,
+  { label: string; ink: string; bg: string; border: string; note: string }
+> = {
+  confirmed: {
+    label: "확정",
+    ink: "#e8e8e8",
+    bg: "rgba(232,232,232,.08)",
+    border: "rgba(232,232,232,.22)",
+    note: "판결·공식기록으로 확인된 사실",
+  },
+  alleged: {
+    label: "혐의",
+    ink: "#d3a24a",
+    bg: "rgba(211,162,74,.1)",
+    border: "rgba(211,162,74,.26)",
+    note: "수사기관의 판단이며 유무죄가 정해진 것은 아니다",
+  },
+  claim: {
+    label: "주장·보도",
+    ink: "#8a8a8a",
+    bg: "rgba(138,138,138,.08)",
+    border: "rgba(138,138,138,.2)",
+    note: "한쪽의 주장이거나 확인되지 않은 보도",
+  },
+};
+
+export const EVIDENCE_GRADE_ORDER: EvidenceGrade[] = ["confirmed", "alleged", "claim"];

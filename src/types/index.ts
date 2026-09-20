@@ -359,3 +359,118 @@ export interface NetScore {
   creditRatio: number;
   netScore: number;
 }
+
+// ── 사안(Storyline) — 사건(event) 위의 층 ──
+//
+// event(issue_clusters)는 7일 윈도우로 묶인 "뉴스 사이클"이라, 몇 년에 걸친 하나의
+// 사안은 여러 event 로 흩어진다. Storyline 은 그 event 들을 사람이 읽을 수 있는
+// 줄거리로 엮는 층이다. 요지·장 제목·인과 한 줄은 클러스터링에서 나오지 않는다 —
+// 사람이 쓰고 승인한 것만 올린다.
+
+/**
+ * 근거 등급. 이 제품이 인터넷 검색으로는 못 얻는 걸 주는 지점이다.
+ * 확정된 사실 / 수사기관의 혐의 / 한쪽의 주장이 섞이면 독자는 전부를 사실로 읽는다.
+ */
+export type EvidenceGrade = "confirmed" | "alleged" | "claim";
+
+export interface StoryArticle {
+  /** 사안 안에서만 고유하면 된다. 모달 URL(?a=)에 실린다 */
+  id: string;
+  title: string;
+  /** YYYY-MM-DD */
+  published_at: string;
+  source_name: string;
+  /** "법원" "검찰" "공식기록" "종합일간지" 같은 출처 성격 */
+  source_kind: string;
+  grade: EvidenceGrade;
+  /** 모달 본문. 없으면 제목·출처만 보여준다 */
+  body?: string;
+  source_url?: string;
+  /** 수집된 실제 기사와 이어졌으면 /issues/<id> 로 보낸다 */
+  issue_id?: string;
+  cross_verified?: string[];
+}
+
+export interface StoryChapter {
+  id: string;
+  /** ① ② ③ … 표시용 */
+  ordinal: string;
+  /** "2015.3", "2022 – 2023" 처럼 자유 형식 */
+  when: string;
+  grade: EvidenceGrade;
+  /** 명사가 아니라 문장. 제목만 훑어도 줄거리가 되어야 한다 */
+  title: string;
+  body: string;
+  /** 다음 장으로 잇는 인과 한 줄. 마지막 장은 비운다 */
+  link?: string;
+  articles: StoryArticle[];
+}
+
+export interface StoryPerson {
+  name: string;
+  role: string;
+  /** 이 사람이 등장하는 장 */
+  chapter_ids: string[];
+}
+
+export interface StoryDisputeSide {
+  text: string;
+  source: string;
+}
+
+export interface StoryDispute {
+  question: string;
+  claim: StoryDisputeSide;
+  counter: StoryDisputeSide;
+}
+
+export interface StoryFigure {
+  value: string;
+  label: string;
+}
+
+export interface RelatedStory {
+  /** "같은 사건" "이어진 사건" "파생 사건" */
+  kind: string;
+  name: string;
+  why: string;
+  /** 사안 페이지가 있으면 링크 */
+  slug?: string;
+}
+
+export interface StorylineSummary {
+  slug: string;
+  title: string;
+  /** 주 대상 기준. 양측이 모두 처분 대상이면 "both" */
+  camp: Camp | "both";
+  /** 사안 자체의 진행 상태 */
+  status: "ongoing" | "closed";
+  /** "2심 선고 대기", "대법 확정 유죄 · 특별사면", "공소시효 만료" */
+  status_label: string;
+  /** 사안의 시작일. 경과일 계산 기준 */
+  started_at: string;
+  /** 종결 사안의 종료일. 진행중이면 비운다 */
+  ended_at?: string | null;
+  /** 한 줄 요지 — 목록 카드에서 쓴다 */
+  blurb: string;
+  /** 아래 둘은 원고에 적지 않는다. 손으로 적으면 장이 늘 때 어긋난다 — 코드가 센다 */
+  chapter_count: number;
+  article_count: number;
+}
+
+/** 원고. 개수는 코드가 세므로 여기에는 적지 않는다 */
+export interface Storyline extends Omit<StorylineSummary, "chapter_count" | "article_count"> {
+  /** 30초 요약. 문단 배열 — 첫 문단이 리드다 */
+  lead: string[];
+  figures: StoryFigure[];
+  people: StoryPerson[];
+  chapters: StoryChapter[];
+  disputes: StoryDispute[];
+  next_branch?: { date: string; title: string; description?: string } | null;
+  /**
+   * 종결 사안의 결말. 반드시 채운다 — 유죄만큼 무죄·혐의없음·공소시효 만료·
+   * 흐지부지도 같은 크기로 보여야 한다. 한쪽만 기록하면 그게 편향이다.
+   */
+  outcome?: { label: string; description: string } | null;
+  related: RelatedStory[];
+}

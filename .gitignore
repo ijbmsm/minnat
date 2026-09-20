@@ -38,3 +38,6 @@ next-env.d.ts
 # KASI 대조 캐시 / QA 샘플
 scripts/.cache/
 scripts/qa-samples/*.json
+
+# supabase CLI 작업 파일
+supabase/.temp/
