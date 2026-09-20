@@ -45,6 +45,16 @@ export type CriminalStage =
   | "no_charges"             // 혐의없음
   | "dismissed";             // 각하
 
+// ── 제도적 결정 단계 ──
+// criminal_stage 는 형사 절차만 담는다. 국회 탄핵소추·헌재 인용은 다른 축이다
+export type InstitutionalStage =
+  | "impeachment_proposed"   // 탄핵소추안 발의
+  | "impeachment_passed"     // 국회 가결 → 직무정지
+  | "impeachment_upheld"     // 헌재 인용 → 파면 (종국)
+  | "impeachment_rejected"   // 헌재 기각·각하 (종국)
+  | "censure_passed"         // 해임건의안 가결
+  | "inquiry_launched";      // 국정조사·특검 발동
+
 // ── 신뢰도 등급 ──
 export type TrustLevel = "high" | "medium" | "low" | "pending";
 
@@ -99,6 +109,8 @@ export interface Issue {
   verification_note: string | null;
   trust_level: TrustLevel;
   criminal_stage: CriminalStage | null;
+  /** 국회·헌재 등 제도적 절차 단계. 형사 절차와 다른 축이며 둘 다 가질 수 있다 */
+  institutional_stage: InstitutionalStage | null;
   coverage_count: number;
   headline_days: number;
   is_archive: boolean;
