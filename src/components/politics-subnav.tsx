@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   { href: "/politics",    label: "스코어보드" },
   { href: "/issues",      label: "이슈" },
+  { href: "/stories",     label: "사건 추적" },
   { href: "/explore",     label: "탐색" },
   { href: "/politicians", label: "정치인" },
   { href: "/report",      label: "제보" },
 ] as const;
 
-const POLITICS_PREFIXES = ["/politics", "/issues", "/explore", "/politicians", "/report"];
+const POLITICS_PREFIXES = ["/politics", "/issues", "/stories", "/explore", "/politicians", "/report"];
 
 function isPoliticsPath(p: string) {
   return POLITICS_PREFIXES.some(prefix => p.startsWith(prefix));

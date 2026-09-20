@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getIssues, getPresidents } from "@/lib/data";
+import { listStories } from "@/lib/stories";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://drinkplace.kr";
@@ -20,6 +21,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
+  // 사안 페이지는 검색 유입의 실제 착지점이다 — 목록만 넣으면 개별 사안이 안 잡힌다
+  const storyUrls = (await listStories()).map((s) => ({
+    url: `${baseUrl}/stories/${s.slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.9,
+  }));
+
   const presidentUrls = presidents.map((p) => ({
     url: `${baseUrl}/politicians/presidents/${p.id}`,
     lastModified: new Date(),
@@ -38,10 +47,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/saju/compat`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
     { url: `${baseUrl}/politics`,               lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
     { url: `${baseUrl}/issues`,                 lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${baseUrl}/stories`,                lastModified: new Date(), changeFrequency: "weekly",  priority: 0.9 },
     { url: `${baseUrl}/politicians`,            lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
     { url: `${baseUrl}/politicians/presidents`, lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
     { url: `${baseUrl}/about`,                  lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/explore`,                lastModified: new Date(), changeFrequency: "weekly",  priority: 0.6 },
+    ...storyUrls,
     ...presidentUrls,
     ...issueUrls,
   ];
