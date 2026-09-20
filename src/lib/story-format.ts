@@ -7,6 +7,16 @@ import type { Camp, EvidenceGrade, StorylineSummary } from "@/types";
  * 서버 코드가 브라우저 번들로 딸려 들어간다. 화면에서 쓰는 계산은 여기 둔다.
  */
 
+/**
+ * 제도적 결정은 그 자체가 공식 기록이다. 국회가 가결했다·헌재가 인용했다는
+ * 일어난 사실이며, 형사 혐의의 유무죄와는 다른 축이다.
+ * (혐의가 사실이라는 뜻이 아니라 "이 결정이 있었다"가 확인됐다는 뜻이다)
+ */
+const INSTITUTIONAL_CONFIRMED = new Set([
+  "impeachment_proposed", "impeachment_passed", "impeachment_upheld",
+  "impeachment_rejected", "censure_passed", "inquiry_launched",
+]);
+
 /** 확정으로 볼 수 있는 형사 단계 — 법원이 판단을 내린 것 */
 const SETTLED = new Set([
   "guilty_1st", "guilty_2nd", "confirmed", "not_guilty", "no_charges", "dismissed", "pardoned",
@@ -24,10 +34,15 @@ const SCORED = new Set([
  */
 export function deriveGrade(issue: {
   criminal_stage: string | null;
+  institutional_stage?: string | null;
   category: string | null;
   source_tier: number | null;
   verified: boolean | null;
 }): EvidenceGrade {
+  // 제도적 결정이 먼저다. 한 기사가 둘 다 가질 수 있는데(헌재 파면 기사에
+  // 형사 기소 단계가 함께 붙는다), 그 기사가 기록하는 것은 제도적 결정이다
+  if (INSTITUTIONAL_CONFIRMED.has(issue.institutional_stage ?? "")) return "confirmed";
+
   const stage = issue.criminal_stage ?? "";
   if (SETTLED.has(stage)) return "confirmed";
   if (ALLEGED.has(stage)) return "alleged";

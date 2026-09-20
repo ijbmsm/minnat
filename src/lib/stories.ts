@@ -77,7 +77,7 @@ export async function getStory(slug: string): Promise<Storyline | null> {
   const chapters = chapterRows ?? [];
   const { data: articleRows } = await supabase
     .from("storyline_articles")
-    .select("id, chapter_id, issue_id, score, issues(id, title, summary, published_at, source_name, source_tier, category, criminal_stage, verified, source_url, cross_verified_sources)")
+    .select("id, chapter_id, issue_id, score, issues(id, title, summary, published_at, source_name, source_tier, category, criminal_stage, institutional_stage, verified, source_url, cross_verified_sources)")
     .eq("storyline_id", story.id)
     .eq("hidden", false);
 
@@ -143,6 +143,7 @@ interface IssueJoin {
   source_tier: number | null;
   category: string | null;
   criminal_stage: string | null;
+  institutional_stage: string | null;
   verified: boolean | null;
   source_url: string | null;
   cross_verified_sources: { name: string }[] | null;

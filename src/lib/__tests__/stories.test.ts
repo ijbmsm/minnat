@@ -9,6 +9,7 @@ import type { StorylineSummary } from "@/types";
  */
 const issue = (over: Partial<Parameters<typeof deriveGrade>[0]> = {}) => ({
   criminal_stage: null,
+  institutional_stage: null,
   category: "media_coverage",
   source_tier: 3,
   verified: false,
@@ -48,8 +49,27 @@ describe("deriveGrade", () => {
     expect(deriveGrade(issue({ category: "controversial_statement" }))).toBe("claim");
   });
 
+  it("제도적 결정은 확정이다", () => {
+    // 국회가 가결했다·헌재가 인용했다는 일어난 사실이다
+    for (const stage of ["impeachment_upheld", "impeachment_rejected", "impeachment_passed"]) {
+      expect(deriveGrade(issue({ institutional_stage: stage }))).toBe("confirmed");
+    }
+  });
+
+  it("형사 혐의와 섞이면 제도 쪽이 이긴다", () => {
+    // 실제로 났던 사고: 헌재 파면 기사에 criminal_stage=indicted 가 붙어
+    // 확정된 결정이 '혐의'로 표시됐다
+    expect(
+      deriveGrade(issue({ institutional_stage: "impeachment_upheld", criminal_stage: "indicted" })),
+    ).toBe("confirmed");
+  });
+
+  it("모르는 제도 단계는 무시한다", () => {
+    expect(deriveGrade(issue({ institutional_stage: "made_up", criminal_stage: "indicted" }))).toBe("alleged");
+  });
+
   it("값이 비어 있어도 주장으로 떨어진다", () => {
-    expect(deriveGrade({ criminal_stage: null, category: null, source_tier: null, verified: null })).toBe("claim");
+    expect(deriveGrade({ criminal_stage: null, institutional_stage: null, category: null, source_tier: null, verified: null })).toBe("claim");
   });
 });
 

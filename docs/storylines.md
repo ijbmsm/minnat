@@ -79,6 +79,37 @@
 
 같은 달 안에서 국면이 나뉘면 라벨이 겹치므로(`2024.12` × 2) 일까지 표시한다.
 
+## 제도적 결정은 형사 단계가 아니다 (2026-09-20)
+
+`criminal_stage` 는 형사 절차(수사→기소→1심→…→확정)만 모델링한다. 국회 탄핵소추
+가결이나 헌재 인용·기각은 형사 절차가 아닌데 담을 어휘가 없어, 분류기가 억지로
+형사 단계를 골랐다. 같은 종류의 결정이 제각각으로 저장돼 있었다:
+
+| 기사 | category | criminal_stage |
+|---|---|---|
+| 노무현 탄핵 — 헌재 기각 | ethics_violation | dismissed |
+| 윤석열 국회 탄핵소추안 가결 | criminal_conviction | investigation |
+| 윤석열 헌재 탄핵 인용 파면 | criminal_conviction | **indicted** ← 확정인데 '혐의' |
+| 이상민 탄핵소추 헌재 기각 | official_misconduct | (없음) |
+
+그 결과 사안 화면에서 **"헌재 전원일치 파면"이 근거등급 '혐의'** 로 표시됐다.
+확정된 제도적 결정을 혐의로 적으면 이 제품이 메우려던 빈틈을 우리가 다시 만든다.
+
+`institutional_stage` 를 신설했다(마이그레이션 028). 형사 절차와 **다른 축**이고
+한 기사가 둘 다 가질 수 있다. 등급 판정에서는 **제도 쪽이 우선**한다 — 헌재 파면
+기사에 형사 기소 단계가 함께 붙어 있어도, 그 기사가 기록하는 것은 제도적 결정이다.
+
+```
+impeachment_proposed  탄핵소추안 발의
+impeachment_passed    국회 가결 → 직무정지
+impeachment_upheld    헌재 인용 → 파면 (종국)
+impeachment_rejected  헌재 기각·각하 (종국)
+censure_passed        해임건의안 가결
+inquiry_launched      국정조사·특검 발동
+```
+
+기존 행은 `backfill_institutional_stage.py` 로 한 번 채운다(제목 키워드 규칙).
+
 ## 운영
 
 ```bash
