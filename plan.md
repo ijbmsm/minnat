@@ -4,7 +4,7 @@
 # 민낯 (minnat) — 구현 계획서 v2
 
 > "색안경 벗고, 팩트로 보는 정치"
-> 도메인: minnat.kr
+> 도메인: drinkplace.kr
 > 리서치: /Users/sungmin/minnat/docs/research.md
 
 ---
