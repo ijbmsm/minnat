@@ -41,3 +41,6 @@ scripts/qa-samples/*.json
 
 # supabase CLI 작업 파일
 supabase/.temp/
+
+# 하네스 감사 로그 — 실행 기록이라 리포에 담지 않는다
+.harness/log/
