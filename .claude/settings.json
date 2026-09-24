@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f scripts/harness/hook-edit.mjs ] && exec node scripts/harness/hook-edit.mjs || exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
