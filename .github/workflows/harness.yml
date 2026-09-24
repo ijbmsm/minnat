@@ -4,7 +4,8 @@ name: 하네스
 # 크롤러가 DB 에 넣는 점수와 웹이 화면에서 계산하는 점수가 갈려도
 # 어느 쪽 PR 에서도 안 보인다 — 그래서 기계가 본다.
 #
-# ⚠️ 지금은 관측 단계다 (`continue-on-error`). 해제 조건은 .harness/README.md 의 "다음".
+# 2026-09-25: 관측 단계를 끝냈다. baseline 3건(점수식 diversity·상한·독스트링)이
+# 모두 해소돼 지금 위반이 0 건이다. 이제부터 새 위반은 CI 를 빨갛게 만든다.
 
 on:
   pull_request:
@@ -41,6 +42,5 @@ jobs:
           node-version: 20
 
       - name: 하네스
-        continue-on-error: true
         working-directory: minnat
         run: node scripts/harness/run.mjs

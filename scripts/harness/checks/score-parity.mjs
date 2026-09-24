@@ -177,37 +177,65 @@ export async function run(ctx) {
   // ── ③ 크롤러 최종 점수식이 웹을 따르는가 ──
   // 웹:     min(base × diversity × posWeight × 100, 100)
   // 크롤러: 같아야 한다. decay 는 제외 (저장 불가)
+  //
+  // ⚠️ 공식은 scorer.score_core 한 곳에만 있어야 한다. 예전에는 크롤러 안에만
+  //    둘이었고(calculate_score · recalculate_event_score) 둘 다 diversity 가
+  //    빠져 있었다. 사본이 생기면 다시 갈린다 — 그래서 위임 여부도 같이 본다.
   scanned++;
-  const fn = pyFunc(crawForm, 'calculate_score');
-  if (!fn) {
-    throw new Error('scorer.py 에서 calculate_score 를 못 찾았다 — 검사가 대상을 잃었다');
+  const core = pyFunc(crawForm, 'score_core');
+  if (!core) {
+    throw new Error('scorer.py 에서 score_core 를 못 찾았다 — 공식이 어디로 갔는지 확인할 것');
   }
-  const returns = fn.match(/^\s*return .+$/gm) ?? [];
-  const last = returns[returns.length - 1] ?? '';
+  const coreReturns = core.match(/^\s*return .+$/gm) ?? [];
+  const coreLast = coreReturns[coreReturns.length - 1] ?? '';
 
-  if (!/diversity/.test(last)) {
+  if (!/diversity/.test(coreLast)) {
     findings.push(finding({
       check: name,
       id: 'minnat-crawler:formula#diversity',
       file: 'scorer.py',
       severity: 'high',
       message: '최종 점수에 진영 다양도(0.7~1.3)가 안 곱해진다 — 단독 보도가 DB 에서 약 1.43배 높게 저장된다',
-      evidence: last.trim(),
+      evidence: coreLast.trim(),
     }));
   }
-  if (!/\bmin\s*\(/.test(last)) {
+  if (!/\bmin\s*\(/.test(coreLast)) {
     findings.push(finding({
       check: name,
       id: 'minnat-crawler:formula#cap',
       file: 'scorer.py',
       severity: 'medium',
       message: '최종 점수에 100 상한이 없다 — 웹은 Math.min(raw * 100, 100) 으로 자른다',
-      evidence: last.trim(),
+      evidence: coreLast.trim(),
+    }));
+  }
+
+  // ── ④ 공식 사본이 다시 생기지 않았는가 ──
+  scanned++;
+  const eventMgr = await read(SCORE_FILES.crawler.formula.replace(/scorer\.py$/, 'event_manager.py'));
+  const evtFn = eventMgr ? pyFunc(eventMgr, 'recalculate_event_score') : null;
+  if (evtFn && !/score_core\s*\(/.test(evtFn)) {
+    findings.push(finding({
+      check: name,
+      id: 'minnat-crawler:formula#duplicate-impl',
+      file: 'event_manager.py',
+      severity: 'high',
+      message: 'recalculate_event_score 가 score_core 를 안 쓴다 — 공식 사본이 다시 생겼다',
+    }));
+  }
+  const calcFn = pyFunc(crawForm, 'calculate_score');
+  if (calcFn && !/score_core\s*\(/.test(calcFn)) {
+    findings.push(finding({
+      check: name,
+      id: 'minnat-crawler:formula#duplicate-impl-issue',
+      file: 'scorer.py',
+      severity: 'high',
+      message: 'calculate_score 가 score_core 를 안 쓴다 — 공식 사본이 다시 생겼다',
     }));
   }
 
   // 독스트링이 코드와 다르면 다음 사람이 코드를 안 읽는다
-  if (/final\s*=.*diversity/.test(fn) && !/diversity/.test(last)) {
+  if (/final\s*=.*diversity/.test(core) && !/diversity/.test(coreLast)) {
     findings.push(finding({
       check: name,
       id: 'minnat-crawler:formula#docstring',
