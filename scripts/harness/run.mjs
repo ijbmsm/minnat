@@ -95,19 +95,29 @@ for (const name of CHECKS) {
   }
 }
 
+// ⚠️ process.exit() 을 쓰지 않는다.
+//
+//    console.log 직후에 exit 을 부르면 **stdout 이 파이프일 때 버퍼가 비워지기 전에
+//    프로세스가 죽어 출력이 잘린다.** 실측(2026-09-26): 200,001 바이트를 쓰고
+//    process.exit() 하면 Node execFile 로 받을 때 8,192 바이트(파이프 버퍼 하나)만
+//    도착한다. exitCode 로 두면 200,001 전부 온다.
+//
+//    대화형으로는 안 보인다 — stdout 이 TTY 면 동기 쓰기다. 그래서 --json 을
+//    사람이 볼 때는 멀쩡하고, **프로그램이 소비하는 순간** 조용히 깨진다
+//    (CI 파싱, Stop 훅, 다른 도구). charzing 쪽에서 46KB JSON 이 6,987 바이트로
+//    잘려 JSON.parse 가 "Unterminated string" 으로 터졌다.
 if (update) {
   await writeFile(baselinePath, JSON.stringify(baseline, null, 2) + '\n');
   console.log(`\nbaseline 갱신: ${baselinePath}`);
   console.log('각 항목의 reason 과 until 을 채울 것. 영구 면제는 두지 않는다.');
-  process.exit(0);
+  process.exitCode = 0;
+} else {
+  if (asJson) console.log(JSON.stringify(report, null, 2));
+  else {
+    const msg = crashed ? `실패 — 검사 ${crashed}개가 터졌다`
+              : failed  ? `실패 — 새 위반/만료 ${failed}건`
+              : '통과';
+    console.log(`\n${'='.repeat(64)}\n${msg}`);
+  }
+  process.exitCode = failed || crashed ? 1 : 0;
 }
-
-if (asJson) console.log(JSON.stringify(report, null, 2));
-else {
-  const msg = crashed ? `실패 — 검사 ${crashed}개가 터졌다`
-            : failed  ? `실패 — 새 위반/만료 ${failed}건`
-            : '통과';
-  console.log(`\n${'='.repeat(64)}\n${msg}`);
-}
-
-process.exit(failed || crashed ? 1 : 0);

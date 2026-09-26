@@ -19,6 +19,7 @@
 import { readFile } from 'node:fs/promises';
 import { finding } from '../lib/findings.mjs';
 import { SCORE_FILES, SHARED_TABLES } from '../harness.config.mjs';
+import { pyCodeOnly } from '../lib/source.mjs';
 
 export const name = 'score-parity';
 export const constraint = 'M-01';
@@ -157,17 +158,27 @@ export async function run(ctx) {
   const uniq = (a) => [...new Set(a)].sort();
   const webSteps = uniq((webForm.match(/diversityMultiplier\s*=\s*([0-9.]+)/g) ?? [])
     .map((s) => s.split('=')[1].trim()));
-  const crawSrc = await read(SCORE_FILES.crawler.formula.replace(/scorer\.py$/, 'event_manager.py'));
-  const crawDiv = crawSrc ? pyFunc(crawSrc, '_calculate_media_diversity') : null;
-  const crawSteps = crawDiv
-    ? uniq((crawDiv.match(/return\s+([0-9.]+)/g) ?? []).map((s) => s.split(/\s+/)[1]))
-    : [];
+  // 다양도는 scorer.media_diversity 에 있다. 예전에는 event_manager 에
+  // _calculate_media_diversity 사본이 있었고, 공식을 합치면서 옮겼다.
+  //
+  // ⚠️ 못 찾으면 **조용히 건너뛰지 않는다.** 2026-09-26 에 그랬다 —
+  //    함수가 옮겨간 뒤 검사가 event_manager 를 계속 보다가 null 을 받고,
+  //    `crawSteps.length` 가 0 이라 비교 자체를 안 했다. 표본에 계단값을
+  //    1.3 → 1.5 로 심었는데 통과했다. 0 건이 정상처럼 보이는 실패다.
+  const crawDiv = pyFunc(pyCodeOnly(crawForm), 'media_diversity');
+  if (!crawDiv) {
+    throw new Error('scorer.py 에서 media_diversity 를 못 찾았다 — 다양도 계단값을 대조할 대상이 없다');
+  }
+  const crawSteps = uniq((crawDiv.match(/return\s+([0-9.]+)/g) ?? []).map((s) => s.split(/\s+/)[1]));
+  if (!crawSteps.length || !webSteps.length) {
+    throw new Error(`다양도 계단값을 못 읽었다 (웹 ${webSteps.length}개 · 크롤러 ${crawSteps.length}개)`);
+  }
 
-  if (webSteps.length && crawSteps.length && webSteps.join(',') !== crawSteps.join(',')) {
+  if (webSteps.join(',') !== crawSteps.join(',')) {
     findings.push(finding({
       check: name,
       id: 'minnat-crawler:diversity#steps',
-      file: 'event_manager.py',
+      file: 'scorer.py',
       severity: 'high',
       message: '진영 다양도 계단값이 두 리포에서 다르다',
       evidence: `웹=[${webSteps}] 크롤러=[${crawSteps}]`,
@@ -182,7 +193,8 @@ export async function run(ctx) {
   //    둘이었고(calculate_score · recalculate_event_score) 둘 다 diversity 가
   //    빠져 있었다. 사본이 생기면 다시 갈린다 — 그래서 위임 여부도 같이 본다.
   scanned++;
-  const core = pyFunc(crawForm, 'score_core');
+  // 주석을 걷어낸 코드에서 찾는다 — `# return min(...)` 같은 주석이 섞이면 안 된다
+  const core = pyFunc(pyCodeOnly(crawForm), 'score_core');
   if (!core) {
     throw new Error('scorer.py 에서 score_core 를 못 찾았다 — 공식이 어디로 갔는지 확인할 것');
   }
@@ -213,7 +225,9 @@ export async function run(ctx) {
   // ── ④ 공식 사본이 다시 생기지 않았는가 ──
   scanned++;
   const eventMgr = await read(SCORE_FILES.crawler.formula.replace(/scorer\.py$/, 'event_manager.py'));
-  const evtFn = eventMgr ? pyFunc(eventMgr, 'recalculate_event_score') : null;
+  // ⚠️ 주석·독스트링을 걷어낸 **코드만** 본다. 2026-09-26 실측: 위임을 걷어내고
+  //    `# score_core() 를 쓰지 않는다` 라고 적어두니 이 검사가 통과했다.
+  const evtFn = eventMgr ? pyFunc(pyCodeOnly(eventMgr), 'recalculate_event_score') : null;
   if (evtFn && !/score_core\s*\(/.test(evtFn)) {
     findings.push(finding({
       check: name,
@@ -223,7 +237,7 @@ export async function run(ctx) {
       message: 'recalculate_event_score 가 score_core 를 안 쓴다 — 공식 사본이 다시 생겼다',
     }));
   }
-  const calcFn = pyFunc(crawForm, 'calculate_score');
+  const calcFn = pyFunc(pyCodeOnly(crawForm), 'calculate_score');
   if (calcFn && !/score_core\s*\(/.test(calcFn)) {
     findings.push(finding({
       check: name,
@@ -235,7 +249,9 @@ export async function run(ctx) {
   }
 
   // 독스트링이 코드와 다르면 다음 사람이 코드를 안 읽는다
-  if (/final\s*=.*diversity/.test(core) && !/diversity/.test(coreLast)) {
+  // 독스트링 검사는 원본을 본다 — 걷어낸 코드에는 독스트링이 없다
+  const coreRaw = pyFunc(crawForm, 'score_core') ?? '';
+  if (/final\s*=.*diversity/.test(coreRaw) && !/diversity/.test(coreLast)) {
     findings.push(finding({
       check: name,
       id: 'minnat-crawler:formula#docstring',

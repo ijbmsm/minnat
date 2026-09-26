@@ -41,6 +41,13 @@ jobs:
         with:
           node-version: 20
 
+      # 자기검사를 먼저 돌린다. **하드 게이트다.**
+      # 검사가 망가져도 위반 0 건은 그대로라, 이게 빨간불이면 아래 초록은 의미가 없다.
+      # 레거시 부채가 0 이고 결정적이라 관측 기간을 둘 이유도 없다.
+      - name: 하네스 자기검사
+        working-directory: minnat
+        run: node scripts/harness/selftest.mjs
+
       - name: 하네스
         working-directory: minnat
         run: node scripts/harness/run.mjs
