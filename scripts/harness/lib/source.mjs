@@ -121,3 +121,46 @@ export function stripPyDocstrings(src) {
 export function pyCodeOnly(src) {
   return stripPyDocstrings(stripPyComments(src));
 }
+
+
+/**
+ * JS/TS 소스에서 `//` 와 `/* *\/` 주석을 지운다. 줄 수와 길이를 유지한다.
+ *
+ * 문자열·템플릿 리터럴 안의 `//`(URL)는 보존한다.
+ * 전역 엔진에도 같은 것이 있지만(`~/harness/lib/source.mjs`), 검사는 프로젝트 쪽
+ * `../lib/` 을 import 하는 규약이라 여기 둔다 — 파이썬 것과 한 파일에 모아 둔다.
+ */
+export function withoutJsComments(src) {
+  const out = [];
+  let block = false;
+  for (let raw of String(src).split("\n")) {
+    let line = raw;
+    let i = 0;
+    let quote = null;
+    let kept = "";
+    while (i < line.length) {
+      const two = line.slice(i, i + 2);
+      if (block) {
+        if (two === "*/") { block = false; i += 2; kept += "  "; continue; }
+        kept += " ";
+        i++;
+        continue;
+      }
+      const ch = line[i];
+      if (quote) {
+        kept += ch;
+        if (ch === "\\") { kept += line[i + 1] ?? ""; i += 2; continue; }
+        if (ch === quote) quote = null;
+        i++;
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") { quote = ch; kept += ch; i++; continue; }
+      if (two === "//") { kept += " ".repeat(line.length - i); break; }
+      if (two === "/*") { block = true; i += 2; kept += "  "; continue; }
+      kept += ch;
+      i++;
+    }
+    out.push(kept);
+  }
+  return out.join("\n");
+}
