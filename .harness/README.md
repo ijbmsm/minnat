@@ -14,6 +14,23 @@ node scripts/harness/run.mjs --check score-parity # 하나만
 node scripts/harness/run.mjs --json               # 기계용
 ```
 
+## 엔진은 전역에 있다
+
+`~/harness` 가 엔진이고, 이 리포는 **`harness.json`** 으로 붙는다.
+
+```jsonc
+// minnat/harness.json          — 군 본체
+{ "group": ".", "config": "scripts/harness/harness.config.mjs" }
+// minnat-crawler/harness.json  — 형제 리포
+{ "group": "../minnat" }
+```
+
+편집·종료 훅은 `~/.claude/settings.json` 에 **전역으로** 걸려 있다. 엔진이 편집된
+파일 경로로 프로젝트를 찾으므로 세션을 어디서 열었는지와 무관하다.
+**프로젝트에 훅을 또 등록하지 않는다** — 두 곳에 걸면 편집마다 두 번 돈다.
+
+`scripts/harness/run.mjs` 는 **CI 전용 사본**이다. CI 에는 `~/harness` 가 없다.
+
 ## 어디서 왔나
 
 charzing 의 하네스에서 **엔진만** 떠왔다 (2026-09-25). 검사는 처음부터 새로 썼다 —
@@ -76,11 +93,9 @@ selftest.mjs      기대값은 여기 한 곳에만
 검사가 내는 "통과" 가 진짜인지, 아무것도 안 본 건지 가르는 유일한 방법이다.
 
 ```bash
-mkdir -p /tmp/fake-crawler
-sed 's/"조선일보": "conservative"/"조선일보": "center"/' \
-  ../minnat-crawler/config.py > /tmp/fake-crawler/config.py
-cp ../minnat-crawler/scorer.py ../minnat-crawler/event_manager.py /tmp/fake-crawler/
-HARNESS_CRAWLER_ROOT=/tmp/fake-crawler node scripts/harness/run.mjs
+HARNESS_CRAWLER_ROOT=scripts/harness/fixtures/dirty/crawler \
+HARNESS_WEB_ROOT=scripts/harness/fixtures/dirty/web \
+  node scripts/harness/run.mjs
 ```
 
 심어둔 드리프트가 안 잡히면 검사가 헛돌고 있는 것이다.
@@ -94,11 +109,12 @@ HARNESS_CRAWLER_ROOT=/tmp/fake-crawler node scripts/harness/run.mjs
 
 | | |
 | --- | --- |
-| 검사 | 1개 — `score-parity` (M-01) |
+| 검사 | 2개 — `score-parity`(M-01) · `camp-tally`(M-02) |
+| 앵커 | 4개 — 검사가 보는 심볼이 제자리에 있는가. 검사보다 **먼저** 돈다 |
 | 이빨 | 있다. 실제 위반 3건을 잡았고 **전부 해소됐다.** baseline 비어 있음 |
 | 편집 훅 | 등록됨 — `.claude/settings.json` |
 | CI | **강제.** 관측 단계를 끝냈다. 새 위반은 빨간불이다 |
-| 자기검사 | 11건. CI 에 **하드 게이트** — 이게 빨간불이면 나머지 초록은 의미가 없다 |
+| 자기검사 | 14건. CI 에 **하드 게이트** — 이게 빨간불이면 나머지 초록은 의미가 없다 |
 
 검사가 잡은 것: 크롤러 점수식에 진영 다양도와 100 상한이 없었다. 웹도,
 `CLAUDE.md` 도, 심지어 크롤러 자기 독스트링도 둘 다 곱한다고 되어 있었다.

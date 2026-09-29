@@ -119,7 +119,7 @@ export function calculateScores(issues: Issue[], view: ScoreView = "recent"): Sc
     if (issue.camp === "blue") {
       blueScore += score;
       blueCount++;
-    } else if (issue.camp === "red") {
+    } else {
       redScore += score;
       redCount++;
     }
@@ -207,7 +207,7 @@ export function calculateEventScores(events: IssueEvent[], view: ScoreView = "re
     if (event.camp === "blue") {
       blueScore += score;
       blueCount++;
-    } else if (event.camp === "red") {
+    } else {
       redScore += score;
       redCount++;
     }

@@ -44,3 +44,6 @@ supabase/.temp/
 
 # 하네스 감사 로그 — 실행 기록이라 리포에 담지 않는다
 .harness/log/
+
+# 표본 루트에도 감사 로그가 생긴다 (엔진이 그 경로를 리포로 본다)
+scripts/harness/fixtures/**/.harness/log/
