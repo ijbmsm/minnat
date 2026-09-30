@@ -19,7 +19,7 @@
 import { readFile } from 'node:fs/promises';
 import { finding } from '../lib/findings.mjs';
 import { SCORE_FILES, SHARED_TABLES } from '../harness.config.mjs';
-import { pyCodeOnly } from '../lib/source.mjs';
+import { pyCodeOnly, withoutJsComments } from '../lib/source.mjs';
 
 export const name = 'score-parity';
 export const constraint = 'M-01';
@@ -156,8 +156,13 @@ export async function run(ctx) {
   //    calculateEventScore)이라 같은 계단이 두 벌 나온다. 리스트로 비교하면
   //    웹 6개 vs 크롤러 3개가 되어 늘 위반으로 뜬다 (2026-09-25 오탐 실측).
   const uniq = (a) => [...new Set(a)].sort();
-  const webSteps = uniq((webForm.match(/diversityMultiplier\s*=\s*([0-9.]+)/g) ?? [])
-    .map((s) => s.split('=')[1].trim()));
+  // 2026-09-30: 진영 다양도 → 출처 독립성으로 바뀌면서 웹이 함수로 갈렸다.
+  // `independenceMultiplier` 의 return 값을 읽는다.
+  const webDiv = /export function independenceMultiplier[\s\S]*?\n}/.exec(withoutJsComments(webForm));
+  if (!webDiv) {
+    throw new Error('score.ts 에서 independenceMultiplier 를 못 찾았다 — 계단값을 대조할 대상이 없다');
+  }
+  const webSteps = uniq((webDiv[0].match(/return\s+([0-9.]+)/g) ?? []).map((s) => s.split(/\s+/)[1]));
   // 다양도는 scorer.media_diversity 에 있다. 예전에는 event_manager 에
   // _calculate_media_diversity 사본이 있었고, 공식을 합치면서 옮겼다.
   //
@@ -183,6 +188,40 @@ export async function run(ctx) {
       message: '진영 다양도 계단값이 두 리포에서 다르다',
       evidence: `웹=[${webSteps}] 크롤러=[${crawSteps}]`,
     }));
+  }
+
+  // ── ②-2 계열 표가 두 리포에서 같은가 ──
+  //
+  // 계열은 독립성 판정의 근거다. 한쪽만 고치면 같은 사건이 DB 와 화면에서
+  // 다른 독립 출처 수를 갖는다. 진영(MEDIA_LEAN)을 점수에서 뺀 뒤로는
+  // **이것이 다양도 배수를 정하는 유일한 표**다 (2026-09-30).
+  scanned++;
+  const webGroups = entries(tsBlock(withoutJsComments(webConst), 'MEDIA_GROUPS'));
+  const crawGroups = entries(pyBlock(pyCodeOnly(crawConst), 'MEDIA_GROUPS'));
+  if (!Object.keys(webGroups).length || !Object.keys(crawGroups).length) {
+    throw new Error(`MEDIA_GROUPS 를 못 읽었다 (웹 ${Object.keys(webGroups).length}개 · 크롤러 ${Object.keys(crawGroups).length}개)`);
+  }
+  for (const key of new Set([...Object.keys(webGroups), ...Object.keys(crawGroups)])) {
+    const w = webGroups[key];
+    const c = crawGroups[key];
+    if (w === undefined || c === undefined) {
+      findings.push(finding({
+        check: name,
+        id: `minnat-crawler:groups#${key}`,
+        file: w === undefined ? 'src/lib/constants.ts' : 'config.py',
+        severity: 'high',
+        message: `MEDIA_GROUPS.${key} 가 ${w === undefined ? '웹' : '크롤러'}에만 없다 — 독립 출처 수가 갈린다`,
+      }));
+    } else if (differs(w, c)) {
+      findings.push(finding({
+        check: name,
+        id: `minnat-crawler:groups#${key}`,
+        file: 'config.py',
+        severity: 'high',
+        message: `MEDIA_GROUPS.${key} 계열이 다르다`,
+        evidence: `웹=${w} 크롤러=${c}`,
+      }));
+    }
   }
 
   // ── ③ 크롤러 최종 점수식이 웹을 따르는가 ──

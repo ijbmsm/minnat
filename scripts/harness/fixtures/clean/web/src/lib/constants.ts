@@ -32,6 +32,24 @@ export const SCORED_CATEGORIES = CATEGORIES.filter((c) => c.isScored);
 export const ARCHIVE_CATEGORIES = CATEGORIES.filter((c) => c.isArchive);
 
 // ── 형사 단계 가중치 ──
+/**
+ * 매체 계열 (소유 관계). 같은 계열은 **독립된 출처가 아니다.**
+ *
+ * ⚠️ 정치 판단이 아니라 공개된 소유 사실이다. MEDIA_LEAN 과 성격이 다르다 —
+ *    진영은 우리가 "정하는" 것이고 계열은 "확인하는" 것이다.
+ *    2026-09-30 결정으로 점수에서 진영을 빼고 이것으로 독립성을 잰다.
+ *
+ * 크롤러 config.MEDIA_GROUPS 와 **같아야 한다** — 하네스 M-01 이 대조한다.
+ */
+export const MEDIA_GROUPS: Record<string, string> = {
+  조선일보: "조선", TV조선: "조선",
+  중앙일보: "중앙", JTBC: "중앙",
+  동아일보: "동아", 채널A: "동아",
+  연합뉴스: "연합", 연합뉴스TV: "연합",
+  매일경제: "매경", MBN: "매경",
+  한국경제: "한경", 한국경제TV: "한경",
+};
+
 export const CRIMINAL_STAGE_WEIGHT: Record<CriminalStage, number> = {
   investigation: 0,
   indicted: 2,

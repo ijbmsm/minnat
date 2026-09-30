@@ -92,10 +92,16 @@ export async function run(ctx) {
     scanned++;
 
     const code = lang === 'py' ? pyCodeOnly(src) : withoutJsComments(src);
+    let seen = 0;
     for (const line of findMissingRed(code)) {
+      seen++;
       findings.push(finding({
         check: name,
-        id: `${label}:camp-tally#${file}:${line}`,
+        // ⚠️ id 에 줄 번호를 넣지 않는다. 코드를 조금만 고쳐도 줄이 밀려
+        //    baseline 항목과 표본 기대값이 통째로 깨진다 (2026-09-30 실측:
+        //    독립성 전환으로 3건이 전부 새 위반으로 뜨고 옛 3건은 '해소됨' 이 됐다).
+        //    파일 안에 여러 건이 있으면 **몇 번째인가**로 가른다 — 위치가 아니라 순서다.
+        id: `${label}:camp-tally#${file}#${seen}`,
         file,
         line,
         severity: 'high',

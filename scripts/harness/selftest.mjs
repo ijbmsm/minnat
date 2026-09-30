@@ -27,12 +27,13 @@ const RUN = join(HERE, 'run.mjs');
 
 /** dirty 표본에서 나와야 하는 finding id. 하나라도 빠지면 그 판정이 죽은 것이다 */
 const EXPECTED_DIRTY = [
-  'minnat:camp-tally#src/lib/score.ts:119',
-  'minnat:camp-tally#src/lib/score.ts:207',
-  'minnat-crawler:camp-tally#scorer.py:131',
+  'minnat:camp-tally#src/lib/score.ts#1',
+  'minnat:camp-tally#src/lib/score.ts#2',
+  'minnat-crawler:camp-tally#scorer.py#1',
   'minnat-crawler:table#CRIMINAL_STAGE_WEIGHT#confirmed',
   'minnat-crawler:table#MEDIA_LEAN#조선일보',
   'minnat-crawler:diversity#steps',
+  'minnat-crawler:groups#JTBC',
   'minnat-crawler:formula#diversity',
   'minnat-crawler:formula#cap',
   'minnat-crawler:formula#duplicate-impl',

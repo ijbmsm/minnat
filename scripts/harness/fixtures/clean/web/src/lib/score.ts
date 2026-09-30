@@ -1,5 +1,5 @@
 import type { Issue, IssueEvent, ScoreResult, Camp, IssueCategory, CreditEvent, NetScore } from "@/types";
-import { CATEGORY_MAP, CRIMINAL_STAGE_WEIGHT } from "./constants";
+import { CATEGORY_MAP, CRIMINAL_STAGE_WEIGHT, MEDIA_GROUPS } from "./constants";
 
 // ── 시간 감쇠 뷰 ──
 export type ScoreView = "hot" | "recent" | "midterm" | "alltime";
@@ -79,11 +79,8 @@ export function calculateIssueScore(issue: Issue, view: ScoreView = "recent"): n
   // base_score
   const baseScore = coverageNorm * 0.40 + stageNorm * 0.35 + headlineNorm * 0.25;
 
-  // 진영 다양도 (cross_verified_sources에서 계산)
-  const leans = new Set(issue.cross_verified_sources?.map((s) => s.lean) ?? []);
-  let diversityMultiplier = 0.7; // 단독
-  if (leans.size >= 3) diversityMultiplier = 1.3; // 좌+중+우
-  else if (leans.size >= 2) diversityMultiplier = 1.0; // 두 진영
+  // 출처 독립성 (2026-09-30: 진영 다양도에서 바뀌었다)
+  const diversityMultiplier = independenceMultiplier(issue.cross_verified_sources);
 
   // 직책 가중치
   const posWeight = issue.position_weight || 0.8;
@@ -163,10 +160,8 @@ export function calculateEventScore(event: IssueEvent, view: ScoreView = "recent
   const headlineNorm = Math.min(event.headline_days / 20, 1);
   const baseScore = coverageNorm * 0.40 + stageNorm * 0.35 + headlineNorm * 0.25;
 
-  const leans = new Set(event.cross_verified_sources?.map((s) => s.lean) ?? []);
-  let diversityMultiplier = 0.7;
-  if (leans.size >= 3) diversityMultiplier = 1.3;
-  else if (leans.size >= 2) diversityMultiplier = 1.0;
+  // 출처 독립성 (2026-09-30: 진영 다양도에서 바뀌었다)
+  const diversityMultiplier = independenceMultiplier(event.cross_verified_sources);
 
   const posWeight = event.position_weight || 0.8;
 
@@ -187,6 +182,45 @@ function filterEventByView(event: IssueEvent, view: ScoreView): boolean {
     case "midterm": return days <= 1825;
     case "alltime": return true;
   }
+}
+
+/**
+ * 독립된 출처가 몇 곳인가. 계열 매체는 한 곳으로 센다.
+ *
+ * 크롤러 `scorer.independent_sources` 와 **같은 규칙이어야 한다** —
+ * 하네스 M-01 이 계단값을 대조한다.
+ */
+export function independentSources(sources?: { name: string }[] | null): number {
+  const names = new Set((sources ?? []).map((s) => s.name).filter(Boolean));
+  if (names.size === 0) return 0;
+  const groups = new Set([...names].map((n) => MEDIA_GROUPS[n] ?? n));
+  return groups.size;
+}
+
+/**
+ * 출처 독립성 배수 0.7 / 1.0 / 1.3.
+ *
+ * ## 왜 진영이 아니라 이것인가 (2026-09-30 결정)
+ *
+ * 예전에는 진영 다양성(좌+중+우)으로 쟀다. 둘이 문제였다.
+ *
+ * **실제로 거의 작동하지 않았다.** 기사 765건 중 613건이 단독 보도라 다양성
+ * 판정까지 가지도 못했고, 다양성으로 verified 된 건 16건뿐이었다.
+ *
+ * **그리고 우리가 정할 일이 아니었다.** "우리는 점수 매기지 않는다" 면서 매체의
+ * 정치색을 우리가 정하는 건 모순이다. 진영은 매체명으로 보여주고 사용자가 판단한다.
+ *
+ * 계열은 공개된 소유 사실이라 확인하는 것이지 정하는 게 아니다.
+ *
+ * ⚠️ 아직 못 거르는 것: **통신사 받아쓰기.** 연합뉴스 기사를 그대로 옮긴 매체
+ *    다섯 곳은 사실 한 곳이다. 원문 유사도로 잡아야 하고 크롤러 쪽에서 붙인다.
+ *    그때까지 이 값은 낙관적이다.
+ */
+export function independenceMultiplier(sources?: { name: string }[] | null): number {
+  const n = independentSources(sources);
+  if (n >= 3) return 1.3;
+  if (n >= 2) return 1.0;
+  return 0.7;
 }
 
 /**
