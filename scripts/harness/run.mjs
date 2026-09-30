@@ -1,5 +1,16 @@
 #!/usr/bin/env node
-// 하네스 러너.
+// 하네스 러너 — **CI 전용 사본.**
+//
+// 로컬에서는 전역 엔진(`~/harness`)이 돈다. 편집·종료 훅이 ~/.claude/settings.json 에
+// 전역으로 걸려 있고, 엔진은 리포 루트의 `harness.json` 으로 이 프로젝트를 찾는다.
+// 그래서 여기 훅 사본(hook-edit.mjs)은 지웠다 — 두 곳에 등록하면 편집마다 두 번 돈다.
+//
+// CI 에는 `~/harness` 가 없으므로 이 사본이 필요하다. charzing 도 같은 구조다
+// (CI 는 `node scripts/harness/run.mjs`, 로컬은 전역 훅).
+//
+// ⚠️ 전역 엔진과 이 사본이 갈리면 로컬에서 초록인 것이 CI 에서 빨개진다.
+//    엔진을 고칠 일이 생기면 양쪽을 같이 본다 — 지금 다른 점은 프로젝트 해석뿐이다
+//    (전역은 resolve.mjs, 여기는 상대 import).
 // 검사는 러너 독립 순수 모듈이다 — 각 리포의 테스트 러너(node:test / vitest / jest)는
 // 이 결과 JSON 을 assert 만 한다.
 //

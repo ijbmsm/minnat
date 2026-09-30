@@ -27,23 +27,36 @@ const RUN = join(HERE, 'run.mjs');
 
 /** dirty 표본에서 나와야 하는 finding id. 하나라도 빠지면 그 판정이 죽은 것이다 */
 const EXPECTED_DIRTY = [
+  'minnat:camp-tally#src/lib/score.ts#1',
+  'minnat:camp-tally#src/lib/score.ts#2',
+  'minnat-crawler:camp-tally#scorer.py#1',
   'minnat-crawler:table#CRIMINAL_STAGE_WEIGHT#confirmed',
   'minnat-crawler:table#MEDIA_LEAN#조선일보',
   'minnat-crawler:diversity#steps',
+  'minnat-crawler:groups#JTBC',
   'minnat-crawler:formula#diversity',
   'minnat-crawler:formula#cap',
   'minnat-crawler:formula#duplicate-impl',
   'minnat-crawler:formula#duplicate-impl-issue',
 ];
 
-function run(crawlerRoot) {
+function run(fixtureRoot) {
   return new Promise((ok, fail) => {
     execFile(
       process.execPath,
       [RUN, '--json'],
       // baseline 을 무시해야 심은 위반이 '기존 위반' 으로 숨지 않는다.
       // 표본은 baseline 과 무관하게 판정 자체를 본다.
-      { env: { ...process.env, HARNESS_CRAWLER_ROOT: crawlerRoot }, maxBuffer: 32 * 1024 * 1024 },
+      {
+        env: {
+          ...process.env,
+          // 양쪽을 **대칭으로** 바꾼다. 전에는 크롤러만 바꿀 수 있어
+          // 웹 판정이 표본으로 확인된 적이 없었다 (2026-09-29)
+          HARNESS_CRAWLER_ROOT: join(fixtureRoot, 'crawler'),
+          HARNESS_WEB_ROOT: join(fixtureRoot, 'web'),
+        },
+        maxBuffer: 32 * 1024 * 1024,
+      },
       (err, stdout) => {
         const i = stdout.indexOf('{');
         if (i < 0) return fail(new Error(`JSON 이 없다:\n${stdout.slice(0, 400)}`));
