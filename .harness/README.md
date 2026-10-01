@@ -3,7 +3,7 @@
 에이전트와 사람이 **작업 전에 읽는** 규칙 모음.
 
 ```
-constraints.md     제약 정본. M-01 ~
+constraints.md     제약 정본. M-01 ~ (검사 없는 '알려진 한계' 도 여기 적는다)
 ```
 
 엔진은 `scripts/harness/` 에 있다.
