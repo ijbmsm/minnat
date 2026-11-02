@@ -12,13 +12,11 @@ const CARDS = [
   {
     href:  "/politics",
     label: "정치",
-    lines: ["진영 불문", "팩트로 얘기하자."],
     glow:  "radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.04) 0%, transparent 60%)",
   },
   {
     href:  "/saju",
     label: "사주",
-    lines: ["나는 왜 이런가.", "사주에 다 있어."],
     glow:  "radial-gradient(ellipse at 80% 0%, rgba(255,255,255,0.04) 0%, transparent 60%)",
   },
 ];
@@ -37,12 +35,11 @@ export default function LandingPage() {
           >
             술자리
           </h1>
-          <p className="mt-3 text-sm text-white/30">나눌 거리가 넘치는 두 가지 주제</p>
         </div>
 
         {/* 카드 */}
         <div className="grid grid-cols-2 gap-3 w-full max-w-[440px]">
-          {CARDS.map(({ href, label, lines, glow }) => (
+          {CARDS.map(({ href, label, glow }) => (
             <Link
               key={href}
               href={href}
@@ -54,7 +51,7 @@ export default function LandingPage() {
               {/* hover 내부 밝기 */}
               <div className="pointer-events-none absolute inset-0 bg-white/[0.015] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-              {/* 타이틀 — 수직 중앙 */}
+              {/* 타이틀 — 카드 중앙 */}
               <div className="relative flex flex-1 items-center">
                 <p
                   className="text-3xl font-bold tracking-tight text-white"
@@ -64,21 +61,6 @@ export default function LandingPage() {
                 </p>
               </div>
 
-              {/* 설명 — 하단 고정 */}
-              <div className="relative">
-                {lines.map((line, i) => (
-                  <p
-                    key={i}
-                    className={`leading-tight font-semibold tracking-tight transition-colors duration-300 ${
-                      i === 0
-                        ? "text-[20px] text-white/50 group-hover:text-white/65"
-                        : "text-[20px] text-white group-hover:text-white"
-                    }`}
-                  >
-                    {line}
-                  </p>
-                ))}
-              </div>
             </Link>
           ))}
         </div>
