@@ -22,7 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const reading = await loadPublicReading(id);
-  if (!reading) return { title: "사주 풀이 — 술자리" };
+  if (!reading) return { title: "사주 풀이" };
 
   const typeLabel = TYPE_LABEL[reading.type] ?? "사주 풀이";
   const dm = reading.chart.day.stem;
@@ -41,7 +41,7 @@ export async function generateMetadata({
   });
 
   return {
-    title: `${dayPillar} ${typeLabel} — 술자리`,
+    title: `${dayPillar} ${typeLabel}`,
     description: `${dayPillar} 일주의 ${typeLabel}. 전통 명리학 계산 + AI 풀이.`,
     alternates: { canonical: `https://drinkplace.kr/saju/view/${id}` },
     openGraph: {

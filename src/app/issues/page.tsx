@@ -5,7 +5,7 @@ import { Nav } from "@/components/nav";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "이슈 타임라인 — 술자리",
+  title: "이슈 타임라인",
   description: "공식 처분 기반 정치 사건 타임라인. 검찰·법원·윤리위·감사원·팩트체크 기관 처분만.",
   alternates: { canonical: "https://drinkplace.kr/issues" },
 };

@@ -468,6 +468,8 @@ export interface StorylineSummary {
   /** 아래 둘은 원고에 적지 않는다. 손으로 적으면 장이 늘 때 어긋난다 — 코드가 센다 */
   chapter_count: number;
   article_count: number;
+  /** 마지막 수정 시각 — 사이트맵 lastmod 용 */
+  updated_at?: string;
 }
 
 /** 원고. 개수는 코드가 세므로 여기에는 적지 않는다 */

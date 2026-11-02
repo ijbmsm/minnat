@@ -22,6 +22,17 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // www 는 정본(drinkplace.kr)으로 영구 이동. 둘 다 200 이면 같은 문서가 두 주소로 잡힌다.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.drinkplace.kr" }],
+        destination: "https://drinkplace.kr/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

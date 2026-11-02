@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
   const inv = await loadInvite(token);
-  if (!inv) return { title: "궁합 초대 — 술자리" };
+  if (!inv) return { title: "궁합 초대" };
   const v = publicInviteView(inv);
   const who = v.inviter.name ? `${v.inviter.name}이(가)` : '누군가';
   const title = `${who} 너와의 ${RELATION_LABEL[v.relation]} 궁합이 궁금하대 — 술자리`;

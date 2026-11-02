@@ -6,7 +6,7 @@ import { TodayButton } from "@/components/today-button";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "마이페이지 · 술자리" };
+export const metadata = { title: "마이페이지" };
 
 function formatBirthDate(p: {
   birth_year: number; birth_month: number; birth_day: number;
