@@ -52,9 +52,9 @@ export default function LandingPage() {
               <div className="pointer-events-none absolute inset-0 bg-white/[0.015] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
               {/* 타이틀 — 카드 중앙 */}
-              <div className="relative flex flex-1 items-center">
+              <div className="relative flex flex-1 items-center justify-center">
                 <p
-                  className="text-3xl font-bold tracking-tight text-white"
+                  className="text-5xl font-bold tracking-tight text-white"
                   style={{ fontFamily: "'Shilla Culture', serif", WebkitTextStroke: "0.5px currentColor" }}
                 >
                   {label}
