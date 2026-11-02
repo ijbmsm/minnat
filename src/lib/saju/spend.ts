@@ -8,6 +8,7 @@
  * 실제 LLM 호출 직전에만 센다. 캐시 히트·DB 폴백·미리보기는 세지 않는다.
  */
 import { createServiceClient } from '@/lib/supabase/service';
+import { isAdmin } from '@/lib/saju/credits';
 
 /**
  * 2026-09-18 결정: 목표 **DAU 20** 기준으로 800 회.
@@ -39,9 +40,6 @@ export class MonthlyCapError extends Error {
   }
 }
 
-function isAdmin(userId: string | null): boolean {
-  return !!userId && !!process.env.SAJU_ADMIN_USER_ID && userId === process.env.SAJU_ADMIN_USER_ID;
-}
 
 /**
  * LLM 호출 직전에 부른다. 한도를 넘었으면 MonthlyCapError.

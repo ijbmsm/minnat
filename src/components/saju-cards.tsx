@@ -81,6 +81,15 @@ function CreditBadge({ loggedIn, credits, align = 'right' }: {
   if (loggedIn === null) return <div style={{ ...base, opacity: 0.35 }}>·</div>;
   if (!loggedIn) return <div style={base}>원국은 로그인 없이 · 풀이는 로그인 후 매일 한 편</div>;
   if (!credits) return <div style={{ ...base, opacity: 0.6 }}>확인 중</div>;
+  if (credits.admin) {
+    return (
+      <div style={{ ...base, borderColor: `${INK.gold}55`, color: INK.ink }}>
+        <CreditCoin filled />
+        <span>관리자</span>
+        <span style={{ fontSize: 13, letterSpacing: 0, color: INK.gold }}><b style={{ fontWeight: 700 }}>∞</b></span>
+      </div>
+    );
+  }
 
   const n = credits.balance;
   const has = n > 0;

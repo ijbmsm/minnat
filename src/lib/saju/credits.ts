@@ -55,6 +55,8 @@ export interface CreditState {
   streak:    number;
   /** 이미 읽은 풀이 타입 — "N/5" 표시용 */
   readTypes: SajuReadingType[];
+  /** 어드민이면 크레딧을 쓰지 않는다 — 배지를 "관리자" 로 바꿔 우회가 실제로 걸렸는지 보이게 한다 */
+  admin:     boolean;
 }
 
 export function kstToday(now = new Date()): string {
@@ -62,8 +64,14 @@ export function kstToday(now = new Date()): string {
   return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth() + 1).padStart(2, '0')}-${String(kst.getUTCDate()).padStart(2, '0')}`;
 }
 
-export function isAdmin(userId: string): boolean {
-  return !!process.env.SAJU_ADMIN_USER_ID && userId === process.env.SAJU_ADMIN_USER_ID;
+/**
+ * SAJU_ADMIN_USER_ID — 쉼표로 여러 개 가능. 값마다 trim 한다:
+ * `echo id | vercel env add` 로 넣으면 끝에 \n 이 붙어 === 비교가 조용히 실패한다.
+ */
+export function isAdmin(userId: string | null | undefined): boolean {
+  if (!userId) return false;
+  const ids = (process.env.SAJU_ADMIN_USER_ID ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return ids.includes(userId);
 }
 
 async function hasSeen(supabase: SupabaseClient, userId: string, cacheKey: string): Promise<boolean> {
@@ -109,6 +117,7 @@ export async function getCreditState(supabase: SupabaseClient, userId: string): 
     pendingRefill,
     streak:    credits.data?.streak_count ?? 0,
     readTypes: ALL_READING_TYPES.filter(t => seen.has(t)),
+    admin:     isAdmin(userId),
   };
 }
 
