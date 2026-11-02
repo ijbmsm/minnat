@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import type { Politician, TermEndReason } from "@/types";
 
 export const metadata: Metadata = {
-  title: "정치인 — 술자리",
+  title: "정치인",
   description: "현직·전직 정치인의 이슈 기록. 공식 처분 기반 팩트만.",
   alternates: { canonical: "https://drinkplace.kr/politicians" },
 };

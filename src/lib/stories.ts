@@ -177,6 +177,7 @@ function toSummary(row: StoryRow, counts: { chapters: number; articles: number }
     blurb: row.blurb ?? "",
     chapter_count: counts.chapters,
     article_count: counts.articles,
+    updated_at: row.updated_at,
   };
 }
 

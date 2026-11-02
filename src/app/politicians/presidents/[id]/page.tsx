@@ -15,7 +15,7 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
   const pres = await getPresidentById(id);
-  if (!pres) return { title: "대통령을 찾을 수 없습니다 — 술자리" };
+  if (!pres) return { title: "대통령을 찾을 수 없습니다" };
   const pol = pres.politician;
   return {
     title: `${pol?.name} — 역대 대통령`,

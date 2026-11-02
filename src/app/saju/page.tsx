@@ -4,7 +4,7 @@ import { WebApplicationJsonLd, FaqPageJsonLd } from "@/components/json-ld";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "무료 사주팔자 AI 풀이 — 술자리",
+  title: "무료 사주팔자 AI 풀이",
   description: "생년월일시 입력 → 전통 명리학 기반 AI 사주 분석. 종합·연애운·직업운·오늘운세 무료 제공.",
   keywords: ["무료 사주", "사주팔자", "AI 사주", "오늘 운세", "연애운 사주", "직업운", "사주 풀이"],
   alternates: { canonical: "https://drinkplace.kr/saju" },

@@ -4,7 +4,7 @@ import { SCORED_CATEGORIES, ARCHIVE_CATEGORIES, CRIMINAL_STAGE_LABEL, CRIMINAL_S
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "방법론 — 술자리",
+  title: "방법론",
   description: "술자리의 점수 산출 방법론, 데이터 수집 기준, 신뢰도 게이트를 전체 공개합니다.",
   alternates: { canonical: "https://drinkplace.kr/about" },
 };

@@ -18,13 +18,13 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const politician = await getPoliticianById(id);
-  if (!politician) return { title: "정치인을 찾을 수 없습니다 — 술자리" };
+  if (!politician) return { title: "정치인을 찾을 수 없습니다" };
   const partyName = politician.party?.name ?? "";
   const desc = [politician.name, partyName, politician.position]
     .filter(Boolean)
     .join(" · ");
   return {
-    title: `${politician.name} 행보 — 술자리`,
+    title: `${politician.name} 행보`,
     description: `${desc} 관련 이슈 기록. 공식 처분 기반 팩트만.`,
     alternates: { canonical: `https://drinkplace.kr/politicians/${id}` },
     openGraph: {
