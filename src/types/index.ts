@@ -173,7 +173,11 @@ export interface IssueEvent {
   is_active: boolean;
   /** 확정된 예정 일정 1건 (021). 크롤러가 채운다 — 없으면 null */
   next_branch?: { date: string; title: string; description?: string; source_url?: string } | null;
-  member_issues?: Issue[];
+  /** 같은 사건으로 묶인 보도 — 타임라인에 쓰는 컬럼만 (MemberIssue) */
+  member_issues?: MemberIssue[];
+  /** member_issues 가 잘렸을 때 전체 건수와, 잘린 목록의 첫 항목이 전체(오래된 순)에서 몇 번째인지 */
+  member_total?: number;
+  member_offset?: number;
   created_at: string;
 }
 
@@ -488,3 +492,6 @@ export interface Storyline extends Omit<StorylineSummary, "chapter_count" | "art
   outcome?: { label: string; description: string } | null;
   related: RelatedStory[];
 }
+
+/** 이슈 라인 타임라인 한 줄. issues 전체 행(ai_analysis 등)을 싣지 않으려고 따로 둔다 */
+export type MemberIssue = Pick<Issue, "id" | "title" | "summary" | "camp" | "published_at" | "source_name">;

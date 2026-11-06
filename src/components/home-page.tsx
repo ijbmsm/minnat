@@ -5,8 +5,8 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { SplitScreen } from "./split-screen";
 import { Nav } from "./nav";
-import { calculateEventScores } from "@/lib/score";
 import type { ScoreView } from "@/lib/score";
+import type { ScoreResult } from "@/types";
 import { CATEGORY_MAP, CAMP_COLORS, CRIMINAL_STAGE_LABEL } from "@/lib/constants";
 import type { IssueEvent, CriminalStage, DisplayCamp } from "@/types";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,12 @@ import { stripLeadingActor } from "@/lib/actor-name";
 const EASE = [0.32, 0.72, 0, 1] as const;
 
 interface HomePageProps {
+  /**
+   * 보기(view)별 점수 — 서버가 1000건으로 미리 계산해 숫자만 넘긴다.
+   * 예전엔 1000건 전체를 클라이언트로 보내 여기서 계산했다(/politics 780KB).
+   */
+  scores: Record<ScoreView, ScoreResult>;
+  /** 피드에 실제로 그려지는 것만 — 최신 10건 + 진영별 최신 6건의 합집합 */
   events: IssueEvent[];
 }
 
@@ -237,10 +243,10 @@ function CampSetupModal({ userId, onDone }: { userId: string; onDone: () => void
   );
 }
 
-export function HomePage({ events }: HomePageProps) {
+export function HomePage({ scores, events }: HomePageProps) {
   const [view, setView] = useState<ScoreView>("recent");
   const [campModal, setCampModal] = useState<{ userId: string } | null>(null);
-  const score = calculateEventScores(events, view);
+  const score = scores[view];
 
   useEffect(() => {
     const supabase = createClient();
