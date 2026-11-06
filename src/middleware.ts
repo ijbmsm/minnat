@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // 세션 쿠키가 없으면 갱신할 토큰도 없다 — 비로그인 방문(봇 포함)마다 인증 서버를 부르지 않는다
+  if (!request.cookies.getAll().some((c) => c.name.startsWith("sb-"))) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

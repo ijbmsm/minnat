@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { Issue, IssueEvent, Politician, ScoreSnapshot, PresidentProfile, PresidentFull, CreditEvent, SimilarCase, Camp } from "@/types";
 
 export async function getIssues(options?: {
@@ -6,7 +6,7 @@ export async function getIssues(options?: {
   category?: string;
   limit?: number;
 }): Promise<Issue[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   let query = supabase
     .from("issues")
     .select("*")
@@ -31,7 +31,7 @@ export async function getIssues(options?: {
 }
 
 export async function getIssueById(id: string): Promise<Issue | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("issues")
     .select("*")
@@ -46,7 +46,7 @@ export async function getIssueById(id: string): Promise<Issue | null> {
 }
 
 export async function getPoliticians(activeOnly = true): Promise<Politician[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   let query = supabase
     .from("politicians")
     .select("*, party:parties(*)")
@@ -66,7 +66,7 @@ export async function getPoliticians(activeOnly = true): Promise<Politician[]> {
 }
 
 export async function getPoliticianById(id: string): Promise<Politician | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("politicians")
     .select("*, party:parties(*)")
@@ -81,7 +81,7 @@ export async function getPoliticianById(id: string): Promise<Politician | null> 
 }
 
 export async function getIssuesByPolitician(name: string): Promise<Issue[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("issues")
     .select("*")
@@ -104,7 +104,7 @@ export async function getEvents(options?: {
   category?: string;
   limit?: number;
 }): Promise<IssueEvent[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   let query = supabase
     .from("issue_clusters")
     .select(EVENT_SELECT_COLUMNS)
@@ -129,7 +129,7 @@ export async function getEvents(options?: {
 }
 
 export async function getEventById(id: string): Promise<IssueEvent | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   // event 조회 (embedding 제외 — 1536차원 벡터는 프론트에서 불필요)
   const { data: event, error } = await supabase
@@ -174,7 +174,7 @@ export async function getEventById(id: string): Promise<IssueEvent | null> {
 
 /** 021 미적용 환경에서는 조용히 null. 컬럼이 생기면 자동으로 살아난다. */
 async function getNextBranch(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createPublicClient>,
   eventId: string,
 ): Promise<IssueEvent["next_branch"] | null> {
   try {
@@ -191,7 +191,7 @@ async function getNextBranch(
 }
 
 export async function getEventByIssueId(issueId: string): Promise<IssueEvent | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   // issue의 event_id 조회
   const { data: issue } = await supabase
@@ -205,7 +205,7 @@ export async function getEventByIssueId(issueId: string): Promise<IssueEvent | n
 }
 
 export async function getEventsByPolitician(name: string): Promise<IssueEvent[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("issue_clusters")
     .select(EVENT_SELECT_COLUMNS)
@@ -222,7 +222,7 @@ export async function getEventsByPolitician(name: string): Promise<IssueEvent[]>
 // ── 감경 이벤트 ──
 
 export async function getCreditsForEvent(eventId: string): Promise<CreditEvent[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("credit_events")
     .select("*")
@@ -238,7 +238,7 @@ export async function getCreditsForEvent(eventId: string): Promise<CreditEvent[]
 }
 
 export async function getCreditsByActor(actorName: string): Promise<CreditEvent[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("credit_events")
     .select("*")
@@ -256,7 +256,7 @@ export async function getCreditsByActor(actorName: string): Promise<CreditEvent[
 // ── 유사 사례 ──
 
 export async function getSimilarEvents(eventId: string): Promise<SimilarCase[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .rpc("match_similar_events", {
       query_event_id: eventId,
@@ -274,7 +274,7 @@ export async function getSimilarEvents(eventId: string): Promise<SimilarCase[]> 
 // ── 스냅샷 ──
 
 export async function getLatestSnapshot(): Promise<ScoreSnapshot | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("score_snapshots")
     .select("*")
@@ -292,7 +292,7 @@ export async function getLatestSnapshot(): Promise<ScoreSnapshot | null> {
 // ── 전 대통령 ──
 
 export async function getPresidents(): Promise<PresidentProfile[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("president_profiles")
     .select("*, politician:politicians(*, party:parties(*))")
@@ -306,7 +306,7 @@ export async function getPresidents(): Promise<PresidentProfile[]> {
 }
 
 export async function getPresidentById(id: string): Promise<PresidentFull | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const { data: profile, error } = await supabase
     .from("president_profiles")
@@ -388,7 +388,7 @@ export async function getStances(issue: Issue): Promise<Stances | null> {
   const subject = issue.actor_name ? safeIlikeTerm(issue.actor_name) : null;
   if (!subject) return null;
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("issues")
     .select("id, title, camp, actor_name, published_at")
@@ -455,7 +455,7 @@ export async function getIssueFigures(issue: Issue, stances: Stances | null): Pr
   if (order.length < 2) return [];
 
   const names = order.map(o => o.name);
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const [{ data: profiles }, { data: counts }] = await Promise.all([
     supabase.from("politicians").select("id, name, position, party:parties(name)").in("name", names),

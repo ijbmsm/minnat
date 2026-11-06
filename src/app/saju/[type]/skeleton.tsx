@@ -1,4 +1,4 @@
-// Route-level skeleton for /saju/[type] — shown during server auth check
+// Suspense fallback (loading.tsx 아님 — loading.tsx 는 notFound() 를 200 으로 만든다) for /saju/[type] — shown during server auth check
 
 const INK = {
   bg:       '#0c0907',
@@ -15,7 +15,7 @@ function Sk({ w, h, br = 6, style = {} }: { w: number | string; h: number; br?: 
   );
 }
 
-export default function Loading() {
+export default function Skeleton() {
   return (
     <div style={{ background: INK.bg, minHeight: '100dvh', color: INK.ink45 }}>
       {/* Nav placeholder */}

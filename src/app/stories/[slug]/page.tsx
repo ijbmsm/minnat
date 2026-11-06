@@ -10,9 +10,13 @@ interface Props {
 
 export const revalidate = 300;
 
-// generateStaticParams 를 두지 않는다. 사안은 크롤러가 계속 만들고 바꾸므로
-// 빌드 시점에 목록을 고정할 수 없고, 조회가 쿠키 기반 클라이언트를 탄다.
-// revalidate 로 캐시하면 충분하다.
+// 빈 배열 = 빌드 때 아무것도 미리 만들지 않고, 처음 요청된 주소부터 revalidate 주기로 캐시한다(on-demand ISR).
+// 이게 없으면 revalidate 를 적어도 매 요청 동적 렌더된다 (2026-11-06 빌드 출력 ƒ 확인).
+export async function generateStaticParams() {
+  return [];
+}
+
+// 사안은 크롤러가 계속 만들고 바꾸므로 빌드 시점에 목록을 고정하지 않는다 (위 빈 generateStaticParams).
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
