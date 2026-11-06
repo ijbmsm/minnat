@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Nav } from "@/components/nav";
 import { BreadcrumbJsonLd } from "@/components/json-ld";
 import { listStories } from "@/lib/stories";
-import { storyDuration, campBalance } from "@/lib/story-format";
-import { CampChip } from "@/components/camp-chip";
+import { campBalance } from "@/lib/story-format";
+import { StoryCard } from "@/components/story-card";
+import { StoryMore } from "@/components/story-more";
 import { CAMP_COLORS } from "@/lib/constants";
 
 export const metadata = {
@@ -14,6 +14,12 @@ export const metadata = {
 };
 
 export const revalidate = 300;
+
+/**
+ * 첫 화면에 그리는 사안 수. 164건을 전부 그리면 HTML 219KB + 같은 내용의 RSC 319KB 였다.
+ * 정렬이 진행중 → 근거 기사 수 순이라 앞쪽이 큰 사안이다. 나머지는 "더 보기" 가 /api/stories 로 받는다.
+ */
+const FIRST_PAGE = 30;
 
 export default async function Page() {
   const stories = await listStories();
@@ -59,39 +65,10 @@ export default async function Page() {
           </div>
 
           <div className="mt-8 flex flex-col gap-3">
-            {stories.map((s) => (
-              <Link
-                key={s.slug}
-                href={`/stories/${s.slug}`}
-                className="group rounded-2xl border border-[#1c1c1f] bg-[#0e0e10] px-5 py-5 transition-colors hover:border-[#2c2c31] hover:bg-[#131316]"
-              >
-                <div className="flex flex-wrap items-center gap-2.5 text-[12.5px]">
-                  <span className="inline-flex items-center gap-1.5 text-[#c8c8c8]">
-                    <span
-                      aria-hidden
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ backgroundColor: s.status === "ongoing" ? "#d3a24a" : "#6f6f6f" }}
-                    />
-                    {s.status === "ongoing" ? "진행중" : "종결"}
-                  </span>
-                  <span className="text-[#5f5f5f]">·</span>
-                  <span className="tabular-nums text-[#8a8a8a]">{storyDuration(s).label}</span>
-                  <span className="text-[#5f5f5f]">·</span>
-                  <span className="text-[#8a8a8a]">{s.status_label}</span>
-                  <span className="ml-auto"><CampChip camp={s.camp} /></span>
-                </div>
-
-                <h2 className="m-0 mt-3 text-[22px] font-bold tracking-[-0.02em] text-white transition-colors group-hover:text-white">
-                  {s.title}
-                </h2>
-                <p className="m-0 mt-2.5 text-[15px] leading-[1.75] text-[#8f8f8f] [text-wrap:pretty]">
-                  {s.blurb}
-                </p>
-                <p className="m-0 mt-3.5 text-[12.5px] text-[#5f5f5f]">
-                  {s.chapter_count}개 국면 · 근거 기사 {s.article_count}건
-                </p>
-              </Link>
+            {stories.slice(0, FIRST_PAGE).map((s) => (
+              <StoryCard key={s.slug} s={s} />
             ))}
+            {stories.length > FIRST_PAGE && <StoryMore offset={FIRST_PAGE} total={stories.length} />}
           </div>
 
           {stories.length === 0 && (

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Nav } from "./nav";
 import { CreditSection } from "./credit-section";
 import { NetScoreToggle } from "./net-score-toggle";
-import type { Issue, IssueEvent, CreditEvent, Camp } from "@/types";
+import type { Issue, IssueEvent, CreditEvent, Camp, MemberIssue } from "@/types";
 import type { Stances, StanceItem, IssueFigure } from "@/lib/data";
 import { CATEGORY_MAP, CAMP_COLORS, SOURCE_TIER_LABEL, CRIMINAL_STAGE_LABEL, CRIMINAL_STAGE_WEIGHT } from "@/lib/constants";
 import { calculateIssueScore, calculateNetEventScore } from "@/lib/score";
@@ -86,12 +86,43 @@ function parseNextBranch(raw: unknown): NextBranch | null {
 
 function IssueLine({ event, currentId }: { event: IssueEvent; currentId: string }) {
   const nextBranch = parseNextBranch((event as { next_branch?: unknown }).next_branch);
-  const nodes = [...(event.member_issues ?? [])].sort(
+  // 서버는 지금 기사 앞뒤 몇 건만 보낸다(member_total·member_offset). "전체 보기" 를 누르면 나머지를 받는다
+  const [full, setFull] = useState<MemberIssue[] | null>(null);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const source = full ?? event.member_issues ?? [];
+  const nodes = [...source].sort(
     (a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime(),
   );
+  const total = full ? full.length : (event.member_total ?? nodes.length);
+  const offset = full ? 0 : (event.member_offset ?? 0);
+  const truncated = !full && total > nodes.length;
   if (nodes.length < 2 && !nextBranch) return null;
 
-  const currentIndex = nodes.findIndex((n) => n.id === currentId);
+  const localIndex = nodes.findIndex((n) => n.id === currentId);
+  const currentIndex = localIndex >= 0 ? localIndex + offset : -1;
+
+  async function loadAll() {
+    setLoadingAll(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`);
+      if (res.ok) setFull(((await res.json()) as IssueEvent).member_issues ?? []);
+    } finally {
+      setLoadingAll(false);
+    }
+  }
+
+  const expandButton = (label: string) => (
+    <li className="relative pb-3">
+      <button
+        type="button"
+        onClick={loadAll}
+        disabled={loadingAll}
+        className="w-full rounded-xl border border-dashed border-[#2a2a2a] px-5 py-3 text-left text-sm text-[#8a8a8a] transition-colors hover:border-[#3a3a44] hover:text-[#d4d4d4] disabled:opacity-60"
+      >
+        {loadingAll ? "불러오는 중…" : label}
+      </button>
+    </li>
+  );
 
   return (
     <section className="pt-16">
@@ -105,7 +136,7 @@ function IssueLine({ event, currentId }: { event: IssueEvent; currentId: string 
         </div>
         <div className="flex items-center gap-3.5">
           <span className="text-[13px] text-[#7d7d7d]">
-            전체 {nodes.length}건
+            전체 {total}건
             {currentIndex >= 0 && ` · 이 기사는 ${currentIndex + 1}번째`}
           </span>
           <FollowButton issueId={currentId} />
@@ -114,6 +145,7 @@ function IssueLine({ event, currentId }: { event: IssueEvent; currentId: string 
 
       <ol className="relative mt-8 list-none pl-[34px]">
         <span aria-hidden className="absolute left-[6px] top-[14px] bottom-[24px] w-[2px] bg-[#232323]" />
+        {truncated && offset > 0 && expandButton(`이전 보도 ${offset}건 더 보기`)}
         {nodes.map((n) => {
           const isCurrent = n.id === currentId;
           const camp = CAMP_TOKENS[n.camp];
@@ -181,6 +213,8 @@ function IssueLine({ event, currentId }: { event: IssueEvent; currentId: string 
             </li>
           );
         })}
+
+        {truncated && offset + nodes.length < total && expandButton(`이후 보도 ${total - offset - nodes.length}건 더 보기`)}
 
         {/* 다음 분기점 — 날짜가 확정된 예정 일정만. 없으면 노드 자체가 없다. */}
         {nextBranch && (

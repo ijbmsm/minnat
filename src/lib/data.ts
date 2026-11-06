@@ -1,5 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/public";
-import type { Issue, IssueEvent, Politician, ScoreSnapshot, PresidentProfile, PresidentFull, CreditEvent, SimilarCase, Camp } from "@/types";
+import type { Issue, IssueEvent, MemberIssue, Politician, ScoreSnapshot, PresidentProfile, PresidentFull, CreditEvent, SimilarCase, Camp } from "@/types";
 
 export async function getIssues(options?: {
   camp?: string;
@@ -97,6 +97,8 @@ export async function getIssuesByPolitician(name: string): Promise<Issue[]> {
 
 // ── Event 조회 ──
 
+const MEMBER_ISSUE_COLUMNS = "id, title, summary, camp, published_at, source_name";
+
 const EVENT_SELECT_COLUMNS = "id, representative_issue_id, actor_name, category, camp, issue_count, coverage_count, headline_days, media_diversity_score, trust_level, verified, weighted_score, cross_verified_sources, first_reported_at, last_reported_at, criminal_stage, position_weight, source_tier, summary, is_active, created_at";
 
 export async function getEvents(options?: {
@@ -150,15 +152,16 @@ export async function getEventById(id: string): Promise<IssueEvent | null> {
     .eq("cluster_id", id);
 
   const issueIds = links?.map((l) => l.issue_id) ?? [];
-  let memberIssues: Issue[] = [];
+  let memberIssues: MemberIssue[] = [];
 
   if (issueIds.length > 0) {
+    // 타임라인에 쓰는 6개 컬럼만. select("*") 였을 때 378건짜리 사건은 상세 페이지 하나가 1.2MB 였다
     const { data: issues } = await supabase
       .from("issues")
-      .select("*")
+      .select(MEMBER_ISSUE_COLUMNS)
       .in("id", issueIds)
-      .order("published_at", { ascending: false });
-    memberIssues = (issues ?? []) as Issue[];
+      .order("published_at", { ascending: true });
+    memberIssues = (issues ?? []) as MemberIssue[];
   }
 
   // next_branch (021) 는 따로 가져온다 — EVENT_SELECT_COLUMNS 에 넣으면
@@ -190,6 +193,22 @@ async function getNextBranch(
   }
 }
 
+/** 이슈 상세에서 타임라인을 지금 기사 앞뒤로 몇 건씩만 싣는다 — 나머지는 "전체 보기" 가 /api/events/[id] 로 받는다 */
+const MEMBER_WINDOW = 5;
+
+function windowMembers(event: IssueEvent, currentId: string): IssueEvent {
+  const all = event.member_issues ?? [];
+  if (all.length <= MEMBER_WINDOW * 2 + 1) return event;
+  const at = Math.max(0, all.findIndex((m) => m.id === currentId));
+  const start = Math.max(0, Math.min(at - MEMBER_WINDOW, all.length - (MEMBER_WINDOW * 2 + 1)));
+  return {
+    ...event,
+    member_issues: all.slice(start, start + MEMBER_WINDOW * 2 + 1),
+    member_total: all.length,
+    member_offset: start,
+  };
+}
+
 export async function getEventByIssueId(issueId: string): Promise<IssueEvent | null> {
   const supabase = createPublicClient();
 
@@ -201,7 +220,8 @@ export async function getEventByIssueId(issueId: string): Promise<IssueEvent | n
     .single();
 
   if (!issue?.event_id) return null;
-  return getEventById(issue.event_id);
+  const event = await getEventById(issue.event_id);
+  return event ? windowMembers(event, issueId) : null;
 }
 
 export async function getEventsByPolitician(name: string): Promise<IssueEvent[]> {
