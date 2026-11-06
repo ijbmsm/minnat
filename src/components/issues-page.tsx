@@ -13,6 +13,12 @@ import type { IssueEvent } from "@/types";
 const EASE = [0.32, 0.72, 0, 1] as const;
 const FOUR_HOURS = 4 * 60 * 60 * 1000;
 
+/**
+ * 한 번에 그리는 타임라인 줄 수. 1000건을 전부 그리면 HTML 만 1MB 가 넘었다 (2026-11-03 실측 1.06MB).
+ * 데이터는 이미 클라이언트에 있으므로 "더 보기" 는 네트워크 없이 즉시 늘어난다.
+ */
+const PAGE_ROWS = 40;
+
 interface IssuesPageProps {
   events: IssueEvent[];
 }
@@ -28,6 +34,8 @@ interface TimelineRow {
 interface DateSection {
   label: string;
   rows: TimelineRow[];
+  /** 잘리기 전 줄 수 — "N건" 표시용 */
+  total?: number;
 }
 
 function getEventTime(e: IssueEvent): number {
@@ -195,6 +203,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
     sort: "latest",
     eventType: "all",
   });
+  const [limit, setLimit] = useState(PAGE_ROWS);
 
   function filterByEventType(e: IssueEvent, eventType: EventTypeFilter): boolean {
     const isScored = CATEGORY_MAP[e.category]?.isScored ?? false;
@@ -227,6 +236,25 @@ export function IssuesPage({ events }: IssuesPageProps) {
     return { timelineEvents: filtered, dateSections };
   }, [events, filters]);
 
+  // 최신순: 날짜 섹션을 앞에서부터 limit 줄까지만 자른다
+  const { visibleSections, totalRows } = useMemo(() => {
+    let left = limit;
+    const out: DateSection[] = [];
+    let total = 0;
+    for (const sec of dateSections) {
+      total += sec.rows.length;
+      if (left <= 0) continue;
+      const rows = sec.rows.slice(0, left);
+      left -= rows.length;
+      out.push({ ...sec, rows, total: sec.rows.length });
+    }
+    return { visibleSections: out, totalRows: total };
+  }, [dateSections, limit]);
+
+  const hasMore = filters.sort === "latest"
+    ? totalRows > limit
+    : (["blue", "red"] as const).some((c) => timelineEvents.filter((e) => e.camp === c).length > limit);
+
   return (
     <>
       <Nav />
@@ -243,7 +271,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
         </div>
 
         <div className="mb-10">
-          <IssueFilter onFilterChange={setFilters} />
+          <IssueFilter onFilterChange={(f) => { setFilters(f); setLimit(PAGE_ROWS); }} />
         </div>
 
         {timelineEvents.length === 0 ? (
@@ -276,7 +304,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
             {/* ── 최신순: 통합 타임라인 ── */}
             {filters.sort === "latest" && dateSections.length > 0 ? (
               <div className="space-y-10">
-                {dateSections.map((section, si) => (
+                {visibleSections.map((section, si) => (
                   <motion.section
                     key={section.label}
                     initial={{ opacity: 0, y: 16 }}
@@ -289,7 +317,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
                       <h2 className="text-sm font-semibold text-white/75">{section.label}</h2>
                       <div className="h-px flex-1 bg-white/5" />
                       <span className="text-[11px] tabular-nums text-white/75">
-                        {section.rows.length}건
+                        {section.total ?? section.rows.length}건
                       </span>
                     </div>
 
@@ -330,7 +358,7 @@ export function IssuesPage({ events }: IssuesPageProps) {
               /* ── 점수순 ── */
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
                 {(["blue", "red"] as const).map((camp) => {
-                  const campEvents = timelineEvents.filter((e) => e.camp === camp);
+                  const campEvents = timelineEvents.filter((e) => e.camp === camp).slice(0, limit);
                   return (
                     <div key={camp}>
                       <div className="space-y-3">
@@ -357,6 +385,17 @@ export function IssuesPage({ events }: IssuesPageProps) {
               </div>
             ) : null}
 
+            {hasMore && (
+              <div className="mt-12 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setLimit((n) => n + PAGE_ROWS)}
+                  className="rounded-full border border-white/10 px-6 py-2.5 text-sm text-white/75 transition-colors hover:border-white/20 hover:text-white"
+                >
+                  더 보기
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>

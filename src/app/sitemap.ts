@@ -1,14 +1,14 @@
 import type { MetadataRoute } from "next";
 import { getPresidents } from "@/lib/data";
 import { listStories } from "@/lib/stories";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 
 /**
  * 사이트맵용 이슈 목록 — id·created_at 만, 1000행씩 끊어서 전부.
  * getIssues() 를 쓰면 PostgREST 기본 상한(1000행)에 걸려 3천여 건 중 1000건만 들어갔다 (2026-11-02).
  */
 async function allIssueStamps(): Promise<{ id: string; created_at: string }[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const PAGE = 1000;
   const out: { id: string; created_at: string }[] = [];
   for (let from = 0; ; from += PAGE) {

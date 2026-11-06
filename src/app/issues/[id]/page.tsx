@@ -13,6 +13,12 @@ interface Props {
 
 export const revalidate = 300;
 
+// 빈 배열 = 빌드 때 아무것도 미리 만들지 않고, 처음 요청된 주소부터 revalidate 주기로 캐시한다(on-demand ISR).
+// 이게 없으면 revalidate 를 적어도 매 요청 동적 렌더된다 (2026-11-06 빌드 출력 ƒ 확인).
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const issue = await getIssueById(id);

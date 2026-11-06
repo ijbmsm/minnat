@@ -3,7 +3,7 @@ import type { Camp, EvidenceGrade, StorylineSummary } from "@/types";
 /**
  * 서버 접속이 필요 없는 순수 계산.
  *
- * stories.ts 는 supabase/server(쿠키)를 쓰므로 클라이언트 컴포넌트가 import 하면
+ * stories.ts 는 서버 전용 Supabase 클라이언트를 쓰므로 클라이언트 컴포넌트가 import 하면
  * 서버 코드가 브라우저 번들로 딸려 들어간다. 화면에서 쓰는 계산은 여기 둔다.
  */
 

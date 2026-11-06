@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type {
   Camp, EvidenceGrade, IssueCategory, Storyline, StorylineSummary, StoryChapter, StoryArticle,
 } from "@/types";
@@ -36,7 +36,7 @@ const STORY_COLUMNS =
   "id, slug, title, blurb, lead, camp, status, status_label, started_at, ended_at, outcome, figures, people, updated_at";
 
 export async function listStories(): Promise<StorylineSummary[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("storylines")
     .select(STORY_COLUMNS)
@@ -59,7 +59,7 @@ export async function listStories(): Promise<StorylineSummary[]> {
 }
 
 export async function getStory(slug: string): Promise<Storyline | null> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: story } = await supabase
     .from("storylines")
     .select(STORY_COLUMNS)
@@ -127,7 +127,7 @@ export async function getStory(slug: string): Promise<Storyline | null> {
 }
 
 export async function listStorySlugs(): Promise<string[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase.from("storylines").select("slug").eq("hidden", false);
   return (data ?? []).map((r) => r.slug as string);
 }
@@ -184,7 +184,7 @@ function toSummary(row: StoryRow, counts: { chapters: number; articles: number }
 async function countArticlesBySlug(ids: string[]) {
   const out = new Map<string, { chapters: number; articles: number }>();
   if (ids.length === 0) return out;
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const [{ data: chapters }, { data: articles }] = await Promise.all([
     supabase.from("storyline_chapters").select("storyline_id").in("storyline_id", ids),
     supabase.from("storyline_articles").select("storyline_id").in("storyline_id", ids).eq("hidden", false),
